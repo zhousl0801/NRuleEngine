@@ -1,0 +1,33 @@
+name: .NET CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back-end
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: back-end/global.json
+
+      - name: Restore
+        run: dotnet restore NRuleEngine.slnx
+
+      - name: Build
+        run: dotnet build NRuleEngine.slnx --no-restore
+
+      - name: Test
+        run: dotnet test NRuleEngine.slnx --no-build --no-restore
