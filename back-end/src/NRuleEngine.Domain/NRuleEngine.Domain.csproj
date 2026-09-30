@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Ddd.Domain" />
+    <ProjectReference Include="../NRuleEngine.Domain.Shared/NRuleEngine.Domain.Shared.csproj" />
+  </ItemGroup>
+</Project>

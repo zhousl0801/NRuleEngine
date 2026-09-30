@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Ddd.Application" />
+    <ProjectReference Include="../NRuleEngine.Domain/NRuleEngine.Domain.csproj" />
+    <ProjectReference Include="../NRuleEngine.Application.Contracts/NRuleEngine.Application.Contracts.csproj" />
+  </ItemGroup>
+</Project>

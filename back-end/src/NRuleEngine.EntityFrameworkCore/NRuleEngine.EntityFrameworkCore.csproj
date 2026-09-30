@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.EntityFrameworkCore" />
+    <ProjectReference Include="../NRuleEngine.Domain/NRuleEngine.Domain.csproj" />
+  </ItemGroup>
+</Project>

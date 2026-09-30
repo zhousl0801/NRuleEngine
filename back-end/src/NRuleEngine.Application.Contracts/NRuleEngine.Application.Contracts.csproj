@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Ddd.Application.Contracts" />
+    <PackageReference Include="Volo.Abp.Authorization" />
+    <ProjectReference Include="../NRuleEngine.Domain.Shared/NRuleEngine.Domain.Shared.csproj" />
+  </ItemGroup>
+</Project>

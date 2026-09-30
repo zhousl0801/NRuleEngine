@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="Volo.Abp.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NRuleEngine.Application/NRuleEngine.Application.csproj" />
+    <ProjectReference Include="../../src/NRuleEngine.EntityFrameworkCore/NRuleEngine.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="../NRuleEngine.TestBase/NRuleEngine.TestBase.csproj" />
+  </ItemGroup>
+</Project>

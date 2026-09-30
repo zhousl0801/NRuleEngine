@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.TestBase" />
+    <PackageReference Include="Volo.Abp.Autofac" />
+  </ItemGroup>
+</Project>
