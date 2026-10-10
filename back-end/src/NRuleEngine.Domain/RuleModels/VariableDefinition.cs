@@ -1,5 +1,7 @@
 using NRuleEngine.Domain.Expressions;
+using NRuleEngine.Domain.Scenarios;
 using NRuleEngine.Domain.Shared.Rules;
+using System.Text.Json;
 using Volo.Abp.Domain.Entities;
 
 namespace NRuleEngine.Domain.RuleModels;
@@ -31,7 +33,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
     public int? Scale { get; private set; }
     /// <summary>Enum 类型在宿主中的枚举编码。</summary>
     public string? EnumCode { get; private set; }
-    /// <summary>可选默认值的 JSON 表示；当前编制 API 尚未维护。</summary>
+    /// <summary>可选默认值的 JSON 表示；缺失入口或未赋值中间变量可使用。</summary>
     public string? DefaultValueJson { get; private set; }
     /// <summary>变量的显示或业务单位。</summary>
     public string? Unit { get; private set; }
@@ -94,5 +96,62 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
         }
         Code = code;
         Name = name;
+    }
+
+    /// <summary>设置契约入口变量的默认值，null 表示清除配置。</summary>
+    internal void SetInputDefault(string? defaultValueJson)
+    {
+        if (Origin != RuleVariableOrigin.Contract || Direction != RuleVariableDirection.Input)
+        {
+            throw new ArgumentException("Only contract inputs can use this operation.");
+        }
+        ValidateDefault(this, defaultValueJson);
+        DefaultValueJson = defaultValueJson;
+    }
+
+    /// <summary>更新用户中间变量属性；契约变量的类型和精度保持固定。</summary>
+    internal void UpdateIntermediateProperties(string? defaultValueJson, string? unit, int? precision,
+        IEnumerable<string> constantAssignments)
+    {
+        if (Origin != RuleVariableOrigin.UserDefined || Direction != RuleVariableDirection.Intermediate)
+        {
+            throw new ArgumentException("Only user-defined intermediate variables can be updated.");
+        }
+        if (unit?.Length > 64 || defaultValueJson?.Length > 4096)
+        {
+            throw new ArgumentException("Variable property exceeds its size limit.");
+        }
+        var type = new RuleTypeDescriptor(ValueKind, IsNullable, precision, Scale, EnumCode);
+        RuleCatalog.ValidateType(type);
+        var candidate = NewIntermediate(Guid.NewGuid(), RevisionId, StableKey, Code, Name, type);
+        ValidateDefault(candidate, defaultValueJson);
+        foreach (var constantJson in constantAssignments)
+        {
+            RuleExpressionEngine.CheckValue(candidate, RuleExpressionEngine.ReadValue(candidate.ValueKind, constantJson));
+        }
+        Precision = precision;
+        DefaultValueJson = defaultValueJson;
+        Unit = unit;
+    }
+
+    private static void ValidateDefault(VariableDefinition variable, string? defaultValueJson)
+    {
+        if (defaultValueJson is null)
+        {
+            return;
+        }
+        if (defaultValueJson.Length > 4096)
+        {
+            throw new ArgumentException("Default value exceeds its size limit.");
+        }
+        try
+        {
+            RuleExpressionEngine.CheckValue(variable,
+                RuleExpressionEngine.ReadValue(variable.ValueKind, defaultValueJson));
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException("Default value is not valid JSON.", nameof(defaultValueJson), ex);
+        }
     }
 }

@@ -43,6 +43,12 @@ public class RuleVariableDto
     /// </summary>
     public RuleTypeDescriptor Type { get; set; } = null!;
 
+    /// <summary>缺失入口或未赋值中间变量的默认 JSON 值；null 表示未配置。</summary>
+    public string? DefaultValueJson { get; set; }
+
+    /// <summary>用户中间变量的显示或业务单位。</summary>
+    public string? Unit { get; set; }
+
     public RuleVariableDto()
     {
     }

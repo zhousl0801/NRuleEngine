@@ -4,6 +4,7 @@ using NRuleEngine.Domain.Shared;
 using NRuleEngine.Domain.Shared.Rules;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Uow;
 
 namespace NRuleEngine.Application.RuleModels;
 
@@ -15,12 +16,15 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
     private readonly IRuleCatalog _catalog;
     private readonly IRuleModelRepository _models;
     private readonly IRuleModelRevisionRepository _revisions;
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
 
-    public RuleModelAppService(IRuleCatalog catalog, IRuleModelRepository models, IRuleModelRevisionRepository revisions)
+    public RuleModelAppService(IRuleCatalog catalog, IRuleModelRepository models,
+        IRuleModelRevisionRepository revisions, IUnitOfWorkManager unitOfWorkManager)
     {
         _catalog = catalog;
         _models = models;
         _revisions = revisions;
+        _unitOfWorkManager = unitOfWorkManager;
     }
 
     /// <summary>
@@ -41,6 +45,33 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
         var revision = new RuleModelRevision(GuidGenerator.Create(), model.Id, model.AllocateRevisionNo(), contract);
         await _revisions.InsertAsync(revision, autoSave: true);
         await _models.UpdateAsync(model, autoSave: true);
+        return ToDto(model);
+    }
+
+    /// <summary>复制指定源修订为独立模型的首个草稿，保留变量稳定键与门禁内容。</summary>
+    public virtual async Task<RuleModelDto> CopyAsync(Guid sourceModelId, CopyRuleModelDto input)
+    {
+        using var uow = _unitOfWorkManager.Begin(requiresNew: true, isTransactional: true);
+        var sourceModel = await _models.GetAsync(sourceModelId);
+        var source = await GetRevisionEntityAsync(input.SourceRevisionId);
+        CheckStamp(source.ConcurrencyStamp, input.ExpectedSourceRevisionConcurrencyStamp);
+        if (source.RuleModelId != sourceModelId || source.Status == RuleRevisionStatus.Abandoned)
+        {
+            throw new BusinessException(NRuleEngineErrorCodes.InvalidRevisionSource);
+        }
+        _catalog.GetScenario(sourceModel.AppCode, source.ScenarioCode, source.ContractVersion);
+        var code = (input.Code ?? string.Empty).Trim();
+        if (await _models.ExistsAsync(sourceModel.AppCode, code))
+        {
+            throw new BusinessException(NRuleEngineErrorCodes.DuplicateModelCode);
+        }
+        var model = new RuleModel(GuidGenerator.Create(), sourceModel.AppCode, source.ScenarioCode,
+            source.ContractVersion, code, input.Name, input.Description);
+        await _models.InsertAsync(model, autoSave: true);
+        var copy = RuleModelRevision.CopyDraft(GuidGenerator.Create(), model.Id, model.AllocateRevisionNo(), source);
+        await _revisions.InsertAsync(copy, autoSave: true);
+        await _models.UpdateAsync(model, autoSave: true);
+        await uow.CompleteAsync();
         return ToDto(model);
     }
 
@@ -65,6 +96,19 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
         model.Archive();
         await _models.UpdateAsync(model, autoSave: true);
         return ToDto(model);
+    }
+
+    /// <summary>归档只提示活动发布修订的运行影响，不因引用阻止操作。</summary>
+    public virtual async Task<MaintenanceImpactDto> GetArchiveImpactAsync(Guid modelId)
+    {
+        var model = await _models.GetAsync(modelId);
+        return new MaintenanceImpactDto
+        {
+            TargetKind = "Model", TargetId = modelId, ConcurrencyStamp = model.ConcurrencyStamp,
+            References = model.Status == RuleModelStatus.Active && model.ActiveRevisionId is Guid revisionId
+                ? [new ImpactReferenceDto { Kind = "ActiveRevision", Path = $"revisions/{revisionId}" },
+                    new ImpactReferenceDto { Kind = "RuntimeSelection", Path = $"models/{modelId}/runtime-selection" }] : []
+        };
     }
 
     /// <summary>
@@ -136,6 +180,77 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
         return ToDto(revision);
     }
 
+    /// <summary>按修订并发戳配置契约入口默认值。</summary>
+    public virtual async Task<RuleRevisionDto> SetInputDefaultAsync(Guid revisionId, Guid stableKey,
+        SetInputDefaultDto input)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
+        revision.SetInputDefault(stableKey, input.DefaultValueJson);
+        await _revisions.UpdateAsync(revision, autoSave: true);
+        return ToDto(revision);
+    }
+
+    /// <summary>按修订并发戳更新中间变量默认值与单位，保留当前精度。</summary>
+    public virtual async Task<RuleRevisionDto> UpdateIntermediatePropertiesAsync(Guid revisionId, Guid stableKey,
+        UpdateIntermediatePropertiesDto input)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
+        var variable = revision.GetVariable(stableKey);
+        revision.UpdateIntermediateProperties(stableKey, input.DefaultValueJson, input.Unit, variable.Precision);
+        await _revisions.UpdateAsync(revision, autoSave: true);
+        return ToDto(revision);
+    }
+
+    /// <summary>按修订并发戳单独更新中间变量 Decimal 精度。</summary>
+    public virtual async Task<RuleRevisionDto> SetIntermediatePrecisionAsync(Guid revisionId, Guid stableKey,
+        SetIntermediatePrecisionDto input)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
+        var variable = revision.GetVariable(stableKey);
+        revision.UpdateIntermediateProperties(stableKey, variable.DefaultValueJson, variable.Unit, input.Precision);
+        await _revisions.UpdateAsync(revision, autoSave: true);
+        return ToDto(revision);
+    }
+
+    /// <summary>返回变量引用与间接影响，供维护界面定位和删除前检查。</summary>
+    public virtual async Task<MaintenanceImpactDto> GetVariableReferencesAsync(Guid revisionId, Guid stableKey)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        return ToImpact("Variable", stableKey, revision.ConcurrencyStamp,
+            RuleRevisionImpactAnalyzer.GetVariableReferences(revision, stableKey), blockOnReferences: true);
+    }
+
+    /// <summary>按并发戳删除没有引用的草稿中间变量。</summary>
+    public virtual async Task<RuleRevisionDto> RemoveIntermediateVariableAsync(Guid revisionId, Guid stableKey,
+        DeleteDraftItemDto input)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
+        revision.RemoveIntermediate(stableKey);
+        await _revisions.UpdateAsync(revision, autoSave: true);
+        return ToDto(revision);
+    }
+
+    /// <summary>只读预览删除规则的下游影响。</summary>
+    public virtual async Task<MaintenanceImpactDto> GetRuleRemovalImpactAsync(Guid revisionId, Guid ruleId)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        return ToImpact("Rule", ruleId, revision.ConcurrencyStamp,
+            RuleRevisionImpactAnalyzer.GetRuleRemovalImpact(revision, ruleId), false);
+    }
+
+    /// <summary>只读预览删除赋值的下游影响。</summary>
+    public virtual async Task<MaintenanceImpactDto> GetAssignmentRemovalImpactAsync(Guid revisionId, Guid ruleId,
+        Guid assignmentId)
+    {
+        var revision = await GetRevisionEntityAsync(revisionId);
+        return ToImpact("Assignment", assignmentId, revision.ConcurrencyStamp,
+            RuleRevisionImpactAnalyzer.GetAssignmentRemovalImpact(revision, ruleId, assignmentId), false);
+    }
+
     /// <summary>更新草稿命中模式与重复写入策略，并检查并发戳。</summary>
     public virtual async Task<RuleRevisionDto> UpdateExecutionSemanticsAsync(Guid revisionId,
         UpdateExecutionSemanticsDto input)
@@ -174,5 +289,20 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
     protected virtual RuleRevisionDto ToDto(RuleModelRevision revision)
     {
         return RuleRevisionDtoMapper.ToDto(revision);
+    }
+
+    /// <summary>统一把领域引用路径映射为只读维护影响响应。</summary>
+    protected virtual MaintenanceImpactDto ToImpact(string kind, Guid targetId, string concurrencyStamp,
+        IReadOnlyList<RuleImpactReference> references, bool blockOnReferences)
+    {
+        return new MaintenanceImpactDto
+        {
+            TargetKind = kind, TargetId = targetId, ConcurrencyStamp = concurrencyStamp,
+            BlocksOperation = blockOnReferences && references.Any(x => x.BlocksVariableDeletion),
+            References = references.Select(x => new ImpactReferenceDto
+            {
+                Kind = x.Kind, Path = x.Path, BlocksVariableDeletion = x.BlocksVariableDeletion
+            }).ToArray()
+        };
     }
 }

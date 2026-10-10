@@ -25,6 +25,10 @@ public static class NRuleEngineErrorCodes
     public const string InvalidRevisionSource = "NRuleEngine:Revision:InvalidSource";
     /// <summary>请求的修订不存在。</summary>
     public const string RevisionNotFound = "NRuleEngine:Revision:NotFound";
+    /// <summary>中间变量仍被草稿内容引用，不能删除。</summary>
+    public const string VariableReferenced = "NRuleEngine:Variable:Referenced";
+    /// <summary>修订中不存在指定稳定键的变量。</summary>
+    public const string VariableNotFound = "NRuleEngine:Variable:NotFound";
     /// <summary>提交的并发戳已过期或缺失。</summary>
     public const string ConcurrencyConflict = "NRuleEngine:Concurrency:Conflict";
     /// <summary>修订未通过完整发布校验。</summary>

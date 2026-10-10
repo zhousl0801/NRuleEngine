@@ -2,7 +2,9 @@ using NRuleEngine.Domain.Bindings;
 using NRuleEngine.Domain.Release;
 using NRuleEngine.Domain.Rules;
 using NRuleEngine.Domain.Scenarios;
+using NRuleEngine.Domain.Shared;
 using NRuleEngine.Domain.Shared.Rules;
+using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
 namespace NRuleEngine.Domain.RuleModels;
@@ -35,6 +37,13 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     private List<VariableDefinition> _variables = [];
     /// <summary>修订中的契约变量和中间变量。</summary>
     public IReadOnlyCollection<VariableDefinition> Variables => _variables.AsReadOnly();
+
+    /// <summary>按稳定键获取修订内变量；不存在时返回稳定业务错误码。</summary>
+    public VariableDefinition GetVariable(Guid stableKey)
+    {
+        return _variables.SingleOrDefault(v => v.StableKey == stableKey)
+            ?? throw new BusinessException(NRuleEngineErrorCodes.VariableNotFound);
+    }
     private List<RuleDefinition> _rules = [];
     /// <summary>修订中的规则及其赋值。</summary>
     public IReadOnlyCollection<RuleDefinition> Rules => _rules.AsReadOnly();
@@ -250,12 +259,51 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         }
         code = code.Trim();
         name = name.Trim();
-        var variable = Variables.Single(v => v.StableKey == stableKey);
+        var variable = GetVariable(stableKey);
         if (Variables.Any(v => v != variable && v.Code == code))
         {
             throw new InvalidOperationException($"Duplicate variable code: {code}.");
         }
         variable.Rename(code, name);
+    }
+
+    /// <summary>设置草稿契约入口的默认值。</summary>
+    public void SetInputDefault(Guid stableKey, string? defaultValueJson)
+    {
+        EnsureDraft();
+        var variable = GetVariable(stableKey);
+        variable.SetInputDefault(defaultValueJson);
+    }
+
+    /// <summary>维护草稿中间变量属性，并先核对现有常量赋值的精度。</summary>
+    public void UpdateIntermediateProperties(Guid stableKey, string? defaultValueJson, string? unit, int? precision)
+    {
+        EnsureDraft();
+        var variable = GetVariable(stableKey);
+        var constants = Rules.SelectMany(r => r.Assignments)
+            .Where(a => a.TargetVariableStableKey == stableKey && a.ValueSourceKind == RuleValueSourceKind.Constant)
+            .Select(a => a.ConstantValueJson!).ToArray();
+        variable.UpdateIntermediateProperties(defaultValueJson, unit, precision, constants);
+    }
+
+    /// <summary>仅删除没有引用的草稿中间变量；契约变量及已发布修订保持不变。</summary>
+    public void RemoveIntermediate(Guid stableKey)
+    {
+        EnsureDraft();
+        var variable = GetVariable(stableKey);
+        if (variable.Origin != RuleVariableOrigin.UserDefined ||
+            variable.Direction != RuleVariableDirection.Intermediate)
+        {
+            throw new ArgumentException("Only user-defined intermediate variables can be removed.");
+        }
+        var references = RuleRevisionImpactAnalyzer.GetVariableReferences(this, stableKey)
+            .Where(x => x.BlocksVariableDeletion).ToArray();
+        if (references.Length > 0)
+        {
+            throw new BusinessException(NRuleEngineErrorCodes.VariableReferenced)
+                .WithData("References", references.Select(x => x.Path).Distinct().ToArray());
+        }
+        _variables.Remove(variable);
     }
 
     /// <summary>将尚未发布的草稿标记为放弃。</summary>

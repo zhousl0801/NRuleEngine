@@ -1,6 +1,6 @@
 # 草稿编制 AST v1
 
-> 状态：当前实现格式；2026-09-28
+> 状态：当前实现格式；更新于 2026-10-10
 
 规则条件与表达式赋值通过 `ConditionAstJson`、`ExpressionAstJson` 提交 JSON 文本。`ConditionSource`、`ExpressionSource` 仅供展示；AST 是类型检查、引用分析和试算的权威内容。首版不解析自由文本表达式。节点引用变量时只传 `StableKey`，不使用可改名的 `Code`。
 
@@ -35,4 +35,4 @@
 
 赋值使用 `ValueSourceKind` 选择 `Constant` 或 `Expression`：常量提供 `ConstantValueJson`，表达式提供 `ExpressionAstJson`。绑定的 `TypedValueJson` 对 `Equals` 等单值操作符是 JSON 标量，对 `In` 是非空 JSON 数组；同一绑定中的维度条件按 AND 组合。试算请求的 `ContextJson` 和 `InputsJson` 是编码到 JSON 值文本的字典，例如 `"inputWidth": "120"`、`"productKind": "\"A\""`。
 
-整份校验覆盖必需输出、同级顺序、循环依赖、重复写入和同修订内可判定的绑定歧义。跨模型绑定冲突须在后续发布流程中结合其他活动修订检查。试算只针对指定草稿，返回绑定、规则命中、实际赋值和出口，不持久化 Trace；发布、回滚和生产执行尚未实现。
+整份校验覆盖必需输出、同级顺序、循环依赖、重复写入和同修订内可判定的绑定歧义。发布和回滚会结合其他活动修订检查跨模型绑定冲突。试算只针对指定草稿，返回绑定、规则命中、实际赋值和出口，不持久化 Trace。当前已实现发布、回滚和活动修订执行的组件逻辑及 HTTP API；宿主数据库迁移、鉴权和 HTTP 联调尚未执行。

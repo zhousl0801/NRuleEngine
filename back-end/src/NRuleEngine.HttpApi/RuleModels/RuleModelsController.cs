@@ -30,6 +30,13 @@ public sealed class RuleModelsController : AbpControllerBase
         return _service.CreateAsync(input);
     }
 
+    /// <summary>从指定修订复制独立模型。</summary>
+    [HttpPost("{sourceModelId:guid}/copy")]
+    public Task<RuleModelDto> CopyAsync(Guid sourceModelId, [FromBody] CopyRuleModelDto input)
+    {
+        return _service.CopyAsync(sourceModelId, input);
+    }
+
     /// <summary>
     /// 获取模型详情。
     /// </summary>
@@ -55,6 +62,13 @@ public sealed class RuleModelsController : AbpControllerBase
     public Task<RuleModelDto> ArchiveAsync(Guid modelId, [FromBody] ArchiveRuleModelDto input)
     {
         return _service.ArchiveAsync(modelId, input);
+    }
+
+    /// <summary>预览归档对活动修订的影响。</summary>
+    [HttpGet("{modelId:guid}/archive-impact")]
+    public Task<MaintenanceImpactDto> GetArchiveImpactAsync(Guid modelId)
+    {
+        return _service.GetArchiveImpactAsync(modelId);
     }
 
     /// <summary>
@@ -101,6 +115,59 @@ public sealed class RuleModelsController : AbpControllerBase
         [FromBody] RenameIntermediateVariableDto input)
     {
         return _service.RenameIntermediateVariableAsync(revisionId, stableKey, input);
+    }
+
+    /// <summary>配置草稿契约入口默认值。</summary>
+    [HttpPut("revisions/{revisionId:guid}/inputs/{stableKey:guid}/default")]
+    public Task<RuleRevisionDto> SetInputDefaultAsync(Guid revisionId, Guid stableKey,
+        [FromBody] SetInputDefaultDto input)
+    {
+        return _service.SetInputDefaultAsync(revisionId, stableKey, input);
+    }
+
+    /// <summary>更新草稿中间变量默认值与单位。</summary>
+    [HttpPut("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}/properties")]
+    public Task<RuleRevisionDto> UpdateIntermediatePropertiesAsync(Guid revisionId, Guid stableKey,
+        [FromBody] UpdateIntermediatePropertiesDto input)
+    {
+        return _service.UpdateIntermediatePropertiesAsync(revisionId, stableKey, input);
+    }
+
+    /// <summary>单独修改草稿中间变量的 Decimal 精度。</summary>
+    [HttpPut("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}/precision")]
+    public Task<RuleRevisionDto> SetIntermediatePrecisionAsync(Guid revisionId, Guid stableKey,
+        [FromBody] SetIntermediatePrecisionDto input)
+    {
+        return _service.SetIntermediatePrecisionAsync(revisionId, stableKey, input);
+    }
+
+    /// <summary>查看变量引用与下游影响。</summary>
+    [HttpGet("revisions/{revisionId:guid}/variables/{stableKey:guid}/references")]
+    public Task<MaintenanceImpactDto> GetVariableReferencesAsync(Guid revisionId, Guid stableKey)
+    {
+        return _service.GetVariableReferencesAsync(revisionId, stableKey);
+    }
+
+    /// <summary>删除没有引用的草稿中间变量。</summary>
+    [HttpDelete("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}")]
+    public Task<RuleRevisionDto> RemoveIntermediateVariableAsync(Guid revisionId, Guid stableKey,
+        [FromBody] DeleteDraftItemDto input)
+    {
+        return _service.RemoveIntermediateVariableAsync(revisionId, stableKey, input);
+    }
+
+    /// <summary>预览删除规则的下游影响。</summary>
+    [HttpGet("revisions/{revisionId:guid}/rules/{ruleId:guid}/removal-impact")]
+    public Task<MaintenanceImpactDto> GetRuleRemovalImpactAsync(Guid revisionId, Guid ruleId)
+    {
+        return _service.GetRuleRemovalImpactAsync(revisionId, ruleId);
+    }
+
+    /// <summary>预览删除赋值的下游影响。</summary>
+    [HttpGet("revisions/{revisionId:guid}/rules/{ruleId:guid}/assignments/{assignmentId:guid}/removal-impact")]
+    public Task<MaintenanceImpactDto> GetAssignmentRemovalImpactAsync(Guid revisionId, Guid ruleId, Guid assignmentId)
+    {
+        return _service.GetAssignmentRemovalImpactAsync(revisionId, ruleId, assignmentId);
     }
 
     /// <summary>设置草稿执行语义。</summary>

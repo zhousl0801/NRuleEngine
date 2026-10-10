@@ -9,6 +9,7 @@ NRuleEngine 是供 ODS 等 ABP 应用引用的通用规则编制与运行组件�
 | 分类 | 文档 | 用途 | 当前版本 |
 |---|---|---|---|
 | 产品 `docs/product/` | [产品设计草案](docs/product/NRuleEngine-产品设计草案.md) | 产品目标、首版范围、能力、交互和产品验收 | v0.9 |
+| 产品 `docs/product/` | [维护能力完成计划](docs/product/维护能力完成计划.md) | 模型复制、变量维护及删除影响分析的实施顺序和验收点 | 2026-10-10 |
 | 架构 `docs/architecture/` | [系统设计草案](docs/architecture/NRuleEngine-系统设计草案.md) | ABP 结构、扩展契约、领域模型、接口和技术验收 | v0.9 |
 | 架构 `docs/architecture/` | [运行错误与异常模型](docs/architecture/runtime-error-model.md) | 执行状态、稳定错误码、异常数据和 ODS 映射 | v0.3 |
 | 架构 `docs/architecture/` | [编制 AST v1](docs/architecture/authoring-ast-v1.md) | 草稿表达式 JSON 格式与当前 API 范围 | v0.1 |
@@ -34,7 +35,7 @@ dotnet build NRuleEngine.slnx --no-restore
 dotnet test NRuleEngine.slnx --no-build --no-restore
 ```
 
-解决方案按 `src`、`test` 文件夹分组。上述命令构建六个 ABP 模块，并运行 Domain、Application、EntityFrameworkCore 三层测试；`TestBase` 是共享测试基础项目。已有代码注册目录、模型与草稿、契约/中间变量、草稿规则与赋值、绑定、EF 映射、完整校验、试算、发布、回滚及执行 API。测试中的尺寸展开契约是模拟数据，不代表 ODS 真实字段。生产宿主的迁移、鉴权和 HTTP 联调尚未执行。
+解决方案按 `src`、`test` 文件夹分组。上述命令构建六个 ABP 模块，并运行 Domain、Application、EntityFrameworkCore 三层测试；`TestBase` 是共享测试基础项目。已有代码注册目录、模型与草稿、契约/中间变量、草稿规则与赋值、绑定、EF 映射、完整校验、试算、发布、回滚、执行及维护影响查询 API。测试中的尺寸展开契约是模拟数据，不代表 ODS 真实字段。生产宿主的迁移、鉴权和 HTTP 联调尚未执行。
 
 ## 当前 API
 
@@ -44,9 +45,15 @@ HTTP 控制器由接入宿主装配；仓库本身不启动服务。
 |---|---|
 | `GET /api/nrule-engine/catalog/apps`、`GET /api/nrule-engine/catalog/apps/{appCode}/scenarios` | 查询代码注册的目录与契约版本 |
 | `POST /api/nrule-engine/models`、`GET /api/nrule-engine/models` | 创建和查询模型；创建时自动生成首个草稿 |
+| `POST /api/nrule-engine/models/{sourceModelId}/copy` | 从指定源修订复制独立模型及首个草稿，继承变量稳定键和门禁用例内容 |
+| `GET /api/nrule-engine/models/{modelId}/archive-impact` | 归档前查看活动修订影响；影响只提示 |
 | `GET /api/nrule-engine/models/{modelId}/revisions`、`GET /api/nrule-engine/models/revisions/{revisionId}` | 发现草稿并读取变量与并发戳 |
 | `POST /api/nrule-engine/models/{modelId}/drafts` | 从指定修订或当前活动修订复制草稿；无活动修订时新建空草稿 |
 | `POST /api/nrule-engine/models/revisions/{revisionId}/intermediate-variables` | 增加中间变量；修改操作携带期望并发戳 |
+| `PUT .../revisions/{revisionId}/inputs/{stableKey}/default` | 设置或清除契约入口默认值 |
+| `PUT .../revisions/{revisionId}/intermediate-variables/{stableKey}/properties`、`PUT .../precision` | 分别维护中间变量默认值与单位、Decimal 精度 |
+| `GET .../revisions/{revisionId}/variables/{stableKey}/references`、`DELETE .../intermediate-variables/{stableKey}` | 查看直接引用和下游影响；有引用时禁止删除草稿中间变量 |
+| `GET .../revisions/{revisionId}/rules/{ruleId}/removal-impact`、`GET .../assignments/{assignmentId}/removal-impact` | 删除规则或赋值前查看影响；影响只提示 |
 | `POST .../revisions/{revisionId}/rules`、`PUT/DELETE .../rules/{ruleId}` | 创建、修改、删除草稿规则；赋值使用 `.../rules/{ruleId}/assignments` 子路径 |
 | `POST .../revisions/{revisionId}/bindings`、`PUT/DELETE .../bindings/{bindingId}` | 创建、修改、删除草稿绑定 |
 | `PUT /api/nrule-engine/models/revisions/{revisionId}/execution-semantics` | 设置 FirstMatch/Sequential 和多次写入策略 |
@@ -63,6 +70,8 @@ HTTP 控制器由接入宿主装配；仓库本身不启动服务。
 | `POST /api/nrule-engine/condition-sets/evaluate` | 按明确候选编码作 `AllMatches` / `FirstMatch` 布尔判定 |
 
 赋值型规则编制及门禁维护接口要求 `NRuleEngine.Manage` 权限；发布、回滚及其历史查询要求 `NRuleEngine.Publish`；执行接口要求 `NRuleEngine.Execute`。条件集编制和历史查询使用 Manage，发布与回滚使用 Publish，候选判定使用 Execute。当前表达式输入为版本化 AST JSON，详见[编制 AST v1](docs/architecture/authoring-ast-v1.md)。运行请求的 `Context` 和 `Inputs` 使用原生 JSON 值，可选 `ContractVersion` 只考虑对应版本的活动修订；结果提供 `ExecutionId`、状态、稳定错误码及原生 JSON 出口。宿主可通过 `RuleExecutionOptions.Timeout` 配置执行预算，默认两秒。宿主数据库迁移和 ODS 接入尚未执行。
+
+缺少入口或读取前尚未赋值的中间变量使用该修订已配置的默认值；没有默认值时仍返回原有错误。显式 JSON `null` 按变量可空性处理，默认值不计入规则赋值次数。影响查询返回当前并发戳；删除中间变量时服务端再次检查引用和并发戳。模型复制在事务内创建新模型与首个草稿，源模型的活动发布状态不变。
 
 发布与回滚新增 `NreReleaseGateCases`、`NreReleaseRecords`、`NreReleaseScopes` 表及模型的 `NextReleaseNo` 字段。条件集另有 `NreConditionSets`、`NreConditionSetRevisions`、`NreConditionInputDefinitions` 和 `NreConditionSetReleaseRecords`。宿主须生成并执行相应迁移后再启用接口。发布服务在独立数据库事务中先写入场景协调行，再查询其他活动模型；并发首次创建同一协调行时，数据库唯一约束会使其中一个请求失败，调用方应刷新并重试。执行服务每次从数据库批量读取活动修订并核对内容哈希；当前组件不缓存运行时快照。
 

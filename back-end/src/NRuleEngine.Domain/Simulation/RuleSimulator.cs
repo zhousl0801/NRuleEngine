@@ -55,7 +55,7 @@ public static class RuleSimulator
             return Failure("UnknownInput", "Input contains an undeclared variable.", bindingId,
                 variableCode: unknownInput);
         }
-        var missingInput = inputs.FirstOrDefault(v => !inputJson.ContainsKey(v.Code));
+        var missingInput = inputs.FirstOrDefault(v => !inputJson.ContainsKey(v.Code) && v.DefaultValueJson is null);
         if (missingInput is not null)
         {
             return Failure("MissingInput", "A required input is missing.", bindingId,
@@ -68,7 +68,9 @@ public static class RuleSimulator
             object? value;
             try
             {
-                value = RuleExpressionEngine.ReadValue(variable.ValueKind, inputJson[variable.Code]);
+                var json = inputJson.TryGetValue(variable.Code, out var supplied)
+                    ? supplied : variable.DefaultValueJson!;
+                value = RuleExpressionEngine.ReadValue(variable.ValueKind, json);
             }
             catch (Exception ex) when (ex is ArgumentException or JsonException)
             {
@@ -83,6 +85,14 @@ public static class RuleSimulator
                 return Failure("InputConstraintViolated", ex.Message, bindingId, variableCode: variable.Code);
             }
             values.Add(variable.StableKey, value);
+        }
+
+        // 默认值提供初始取值，不计入规则赋值次数。
+        foreach (var variable in revision.Variables.Where(v => v.Direction == RuleVariableDirection.Intermediate &&
+                     v.DefaultValueJson is not null))
+        {
+            values.Add(variable.StableKey,
+                RuleExpressionEngine.ReadValue(variable.ValueKind, variable.DefaultValueJson!));
         }
 
         // Sequential 会把赋值写回上下文，供后续规则读取；FirstMatch 命中后立即停止。
