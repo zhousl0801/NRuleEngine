@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.AspNetCore" />
+    <PackageReference Include="Volo.Abp.Autofac" />
+    <PackageReference Include="Volo.Abp.EntityFrameworkCore.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NRuleEngine.Application/NRuleEngine.Application.csproj" />
+    <ProjectReference Include="../NRuleEngine.EntityFrameworkCore/NRuleEngine.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="../NRuleEngine.HttpApi/NRuleEngine.HttpApi.csproj" />
+  </ItemGroup>
+</Project>

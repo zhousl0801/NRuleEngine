@@ -6,6 +6,7 @@
     <Project Path="src/NRuleEngine.Application/NRuleEngine.Application.csproj" />
     <Project Path="src/NRuleEngine.EntityFrameworkCore/NRuleEngine.EntityFrameworkCore.csproj" />
     <Project Path="src/NRuleEngine.HttpApi/NRuleEngine.HttpApi.csproj" />
+    <Project Path="src/NRuleEngine.Host/NRuleEngine.Host.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/NRuleEngine.TestBase/NRuleEngine.TestBase.csproj" />

@@ -1,6 +1,6 @@
 # NRuleEngine 设计文档
 
-NRuleEngine 是供 ODS 等 ABP 应用引用的通用规则编制与运行组件。当前已建立 .NET 10 / ABP 10.6 的模块骨架，完成赋值型规则与独立布尔条件集的场景注册、草稿、发布、回滚及运行能力。宿主集成尚未执行。
+NRuleEngine 是供 ODS 等 ABP 应用引用的通用规则编制与运行组件。当前已建立 .NET 10 / ABP 10.6 的模块骨架，完成赋值型规则与独立布尔条件集的场景注册、草稿、发布、回滚及运行能力，并提供本地联调 Host。
 
 设计文档按用途归档在 [docs](docs/)；可编译项目位于本目录。本文是后端文档总入口。
 
@@ -23,7 +23,7 @@ NRuleEngine 是供 ODS 等 ABP 应用引用的通用规则编制与运行组件�
 - 同一场景允许多个已发布模型，按绑定优先级裁决唯一结果。
 - 场景契约固定入口和必需出口，用户可维护中间变量。
 - 试算只验证输入、表达式、规则命中和最终输出，不持久化完整 Trace。
-- 不提供独立 Host、不包含 ODS 集成项目、不采用软删除。
+- 不包含 ODS 集成项目、不采用软删除；独立 Host 仅供本地联调。
 
 ## 骨架验证
 
@@ -35,11 +35,23 @@ dotnet build NRuleEngine.slnx --no-restore
 dotnet test NRuleEngine.slnx --no-build --no-restore
 ```
 
-解决方案按 `src`、`test` 文件夹分组。上述命令构建六个 ABP 模块，并运行 Domain、Application、EntityFrameworkCore 三层测试；`TestBase` 是共享测试基础项目。已有代码注册目录、模型与草稿、契约/中间变量、草稿规则与赋值、绑定、EF 映射、完整校验、试算、发布、回滚、执行及维护影响查询 API。测试中的尺寸展开契约是模拟数据，不代表 ODS 真实字段。生产宿主的迁移、鉴权和 HTTP 联调尚未执行。
+解决方案按 `src`、`test` 文件夹分组。上述命令构建六个 ABP 模块及本地 Host，并运行 Domain、Application、EntityFrameworkCore 三层测试；`TestBase` 是共享测试基础项目。已有代码注册目录、模型与草稿、契约/中间变量、草稿规则与赋值、绑定、EF 映射、完整校验、试算、发布、回滚、执行及维护影响查询 API。本地 Host 中的演示契约不代表 ODS 真实字段。生产宿主的迁移、鉴权和 HTTP 联调尚未执行。
+
+## 本地联调 Host
+
+在 `back-end/` 目录运行：
+
+```bash
+DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false dotnet run --project src/NRuleEngine.Host
+```
+
+默认监听 `http://127.0.0.1:5088`，数据库文件为当前工作目录下的 `nrule-engine-dev.sqlite`。首次启动会按当前 EF 模型建表，重启保留数据；这是联调库，不使用数据库迁移。模型结构改变后需要自行删除该本地库再启动。Host 默认允许 `localhost` / `127.0.0.1` 的 5173、3000 端口跨域；可在 `src/NRuleEngine.Host/appsettings.json` 的 `Cors:Origins` 修改来源。
+
+联调 Host 自动授予开发身份和规则权限，**仅在本机使用，不要对外网开放**。可先请求 `GET http://127.0.0.1:5088/api/nrule-engine/catalog/apps`，再查询 `GET .../catalog/apps/DEMO/scenarios` 或 `GET .../catalog/apps/DEMO/condition-scenarios`。示例应用编码 `DEMO`；赋值场景为 `size-expansion`（输入 `inputWidth`，输出 `targetWidth`，绑定维度 `productKind`），条件场景为 `thickness-eligibility`（输入 `thickness`），契约版本均为 `1.0`。
 
 ## 当前 API
 
-HTTP 控制器由接入宿主装配；仓库本身不启动服务。
+HTTP 控制器由接入宿主装配；本地联调可使用上述 Host。
 
 | 路径 | 能力 |
 |---|---|

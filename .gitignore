@@ -4,3 +4,5 @@
 **/.vs/
 **/*.user
 **/.DS_Store
+back-end/*.sqlite
+back-end/*.sqlite-*

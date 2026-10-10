@@ -15,5 +15,6 @@
     <PackageVersion Include="Volo.Abp.EntityFrameworkCore.Sqlite" Version="10.6.0" />
     <PackageVersion Include="Volo.Abp.Autofac" Version="10.6.0" />
     <PackageVersion Include="Volo.Abp.Authorization" Version="10.6.0" />
+    <PackageVersion Include="Volo.Abp.AspNetCore" Version="10.6.0" />
   </ItemGroup>
 </Project>
