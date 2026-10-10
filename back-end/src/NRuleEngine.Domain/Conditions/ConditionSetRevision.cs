@@ -48,7 +48,7 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
     {
         if (revisionNo < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(revisionNo));
+            throw new ArgumentOutOfRangeException(nameof(revisionNo), "修订号必须大于零。");
         }
 
         ConditionSetId = setId;
@@ -60,11 +60,12 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>复制条件与输入快照为可编辑草稿，保留输入 StableKey。</summary>
+    /// <remarks>核心逻辑：复制输入稳定键和条件内容并分配新实体标识；调用时机：创建条件集新草稿时。</remarks>
     public static ConditionSetRevision CopyDraft(Guid id, Guid setId, int revisionNo, ConditionSetRevision source)
     {
         if (revisionNo < 1 || source.ConditionSetId != setId)
         {
-            throw new ArgumentException("Invalid source revision.");
+            throw new ArgumentException("源修订无效。");
         }
 
         return new ConditionSetRevision
@@ -84,22 +85,23 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>仅在草稿中设置返回 Boolean 的条件 AST 和选择优先级。</summary>
+    /// <remarks>核心逻辑：校验布尔 AST 与源文本长度后更新草稿条件；调用时机：维护者保存条件编制内容时。</remarks>
     public void SetCondition(string? source, string astJson, int priority)
     {
         EnsureDraft();
         if (string.IsNullOrWhiteSpace(astJson))
         {
-            throw new ArgumentException("Condition AST is required.", nameof(astJson));
+            throw new ArgumentException("必须提供条件 AST。", nameof(astJson));
         }
 
         if (source?.Length > 8192)
         {
-            throw new ArgumentException("Condition source exceeds 8192 characters.", nameof(source));
+            throw new ArgumentException("条件源文本不能超过 8192 个字符。", nameof(source));
         }
 
         if (RuleExpressionEngine.Validate(astJson, Inputs, out _) != RuleValueKind.Boolean)
         {
-            throw new ArgumentException("Condition must evaluate to Boolean.", nameof(astJson));
+            throw new ArgumentException("条件求值结果必须是布尔值。", nameof(astJson));
         }
 
         ConditionSource = source;
@@ -108,22 +110,23 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>门禁通过后冻结修订与内容摘要。</summary>
+    /// <remarks>核心逻辑：确认条件存在后冻结内容哈希与发布状态；调用时机：条件集通过正反样本门禁时。</remarks>
     public void Publish(string contentHash, string? changeSummary)
     {
         EnsureDraft();
         if (ConditionAstJson is null)
         {
-            throw new InvalidOperationException("Condition is required before publication.");
+            throw new InvalidOperationException("发布前必须设置条件。");
         }
 
         if (string.IsNullOrWhiteSpace(contentHash))
         {
-            throw new ArgumentException("Content hash is required.", nameof(contentHash));
+            throw new ArgumentException("必须提供内容哈希。", nameof(contentHash));
         }
 
         if (changeSummary?.Length > 2048)
         {
-            throw new ArgumentException("Change summary exceeds 2048 characters.", nameof(changeSummary));
+            throw new ArgumentException("变更说明不能超过 2048 个字符。", nameof(changeSummary));
         }
 
         ContentHash = contentHash;
@@ -142,7 +145,7 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
     {
         if (Status != RuleRevisionStatus.Draft)
         {
-            throw new InvalidOperationException("Only a draft can be edited.");
+            throw new InvalidOperationException("只能编辑草稿修订。");
         }
     }
 }

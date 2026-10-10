@@ -25,6 +25,7 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
     }
 
     /// <summary>按锁定场景契约检查维度和值后新增绑定。</summary>
+    /// <remarks>核心逻辑：加载草稿并核对并发戳，再由修订聚合按契约校验条件；调用时机：维护者为草稿增加场景绑定时。</remarks>
     public virtual async Task<RuleRevisionDto> AddBindingAsync(Guid revisionId, AddBindingDto input)
     {
         var revision = await GetRevisionEntityAsync(revisionId);
@@ -38,6 +39,7 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
     }
 
     /// <summary>校验完整的新条件集合，再替换指定绑定。</summary>
+    /// <remarks>核心逻辑：以完整新条件替换旧绑定并保持绑定标识；调用时机：维护者编辑已有绑定时。</remarks>
     public virtual async Task<RuleRevisionDto> UpdateBindingAsync(Guid revisionId, Guid bindingId, AddBindingDto input)
     {
         var revision = await GetRevisionEntityAsync(revisionId);
@@ -51,6 +53,7 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
     }
 
     /// <summary>在并发检查后移除草稿绑定。</summary>
+    /// <remarks>核心逻辑：确认修订版本后删除绑定并保存聚合；调用时机：维护者删除草稿绑定时。</remarks>
     public virtual async Task<RuleRevisionDto> RemoveBindingAsync(Guid revisionId, Guid bindingId,
         DeleteDraftItemDto input)
     {
@@ -62,18 +65,20 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
     }
 
     /// <summary>加载修订及全部编制内容；未找到时使用稳定业务错误码。</summary>
+    /// <remarks>核心逻辑：读取带规则和绑定的完整草稿聚合；调用时机：新增、更新或删除绑定前。</remarks>
     protected virtual async Task<RuleModelRevision> GetRevisionEntityAsync(Guid revisionId)
     {
         return await _revisions.FindWithVariablesAsync(revisionId)
-            ?? throw new BusinessException(NRuleEngineErrorCodes.RevisionNotFound);
+            ?? throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.RevisionNotFound);
     }
 
     /// <summary>阻止持旧并发戳的编辑覆盖其他维护者的改动。</summary>
+    /// <remarks>核心逻辑：比较请求戳与当前实体戳并拒绝过期写入；调用时机：执行任何草稿或发布写操作前。</remarks>
     protected virtual void CheckStamp(string actual, string expected)
     {
         if (string.IsNullOrWhiteSpace(expected) || actual != expected)
         {
-            throw new BusinessException(NRuleEngineErrorCodes.ConcurrencyConflict);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConcurrencyConflict);
         }
     }
 }

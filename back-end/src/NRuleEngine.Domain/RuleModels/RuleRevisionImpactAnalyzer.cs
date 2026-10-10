@@ -8,6 +8,7 @@ namespace NRuleEngine.Domain.RuleModels;
 public static class RuleRevisionImpactAnalyzer
 {
     /// <summary>读取一个变量的直接引用、下游变量和相关门禁用例路径。</summary>
+    /// <remarks>核心逻辑：沿规则表达式和门禁用例收集直接及间接引用；调用时机：维护者查看变量引用或尝试删除时。</remarks>
     public static IReadOnlyList<RuleImpactReference> GetVariableReferences(RuleModelRevision revision, Guid stableKey)
     {
         _ = revision.GetVariable(stableKey);
@@ -78,6 +79,7 @@ public static class RuleRevisionImpactAnalyzer
     }
 
     /// <summary>预览删除规则或赋值后可能受影响的目标变量及下游对象。</summary>
+    /// <remarks>核心逻辑：追踪赋值目标的下游变量依赖；调用时机：维护者预览删除赋值时。</remarks>
     public static IReadOnlyList<RuleImpactReference> GetAssignmentRemovalImpact(RuleModelRevision revision,
         Guid ruleId, Guid assignmentId)
     {
@@ -88,6 +90,7 @@ public static class RuleRevisionImpactAnalyzer
     }
 
     /// <summary>预览删除规则后各赋值目标可能受影响的对象。</summary>
+    /// <remarks>核心逻辑：汇总整条规则各赋值的下游影响；调用时机：维护者预览删除规则时。</remarks>
     public static IReadOnlyList<RuleImpactReference> GetRuleRemovalImpact(RuleModelRevision revision, Guid ruleId)
     {
         var rule = revision.Rules.Single(r => r.Id == ruleId);

@@ -35,11 +35,11 @@ public sealed class RuleDefinition : Entity<Guid>
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Rule name is required.");
+            throw new ArgumentException("必须提供规则名称。");
         }
         if (RuleExpressionEngine.Validate(conditionAstJson, variables, out _) != Domain.Shared.Rules.RuleValueKind.Boolean)
         {
-            throw new ArgumentException("Rule condition must be Boolean.");
+            throw new ArgumentException("规则条件必须返回布尔值。");
         }
         RevisionId = revisionId;
         Name = name.Trim();
@@ -55,11 +55,11 @@ public sealed class RuleDefinition : Entity<Guid>
     {
         if (_assignments.Any(a => a.TargetVariableStableKey == assignment.TargetVariableStableKey))
         {
-            throw new ArgumentException("A rule cannot assign the same target twice.");
+            throw new ArgumentException("同一规则不能对同一目标变量重复赋值。");
         }
         if (_assignments.Any(a => a.SortOrder == assignment.SortOrder))
         {
-            throw new ArgumentException("Assignment sort order must be unique within a rule.");
+            throw new ArgumentException("同一规则内的赋值排序值不能重复。");
         }
         _assignments.Add(assignment);
     }
@@ -68,7 +68,7 @@ public sealed class RuleDefinition : Entity<Guid>
     internal void RemoveAssignment(Guid assignmentId)
     {
         var assignment = _assignments.SingleOrDefault(a => a.Id == assignmentId)
-            ?? throw new ArgumentException("Assignment does not belong to this rule.");
+            ?? throw new ArgumentException("赋值不属于此规则。");
         _assignments.Remove(assignment);
     }
 
@@ -92,14 +92,14 @@ public sealed class RuleDefinition : Entity<Guid>
         IReadOnlyCollection<VariableDefinition> variables)
     {
         var assignment = _assignments.SingleOrDefault(a => a.Id == assignmentId)
-            ?? throw new ArgumentException("Assignment does not belong to this rule.");
+            ?? throw new ArgumentException("赋值不属于此规则。");
         if (_assignments.Any(a => a.Id != assignmentId && a.TargetVariableStableKey == targetKey))
         {
-            throw new ArgumentException("A rule cannot assign the same target twice.");
+            throw new ArgumentException("同一规则不能对同一目标变量重复赋值。");
         }
         if (_assignments.Any(a => a.Id != assignmentId && a.SortOrder == sortOrder))
         {
-            throw new ArgumentException("Assignment sort order must be unique within a rule.");
+            throw new ArgumentException("同一规则内的赋值排序值不能重复。");
         }
         assignment.Update(targetKey, sourceKind, constantJson, expressionSource, expressionAstJson,
             sortOrder, variables);

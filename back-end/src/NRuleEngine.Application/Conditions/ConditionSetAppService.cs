@@ -34,6 +34,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>创建条件集，并按固定契约建立首个草稿。</summary>
+    /// <remarks>核心逻辑：检查业务编码唯一性并按场景契约建立首个修订；调用时机：维护者新建条件集时。</remarks>
     public virtual async Task<ConditionSetDto> CreateAsync(CreateConditionSetDto input)
     {
         using var uow = _uowManager.Begin(requiresNew: true, isTransactional: true);
@@ -41,7 +42,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         var code = (input.Code ?? string.Empty).Trim();
         if (await _sets.ExistsAsync(input.AppCode, code))
         {
-            throw new BusinessException(NRuleEngineErrorCodes.DuplicateConditionSetCode);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.DuplicateConditionSetCode);
         }
 
         var set = new ConditionSet(GuidGenerator.Create(), input.AppCode, input.ScenarioCode,
@@ -55,12 +56,14 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>读取条件集身份与活动修订。</summary>
+    /// <remarks>核心逻辑：读取聚合并映射身份与活动状态；调用时机：维护者查看条件集时。</remarks>
     public virtual async Task<ConditionSetDto> GetAsync(Guid setId)
     {
         return ToDto(await _sets.GetAsync(setId));
     }
 
     /// <summary>按修订号倒序列出条件集的历史修订。</summary>
+    /// <remarks>核心逻辑：按修订号排序并映射摘要；调用时机：维护者查看修订历史时。</remarks>
     public virtual async Task<IReadOnlyList<ConditionRevisionSummaryDto>> GetRevisionsAsync(Guid setId)
     {
         await _sets.GetAsync(setId);
@@ -70,6 +73,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>按发布序号倒序读取发布与回滚记录。</summary>
+    /// <remarks>核心逻辑：按发布序号读取审计记录；调用时机：维护者查看发布历史时。</remarks>
     public virtual async Task<IReadOnlyList<ConditionReleaseDto>> GetHistoryAsync(Guid setId)
     {
         await _sets.GetAsync(setId);
@@ -80,6 +84,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>核对并发戳后归档条件集。</summary>
+    /// <remarks>核心逻辑：核对并发戳后改变聚合状态并持久化；调用时机：维护者归档条件集时。</remarks>
     public virtual async Task<ConditionSetDto> ArchiveAsync(Guid setId, ArchiveConditionSetDto input)
     {
         var set = await _sets.GetAsync(setId);
@@ -90,12 +95,14 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>读取修订及其输入稳定键和条件内容。</summary>
+    /// <remarks>核心逻辑：载入带输入快照的完整修订；调用时机：维护者打开修订详情时。</remarks>
     public virtual async Task<ConditionSetRevisionDto> GetRevisionAsync(Guid revisionId)
     {
         return ToDto(await GetRevisionEntityAsync(revisionId));
     }
 
     /// <summary>从指定或活动修订复制草稿；首次发布前按初始契约创建。</summary>
+    /// <remarks>核心逻辑：选定源修订或初始契约并分配新修订号；调用时机：维护者创建下一版草稿时。</remarks>
     public virtual async Task<ConditionSetRevisionDto> CreateDraftAsync(Guid setId, CreateConditionDraftDto input)
     {
         using var uow = _uowManager.Begin(requiresNew: true, isTransactional: true);
@@ -110,7 +117,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
             var source = await GetRevisionEntityAsync(selected);
             if (source.ConditionSetId != setId || source.Status == RuleRevisionStatus.Abandoned)
             {
-                throw new BusinessException(NRuleEngineErrorCodes.InvalidRevisionSource);
+                throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidRevisionSource);
             }
 
             _catalog.GetConditionScenario(set.AppCode, set.ScenarioCode, source.ContractVersion);
@@ -128,6 +135,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>核对并发戳后修改草稿布尔条件。</summary>
+    /// <remarks>核心逻辑：检查并发戳后由领域层校验布尔 AST 与优先级；调用时机：维护者保存条件草稿时。</remarks>
     public virtual async Task<ConditionSetRevisionDto> UpdateConditionAsync(Guid revisionId, UpdateConditionDto input)
     {
         var revision = await GetRevisionEntityAsync(revisionId);
@@ -138,6 +146,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>在事务内验证正反样本、冻结修订并切换活动指针。</summary>
+    /// <remarks>核心逻辑：在事务内核对样本、内容哈希和活动指针；调用时机：维护者发布条件集时。</remarks>
     public virtual async Task<ConditionSetDto> PublishAsync(Guid revisionId, PublishConditionSetDto input)
     {
         using var uow = _uowManager.Begin(requiresNew: true, isTransactional: true);
@@ -148,20 +157,20 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         if (set.Status != RuleModelStatus.Active || revision.Status != RuleRevisionStatus.Draft ||
             revision.ConditionAstJson is null)
         {
-            throw new BusinessException(NRuleEngineErrorCodes.InvalidReleaseTarget);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
 
         var contract = _catalog.GetConditionScenario(set.AppCode, set.ScenarioCode, revision.ContractVersion);
         if (!MatchesContract(revision, contract) || input.GateCases is null ||
             !GatePassed(revision, contract, input.GateCases))
         {
-            throw new BusinessException(NRuleEngineErrorCodes.ConditionGateFailed);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConditionGateFailed);
         }
 
         var gateCasesJson = JsonSerializer.Serialize(input.GateCases);
         if (gateCasesJson.Length > 262144)
         {
-            throw new BusinessException(NRuleEngineErrorCodes.ConditionGateFailed);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConditionGateFailed);
         }
 
         var hash = ConditionSetContentHasher.Compute(revision);
@@ -178,6 +187,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>在事务内重新激活一份同条件集的完整历史发布修订。</summary>
+    /// <remarks>核心逻辑：验证历史发布内容后写审计记录并切换活动指针；调用时机：维护者回滚条件集时。</remarks>
     public virtual async Task<ConditionSetDto> RollbackAsync(Guid setId, RollbackConditionSetDto input)
     {
         using var uow = _uowManager.Begin(requiresNew: true, isTransactional: true);
@@ -185,7 +195,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         CheckStamp(set.ConcurrencyStamp, input.ExpectedSetConcurrencyStamp);
         if (input.ChangeSummary?.Length > 2048)
         {
-            throw new ArgumentException("Change summary exceeds 2048 characters.", nameof(input));
+            throw new ArgumentException("变更说明不能超过 2048 个字符。", nameof(input));
         }
 
         var target = await GetRevisionEntityAsync(input.TargetRevisionId);
@@ -193,7 +203,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
             target.Status != RuleRevisionStatus.Published || target.ContentHash is null ||
             target.ContentHash != ConditionSetContentHasher.Compute(target))
         {
-            throw new BusinessException(NRuleEngineErrorCodes.InvalidReleaseTarget);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
 
         _catalog.GetConditionScenario(set.AppCode, set.ScenarioCode, target.ContractVersion);
@@ -207,6 +217,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>只载入明确候选并返回结构化命中或错误结果。</summary>
+    /// <remarks>核心逻辑：只加载请求中的候选修订并交给领域判定器裁决；调用时机：业务方请求条件集判定时。</remarks>
     public virtual async Task<ConditionEvaluationDto> EvaluateAsync(EvaluateConditionSetsDto input)
     {
         var contract = _catalog.GetConditionScenario(input.AppCode, input.ScenarioCode, input.ContractVersion);
@@ -214,25 +225,25 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
             input.CandidateCodes.Any(string.IsNullOrWhiteSpace) ||
             input.CandidateCodes.Distinct(StringComparer.Ordinal).Count() != input.CandidateCodes.Count)
         {
-            return Error("InvalidCandidates", "Supply 1 to 100 distinct candidate codes.");
+            return Error("InvalidCandidates", "请提供 1 到 100 个不重复的候选编码。");
         }
 
         if (input.Inputs is null)
         {
-            return Error("InvalidInput", "Inputs are required.");
+            return Error("InvalidInput", "必须提供输入值。");
         }
 
         var sets = await _sets.GetByCodesAsync(input.AppCode, input.ScenarioCode, input.CandidateCodes);
         if (sets.Count != input.CandidateCodes.Count || sets.Any(x => x.ActiveRevisionId is null))
         {
-            return Error("InvalidCandidate", "A candidate is missing or unpublished.");
+            return Error("InvalidCandidate", "候选条件集不存在或尚未发布。");
         }
 
         var ids = sets.Select(x => x.ActiveRevisionId!.Value).ToArray();
         var revisions = await _revisions.GetByIdsWithInputsAsync(ids);
         if (revisions.Count != ids.Length)
         {
-            return Error("InvalidCandidate", "An active revision is unavailable.");
+            return Error("InvalidCandidate", "活动修订不可用。");
         }
 
         var byId = revisions.ToDictionary(x => x.Id);
@@ -244,7 +255,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         }
         catch (InvalidOperationException)
         {
-            return Error("InvalidInput", "An input is not a valid JSON value.");
+            return Error("InvalidInput", "输入值不是有效的 JSON。");
         }
         var result = ConditionSetEvaluator.Evaluate(candidates, contract, json, input.Mode);
         return new ConditionEvaluationDto(result.Succeeded, result.Matched,
@@ -253,12 +264,14 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>将可预期的判定失败映射为协议结果。</summary>
+    /// <remarks>核心逻辑：保留稳定错误码并填充可读说明；调用时机：发生可预期判定失败时。</remarks>
     protected virtual ConditionEvaluationDto Error(string code, string message)
     {
         return new ConditionEvaluationDto(false, false, [], code, message);
     }
 
     /// <summary>要求正反样本均通过，并拒绝缺失或过大的输入。</summary>
+    /// <remarks>核心逻辑：分别验证应命中和不应命中的样本；调用时机：发布条件集前执行门禁时。</remarks>
     protected virtual bool GatePassed(ConditionSetRevision revision, ConditionScenarioDescriptor contract,
         IReadOnlyList<ConditionGateCaseDto> cases)
     {
@@ -311,6 +324,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>防止发布修订的输入快照与所锁定的场景契约漂移。</summary>
+    /// <remarks>核心逻辑：比较修订快照与注册契约的输入定义；调用时机：判定或发布已保存修订时。</remarks>
     protected virtual bool MatchesContract(ConditionSetRevision revision, ConditionScenarioDescriptor contract)
     {
         return revision.Inputs.Count == contract.Inputs.Count && contract.Inputs.All(x => revision.Inputs.Any(v =>
@@ -319,22 +333,25 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>读取完整修订，缺失时返回稳定业务错误码。</summary>
+    /// <remarks>核心逻辑：按标识加载完整聚合并统一处理缺失情况；调用时机：编制操作读取修订时。</remarks>
     protected virtual async Task<ConditionSetRevision> GetRevisionEntityAsync(Guid id)
     {
         return await _revisions.FindWithInputsAsync(id)
-            ?? throw new BusinessException(NRuleEngineErrorCodes.ConditionRevisionNotFound);
+            ?? throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConditionRevisionNotFound);
     }
 
     /// <summary>阻止持旧并发戳的写入覆盖其他维护者的修改。</summary>
+    /// <remarks>核心逻辑：比较请求戳与当前实体戳并拒绝过期写入；调用时机：执行任何草稿或发布写操作前。</remarks>
     protected virtual void CheckStamp(string actual, string expected)
     {
         if (string.IsNullOrWhiteSpace(expected) || actual != expected)
         {
-            throw new BusinessException(NRuleEngineErrorCodes.ConcurrencyConflict);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConcurrencyConflict);
         }
     }
 
     /// <summary>映射条件集的稳定身份和活动状态。</summary>
+    /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
     protected virtual ConditionSetDto ToDto(ConditionSet set)
     {
         return new ConditionSetDto(set.Id, set.AppCode, set.ScenarioCode, set.Code,
@@ -342,6 +359,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>映射条件修订、输入稳定键及编制状态。</summary>
+    /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
     protected virtual ConditionSetRevisionDto ToDto(ConditionSetRevision revision)
     {
         return new ConditionSetRevisionDto(revision.Id, revision.ConditionSetId,

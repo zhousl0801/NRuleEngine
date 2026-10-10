@@ -41,38 +41,38 @@ public sealed class ScenarioBinding : Entity<Guid>
         string valueJson)
     {
         var dimension = contract.BindingDimensions.SingleOrDefault(d => d.Code == code)
-            ?? throw new ArgumentException("Unknown binding dimension.");
+            ?? throw new ArgumentException("未知的绑定维度。");
         if (_criteria.Any(c => c.DimensionCode == code))
         {
-            throw new ArgumentException("Binding dimension is duplicated.");
+            throw new ArgumentException("绑定维度重复。");
         }
         if (!dimension.AllowedOperators.Contains(op))
         {
-            throw new ArgumentException("Binding operator is not allowed for this dimension.");
+            throw new ArgumentException("此维度不允许使用该绑定操作符。");
         }
         if (op is not (RuleBindingOperator.Equals or RuleBindingOperator.In) &&
             dimension.ValueKind is not (RuleValueKind.Decimal or RuleValueKind.String))
         {
-            throw new ArgumentException("Ordered binding operators require decimal or string values.");
+            throw new ArgumentException("有序比较的绑定操作符需要小数或字符串值。");
         }
         using var document = JsonDocument.Parse(valueJson);
         if (op == RuleBindingOperator.In)
         {
             if (document.RootElement.ValueKind != JsonValueKind.Array || document.RootElement.GetArrayLength() == 0)
             {
-                throw new ArgumentException("In requires a nonempty JSON array.");
+                throw new ArgumentException("In 操作符需要非空 JSON 数组。");
             }
             foreach (var element in document.RootElement.EnumerateArray())
             {
                 if (RuleExpressionEngine.ReadConstant(dimension.ValueKind, element) is null)
                 {
-                    throw new ArgumentException("Binding values cannot be null.");
+                    throw new ArgumentException("绑定值不能为 null。");
                 }
             }
         }
         else if (RuleExpressionEngine.ReadConstant(dimension.ValueKind, document.RootElement) is null)
         {
-            throw new ArgumentException("Binding values cannot be null.");
+            throw new ArgumentException("绑定值不能为 null。");
         }
         _criteria.Add(new RuleBindingCriterion(id, Id, code, op, valueJson));
     }

@@ -11,6 +11,7 @@ public sealed class RuleModelMappingTests
     [Fact]
     public void MapsDraftVariablesAndEnforcesModelCodeUniqueness()
     {
+        // 保存草稿变量并重读，再验证应用内模型编码唯一约束。
         using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
         var options = new DbContextOptionsBuilder<NRuleEngineDbContext>()

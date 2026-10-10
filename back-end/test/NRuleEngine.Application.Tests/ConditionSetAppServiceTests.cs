@@ -18,6 +18,7 @@ public sealed class ConditionSetAppServiceTests : NRuleEngineTestBase<NRuleEngin
     [Fact]
     public async Task PublishesMatchesCopiesAndRollsBackWithAuditedHistory()
     {
+        // 贯穿创建、发布、判定、复制和回滚，核对活动修订与审计历史。
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())
         {
             var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();

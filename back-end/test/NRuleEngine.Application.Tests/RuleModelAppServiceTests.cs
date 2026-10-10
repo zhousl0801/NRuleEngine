@@ -25,6 +25,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
     [Fact]
     public async Task PersistsRuleBindingAndSimulationAcrossDraftCopy()
     {
+        // 经应用服务保存规则和绑定，再复制草稿并试算，验证持久化内容可复用。
         using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
         var provider = ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>();
         var db = await provider.GetDbContextAsync();
@@ -144,6 +145,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
     [Fact]
     public async Task ListsModelsInCodeOrderAndFiltersByScenario()
     {
+        // 创建多模型后核对排序与场景过滤，避免列表结果依赖数据库自然顺序。
         using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
         var provider = ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>();
         var db = await provider.GetDbContextAsync();
@@ -164,6 +166,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
     [Fact]
     public async Task CreatesDraftAndPreservesVariableIdentityAcrossRevisions()
     {
+        // 创建后续草稿并核对稳定键，确保已有规则引用仍能定位变量。
         using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
         var provider = ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>();
         var db = await provider.GetDbContextAsync();
@@ -204,6 +207,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
     [Fact]
     public async Task CopiesModelWithDefaultsAndGateCasesAndBlocksReferencedVariableRemoval()
     {
+        // 复制默认值与门禁内容后，验证引用检查会阻止删除被使用的变量。
         RuleModelDto sourceModel;
         RuleRevisionDto source;
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())

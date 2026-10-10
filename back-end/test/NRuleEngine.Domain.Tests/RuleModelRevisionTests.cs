@@ -9,6 +9,7 @@ public sealed class RuleModelRevisionTests
     [Fact]
     public void DraftCopiesContractVariablesAndStableKeys()
     {
+        // 比对契约变量与草稿复制后的稳定键，防止修订间引用失效。
         var model = new RuleModel(Guid.NewGuid(), "TEST-ODS", "size-expansion", "1.0", "width", "Width", null);
         var first = new RuleModelRevision(Guid.NewGuid(), model.Id, model.AllocateRevisionNo(), SimulatedSizeExpansionScenario.Contract);
         var middle = first.AddIntermediate(Guid.NewGuid(), "delta", "Adjustment", new RuleTypeDescriptor(RuleValueKind.Decimal));
@@ -27,6 +28,7 @@ public sealed class RuleModelRevisionTests
     [Fact]
     public void ContractVariablesCannotBeRenamedAndArchivedModelCannotCreateDraft()
     {
+        // 分别验证契约变量身份和模型归档状态两个领域边界。
         var model = new RuleModel(Guid.NewGuid(), "TEST-ODS", "size-expansion", "1.0", "width", "Width", null);
         var draft = new RuleModelRevision(Guid.NewGuid(), model.Id, model.AllocateRevisionNo(), SimulatedSizeExpansionScenario.Contract);
         var input = draft.Variables.First(v => v.Direction == RuleVariableDirection.Input);

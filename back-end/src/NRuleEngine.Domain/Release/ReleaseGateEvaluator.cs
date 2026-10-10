@@ -9,12 +9,13 @@ namespace NRuleEngine.Domain.Release;
 public static class ReleaseGateEvaluator
 {
     /// <summary>返回未通过用例名称及原因；空集合表示所有用例通过。</summary>
+    /// <remarks>核心逻辑：逐例试算并比较出口 JSON 的语义值；调用时机：发布规则修订的门禁阶段。</remarks>
     public static IReadOnlyList<string> Evaluate(RuleModelRevision revision, RuleScenarioDescriptor contract)
     {
         var failures = new List<string>();
         if (revision.GateCases.Count == 0)
         {
-            failures.Add("At least one release gate case is required.");
+            failures.Add("至少需要一条发布门禁用例。");
             return failures;
         }
 
@@ -33,7 +34,7 @@ public static class ReleaseGateEvaluator
                     outcome.Outputs.Keys.Order(StringComparer.Ordinal)) ||
                 expected.Any(item => !SameJson(item.Value, outcome.Outputs[item.Key])))
             {
-                failures.Add($"{gateCase.Name}: outputs differ from expected values.");
+                failures.Add($"{gateCase.Name}：输出值与预期不一致。");
             }
         }
         return failures;

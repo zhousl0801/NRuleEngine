@@ -11,6 +11,7 @@ public sealed class RuleModelDtoContractTests
     [Fact]
     public void CreateInputRoundTripsThroughJsonAndValidatesLengths()
     {
+        // 做 DTO 序列化往返并运行注解校验，确认传输契约一致。
         var input = new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "width", "Width", null);
         var json = JsonSerializer.Serialize(input);
         var restored = JsonSerializer.Deserialize<CreateRuleModelDto>(json);
@@ -28,6 +29,7 @@ public sealed class RuleModelDtoContractTests
     [Fact]
     public void RevisionOutputSerializesVariableDetails()
     {
+        // 序列化修订详情并核对变量字段，防止输出契约遗漏。
         var revision = new RuleRevisionDto(Guid.NewGuid(), Guid.NewGuid(), 1, null, RuleRevisionStatus.Draft,
             "size-expansion", "1.0", RuleExecutionMode.FirstMatch, MultipleWritePolicy.ErrorOnMultipleWrite,
             "stamp", [new RuleVariableDto(Guid.NewGuid(), Guid.NewGuid(), "inputWidth", "Input width",

@@ -27,7 +27,7 @@ public sealed class ReleaseGateCase : Entity<Guid>
     {
         if (string.IsNullOrWhiteSpace(name) || name.Length > 256)
         {
-            throw new ArgumentException("Gate case name must be 1–256 characters.", nameof(name));
+            throw new ArgumentException("门禁用例名称长度必须在 1 到 256 个字符之间。", nameof(name));
         }
         ValidateObject(contextJson, nameof(contextJson));
         ValidateObject(inputsJson, nameof(inputsJson));
@@ -50,12 +50,12 @@ public sealed class ReleaseGateCase : Entity<Guid>
         using var document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Object)
         {
-            throw new ArgumentException("Gate case data must be a JSON object.", name);
+            throw new ArgumentException("门禁用例数据必须是 JSON 对象。", name);
         }
         var keys = new HashSet<string>(StringComparer.Ordinal);
         if (document.RootElement.EnumerateObject().Any(property => !keys.Add(property.Name)))
         {
-            throw new ArgumentException("Gate case data contains a duplicate field.", name);
+            throw new ArgumentException("门禁用例数据包含重复字段。", name);
         }
     }
 }

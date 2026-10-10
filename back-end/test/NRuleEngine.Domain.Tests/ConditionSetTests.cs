@@ -11,6 +11,7 @@ public sealed class ConditionSetTests
     [Fact]
     public void RouteMachineCandidatesSupportAllFirstNoMatchAndAmbiguity()
     {
+        // 构造不同优先级候选，逐项验证全命中、首命中、无命中和歧义裁决。
         // 合成重叠区间验证多候选语义。
         var contract = Contract("route-machine-param-eligibility", "THICKNESS");
         var narrow = Candidate(contract, "RM-01", 10, 0m, 5m);
@@ -38,6 +39,7 @@ public sealed class ConditionSetTests
     [Fact]
     public void MicDesignConditionKeepsInputKeysAndPublishedRevisionImmutable()
     {
+        // 比较复制前后的输入稳定键，并验证发布后的条件不能再改。
         // MIC FinishedProduct-ThicknessTol 的宽厚组合条件形状。
         var contract = Contract("mic-design", "THICKNESS", "WIDTH");
         var set = new ConditionSet(Guid.NewGuid(), contract.AppCode, contract.ScenarioCode,
@@ -70,6 +72,7 @@ public sealed class ConditionSetTests
     [Fact]
     public void RejectsNonBooleanCondition()
     {
+        // 使用非布尔 AST，确认条件集在编制阶段就拒绝错误返回类型。
         var contract = Contract("route-machine-param-eligibility", "THICKNESS");
         var revision = new ConditionSetRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         Assert.Throws<ArgumentException>(() => revision.SetCondition(null,
@@ -79,6 +82,7 @@ public sealed class ConditionSetTests
     [Fact]
     public void FirstMatchDoesNotEvaluateLowerPriorityAfterWinner()
     {
+        // 让低优先级候选故意求值失败，证明首命中模式不会继续执行它。
         var contract = Contract("route-machine-param-eligibility", "THICKNESS");
         var winner = Candidate(contract, "winner", 10, 0m, 5m);
         var set = new ConditionSet(Guid.NewGuid(), contract.AppCode, contract.ScenarioCode,

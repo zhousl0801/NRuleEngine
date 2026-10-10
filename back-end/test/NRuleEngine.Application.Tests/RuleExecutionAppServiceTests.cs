@@ -27,6 +27,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
     [Fact]
     public async Task RunsOnlyPublishedRevisionAndClassifiesExpectedOutcomes()
     {
+        // 按未发布、无匹配、缺输入和成功路径验证运行状态及稳定错误码。
         var (modelId, revision) = await PrepareDraftAsync("runtime-basic", "A", 1, 125);
         var execution = ServiceProvider.GetRequiredService<IRuleExecutionAppService>();
         var noPublished = await execution.ExecuteAsync(Request("A"));
@@ -72,6 +73,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
     [Fact]
     public async Task UsesGlobalBindingPriorityAndRollbackChangesExecutionResult()
     {
+        // 发布多个模型后比较全场景优先级，再回滚验证活动指针影响结果。
         var (firstModelId, first) = await PrepareDraftAsync("runtime-low", "A", 1, 125);
         var (secondModelId, second) = await PrepareDraftAsync("runtime-high", "A", 2, 130);
         var execution = ServiceProvider.GetRequiredService<IRuleExecutionAppService>();
@@ -116,6 +118,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
     [Fact]
     public async Task RejectsAmbiguousHighestBindingEvenWhenStoredPublishedDataWasAltered()
     {
+        // 直接改变持久化发布数据，确认运行入口仍拒绝最高优先级歧义。
         var (firstModelId, first) = await PrepareDraftAsync("runtime-a", "A", 1, 125);
         var (secondModelId, second) = await PrepareDraftAsync("runtime-b", "B", 1, 130);
         await PublishAsync(firstModelId, first);
@@ -148,6 +151,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
     [Fact]
     public async Task PropagatesCallerCancellationAndReportsInternalTimeout()
     {
+        // 分别触发调用方取消与内部时间预算耗尽，检查两类信号不会混淆。
         var (modelId, revision) = await PrepareDraftAsync("runtime-cancel", "A", 1, 125);
         await PublishAsync(modelId, revision);
         var execution = ServiceProvider.GetRequiredService<IRuleExecutionAppService>();
@@ -160,11 +164,13 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
             TimeSpan.FromTicks(1);
         var error = await Assert.ThrowsAsync<BusinessException>(() => execution.ExecuteAsync(Request("A")));
         Assert.Equal(NRuleEngineErrorCodes.ExecutionTimeout, error.Code);
+        Assert.Contains("规则执行超过允许时间", error.Message);
     }
 
     [Fact]
     public async Task ReportsEvaluationFailureAfterAValidReleaseGate()
     {
+        // 让发布门禁通过而运行输入触发求值错误，验证运行失败分类。
         var (modelId, revision) = await PrepareDraftAsync("runtime-failure", "A", 1, 125);
         var rules = ServiceProvider.GetRequiredService<IRuleAuthoringAppService>();
         var release = ServiceProvider.GetRequiredService<IRuleReleaseAppService>();
@@ -209,6 +215,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
     [Fact]
     public async Task DetectsPublishedContentChangedOutsideTheReleaseProtocol()
     {
+        // 绕过发布协议更改内容，确认执行前的哈希校验能发现损坏。
         var (modelId, revision) = await PrepareDraftAsync("runtime-integrity", "A", 1, 125);
         await PublishAsync(modelId, revision);
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())

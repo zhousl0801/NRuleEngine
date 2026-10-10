@@ -7,6 +7,7 @@ namespace NRuleEngine.Domain.Conditions;
 public static class ConditionSetEvaluator
 {
     /// <summary>验证指定候选与输入后求值；无命中返回成功的空集合。</summary>
+    /// <remarks>核心逻辑：先验证候选和输入，再按优先级与匹配模式裁决布尔结果；调用时机：应用服务执行条件集判定时。</remarks>
     public static ConditionEvaluationResult Evaluate(
         IReadOnlyCollection<ConditionCandidate> candidates,
         ConditionScenarioDescriptor contract,
@@ -16,17 +17,17 @@ public static class ConditionSetEvaluator
     {
         if (!Enum.IsDefined(mode))
         {
-            return Error("InvalidMode", "Unsupported match mode.");
+            return Error("InvalidMode", "不支持的匹配模式。");
         }
 
         if (candidates.Count == 0)
         {
-            return Error("EmptyCandidates", "At least one candidate is required.");
+            return Error("EmptyCandidates", "至少需要一个候选条件集。");
         }
 
         if (candidates.Select(x => x.Set.Code).Distinct(StringComparer.Ordinal).Count() != candidates.Count)
         {
-            return Error("DuplicateCandidate", "Candidate codes must be unique.");
+            return Error("DuplicateCandidate", "候选条件集编码不能重复。");
         }
 
         foreach (var candidate in candidates)
@@ -42,24 +43,24 @@ public static class ConditionSetEvaluator
                     revision.ConditionAstJson is null || revision.ContentHash != ConditionSetContentHasher.Compute(revision) ||
                     !SameInputs(revision, contract))
                 {
-                    return Error("InvalidCandidate", $"Candidate {set.Code} is not an active published revision of this contract.");
+                    return Error("InvalidCandidate", $"候选条件集 {set.Code} 不是此契约的活动已发布修订。");
                 }
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Text.Json.JsonException)
             {
-                return Error("InvalidCandidate", $"Candidate {set.Code}: {ex.Message}");
+                return Error("InvalidCandidate", $"候选条件集 {set.Code}：{RuleErrorText.Describe(ex)}");
             }
         }
 
         var contractCodes = contract.Inputs.Select(x => x.Code).ToHashSet(StringComparer.Ordinal);
         if (!contractCodes.SetEquals(inputsJson.Keys))
         {
-            return Error("InvalidInput", "Input codes do not match the condition scenario contract.");
+            return Error("InvalidInput", "输入编码与条件场景契约不一致。");
         }
 
         if (inputsJson.Values.Any(x => x is null || x.Length > 4096))
         {
-            return Error("InvalidInput", "An input JSON value exceeds 4096 characters.");
+            return Error("InvalidInput", "输入的 JSON 值不能超过 4096 个字符。");
         }
 
         var typedInputs = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -75,7 +76,7 @@ public static class ConditionSetEvaluator
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Text.Json.JsonException)
         {
-            return Error("InvalidInput", ex.Message);
+            return Error("InvalidInput", RuleErrorText.Describe(ex));
         }
 
         var matches = new List<ConditionMatch>();
@@ -95,7 +96,7 @@ public static class ConditionSetEvaluator
                 var values = revision.Inputs.ToDictionary(x => x.StableKey, x => typedInputs[x.Code]);
                 if (RuleExpressionEngine.Evaluate(revision.ConditionAstJson!, values, cancellationToken) is not bool matched)
                 {
-                    return Error("EvaluationError", $"Candidate {set.Code} did not return Boolean.");
+                    return Error("EvaluationError", $"候选条件集 {set.Code} 未返回布尔值。");
                 }
 
                 if (matched)
@@ -105,13 +106,13 @@ public static class ConditionSetEvaluator
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArithmeticException)
             {
-                return Error("EvaluationError", $"Candidate {set.Code}: {ex.Message}");
+                return Error("EvaluationError", $"候选条件集 {set.Code}：{RuleErrorText.Describe(ex)}");
             }
         }
 
         if (mode == ConditionMatchMode.FirstMatch && matches.Count > 1 && matches[0].Priority == matches[1].Priority)
         {
-            return Error("AmbiguousMatch", "Multiple candidates matched at the highest priority.");
+            return Error("AmbiguousMatch", "最高优先级存在多个命中的候选条件集。");
         }
 
         return new ConditionEvaluationResult(mode == ConditionMatchMode.FirstMatch ? matches.Take(1).ToArray() : matches);

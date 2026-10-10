@@ -11,7 +11,7 @@ namespace NRuleEngine.Domain.Simulation;
 public static class RuleSimulator
 {
     /// <summary>校验并试算指定修订，不写数据库，也不改变活动修订。</summary>
-    /// <remarks>先选最高优先级的唯一匹配绑定，再验证输入，最后按修订语义执行规则。</remarks>
+    /// <remarks>核心逻辑：先选唯一绑定，再校验输入，按执行语义求值并检查必需出口；调用时机：维护者试算草稿或运行已发布修订时。</remarks>
     public static RuleSimulationOutcome Simulate(RuleModelRevision revision, RuleScenarioDescriptor contract,
         IReadOnlyDictionary<string, string> contextJson, IReadOnlyDictionary<string, string> inputJson,
         CancellationToken cancellationToken = default)
@@ -41,24 +41,24 @@ public static class RuleSimulator
             .OrderByDescending(b => b.Priority).ToArray();
         if (matches.Length == 0)
         {
-            return Failure("NoMatchingBinding", "No binding matches the supplied context.");
+            return Failure("NoMatchingBinding", "没有绑定匹配给定场景上下文。");
         }
         if (matches.Length > 1 && matches[0].Priority == matches[1].Priority)
         {
-            return Failure("AmbiguousBinding", "Multiple bindings match at the highest priority.");
+            return Failure("AmbiguousBinding", "最高优先级存在多条命中的绑定。");
         }
         var bindingId = matches[0].Id;
         var inputs = revision.Variables.Where(v => v.Direction == RuleVariableDirection.Input).ToArray();
         var unknownInput = inputJson.Keys.Except(inputs.Select(v => v.Code), StringComparer.Ordinal).FirstOrDefault();
         if (unknownInput is not null)
         {
-            return Failure("UnknownInput", "Input contains an undeclared variable.", bindingId,
+            return Failure("UnknownInput", "输入包含未声明的变量。", bindingId,
                 variableCode: unknownInput);
         }
         var missingInput = inputs.FirstOrDefault(v => !inputJson.ContainsKey(v.Code) && v.DefaultValueJson is null);
         if (missingInput is not null)
         {
-            return Failure("MissingInput", "A required input is missing.", bindingId,
+            return Failure("MissingInput", "缺少必需的输入变量。", bindingId,
                 variableCode: missingInput.Code);
         }
         var values = new Dictionary<Guid, object?>();
@@ -74,7 +74,7 @@ public static class RuleSimulator
             }
             catch (Exception ex) when (ex is ArgumentException or JsonException)
             {
-                return Failure("InputTypeMismatch", ex.Message, bindingId, variableCode: variable.Code);
+                return Failure("InputTypeMismatch", RuleErrorText.Describe(ex), bindingId, variableCode: variable.Code);
             }
             try
             {
@@ -82,7 +82,7 @@ public static class RuleSimulator
             }
             catch (ArgumentException ex)
             {
-                return Failure("InputConstraintViolated", ex.Message, bindingId, variableCode: variable.Code);
+                return Failure("InputConstraintViolated", RuleErrorText.Describe(ex), bindingId, variableCode: variable.Code);
             }
             values.Add(variable.StableKey, value);
         }
@@ -109,7 +109,7 @@ public static class RuleSimulator
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArithmeticException or JsonException)
             {
                 var location = ex as RuleExpressionException;
-                return Failure("ConditionFailed", ex.Message, bindingId, $"rules/{rule.Id}/condition",
+                return Failure("ConditionFailed", RuleErrorText.Describe(ex), bindingId, $"rules/{rule.Id}/condition",
                     location?.Start, location?.Length);
             }
             conditions.Add(new RuleConditionOutcome(rule.Id, rule.Name, matched));
@@ -124,7 +124,7 @@ public static class RuleSimulator
                 {
                     if (revision.MultipleWritePolicy == MultipleWritePolicy.ErrorOnMultipleWrite)
                     {
-                        return Failure("MultipleWrite", "A variable was assigned more than once.", bindingId);
+                        return Failure("MultipleWrite", "同一变量被重复赋值。", bindingId);
                     }
                     if (revision.MultipleWritePolicy == MultipleWritePolicy.FirstWriteWins)
                     {
@@ -146,7 +146,7 @@ public static class RuleSimulator
                 catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArithmeticException or JsonException)
                 {
                     var location = ex as RuleExpressionException;
-                    return Failure("AssignmentFailed", ex.Message, bindingId,
+                    return Failure("AssignmentFailed", RuleErrorText.Describe(ex), bindingId,
                         $"rules/{rule.Id}/assignments/{assignment.Id}", location?.Start, location?.Length);
                 }
             }
@@ -161,7 +161,7 @@ public static class RuleSimulator
             cancellationToken.ThrowIfCancellationRequested();
             if (!values.TryGetValue(variable.StableKey, out var value) || value is null)
             {
-                return Failure("MissingOutput", $"Required output {variable.Code} has no value.", bindingId,
+                return Failure("MissingOutput", $"必需的输出变量 {variable.Code} 没有值。", bindingId,
                     variableCode: variable.Code);
             }
             outputs.Add(variable.Code, JsonSerializer.Serialize(value));
@@ -173,6 +173,7 @@ public static class RuleSimulator
     }
 
     /// <summary>按锁定契约解码上下文，并要求绑定中的所有维度条件成立。</summary>
+    /// <remarks>核心逻辑：按注册契约逐项比较场景上下文与绑定条件；调用时机：试算或运行筛选候选绑定时。</remarks>
     public static bool MatchesBinding(ScenarioBinding binding, RuleScenarioDescriptor contract,
         IReadOnlyDictionary<string, string> contextJson, CancellationToken cancellationToken = default)
     {

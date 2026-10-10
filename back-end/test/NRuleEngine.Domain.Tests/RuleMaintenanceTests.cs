@@ -13,6 +13,7 @@ public sealed class RuleMaintenanceTests
     [Fact]
     public void DefaultsApplyOnlyWhenInputIsAbsentOrIntermediateHasNotBeenAssigned()
     {
+        // 分别覆盖缺省输入、显式 null 和中间变量赋值，确认默认值只在缺失时生效。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         var input = revision.Variables.Single(v => v.Code == "inputWidth");
@@ -52,6 +53,7 @@ public sealed class RuleMaintenanceTests
     [Fact]
     public void VariableReferencesBlockItsRemovalWhileRuleRemovalRemainsAvailable()
     {
+        // 先保留表达式引用验证变量删除被阻止，再检查删除规则的影响预览。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         var middle = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra",

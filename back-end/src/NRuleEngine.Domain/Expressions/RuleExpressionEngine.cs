@@ -9,6 +9,7 @@ namespace NRuleEngine.Domain.Expressions;
 public static class RuleExpressionEngine
 {
     /// <summary>检查 AST 节点类型和变量引用，返回表达式结果类型与引用集合。</summary>
+    /// <remarks>核心逻辑：递归检查变量引用、函数参数和表达式静态类型；调用时机：保存条件或赋值 AST 时。</remarks>
     public static RuleValueKind? Validate(string json, IReadOnlyCollection<IExpressionVariable> variables,
         out IReadOnlySet<Guid> references)
     {
@@ -19,6 +20,7 @@ public static class RuleExpressionEngine
     }
 
     /// <summary>使用已校验的 AST 和按 StableKey 索引的值计算表达式。</summary>
+    /// <remarks>核心逻辑：根据已赋值变量求值并将失败定位到 AST 节点；调用时机：试算或运行规则时。</remarks>
     public static object? Evaluate(string json, IReadOnlyDictionary<Guid, object?> values,
         CancellationToken cancellationToken = default)
     {
@@ -37,7 +39,7 @@ public static class RuleExpressionEngine
         }
         catch (ArgumentException ex) when (ex is not RuleExpressionException)
         {
-            throw new RuleExpressionException(ex.Message, node.Start, node.Length, ex);
+            throw new RuleExpressionException(RuleErrorText.Describe(ex), node.Start, node.Length, ex);
         }
     }
 
@@ -50,7 +52,7 @@ public static class RuleExpressionEngine
         {
             if (node.Kind is null || node.Value is null)
             {
-                throw new ArgumentException("Constant requires kind and value.");
+                throw new ArgumentException("常量必须包含类型和值。");
             }
             ReadConstant(node.Kind.Value, node.Value.Value);
             return node.Value.Value.ValueKind == JsonValueKind.Null ? null : node.Kind;
@@ -59,13 +61,13 @@ public static class RuleExpressionEngine
         {
             if (node.StableKey is null || !variables.TryGetValue(node.StableKey.Value, out var variable))
             {
-                throw new ArgumentException("Expression references an unknown variable.");
+                throw new ArgumentException("表达式引用了未知变量。");
             }
             references.Add(variable.StableKey);
             return variable.ValueKind;
         }
 
-        var args = node.Args ?? throw new ArgumentException("Expression arguments are required.");
+        var args = node.Args ?? throw new ArgumentException("必须提供表达式参数。");
         var types = args.Select(a => TypeOf(a, variables, references, depth + 1)).ToArray();
         switch (op)
         {
@@ -91,7 +93,7 @@ public static class RuleExpressionEngine
                 RequireSame(types);
                 if (types[0] is not (RuleValueKind.Decimal or RuleValueKind.String))
                 {
-                    throw new ArgumentException("Ordering requires decimal or string operands.");
+                    throw new ArgumentException("顺序比较需要小数或字符串操作数。");
                 }
                 return RuleValueKind.Boolean;
             case "add":
@@ -107,14 +109,14 @@ public static class RuleExpressionEngine
             case "in":
                 if (types.Length < 2)
                 {
-                    throw new ArgumentException("In requires a value and at least one candidate.");
+                    throw new ArgumentException("In 运算需要一个值和至少一个候选值。");
                 }
                 RequireSame(types);
                 return RuleValueKind.Boolean;
             case "function":
                 return FunctionType(node.Function, types);
             default:
-                throw new ArgumentException($"Unsupported expression operation: {op}.");
+                throw new ArgumentException($"不支持的表达式操作：{op}。");
         }
     }
 
@@ -141,7 +143,7 @@ public static class RuleExpressionEngine
                 RequireSame(types);
                 return types[0] ?? types[1];
             default:
-                throw new ArgumentException($"Unsupported function: {name}.");
+                throw new ArgumentException($"不支持的函数：{name}。");
         }
     }
 
@@ -149,7 +151,7 @@ public static class RuleExpressionEngine
     {
         if (types.Length != count)
         {
-            throw new ArgumentException($"Expression requires {count} arguments.");
+            throw new ArgumentException($"表达式需要 {count} 个参数。");
         }
     }
 
@@ -157,7 +159,7 @@ public static class RuleExpressionEngine
     {
         if (types.Any(t => t != kind))
         {
-            throw new ArgumentException($"Expression requires {kind} arguments.");
+            throw new ArgumentException($"表达式参数必须为 {kind} 类型。");
         }
     }
 
@@ -166,7 +168,7 @@ public static class RuleExpressionEngine
         var nonNull = types.Where(t => t is not null).Distinct().ToArray();
         if (nonNull.Length > 1)
         {
-            throw new ArgumentException("Expression arguments have incompatible types.");
+            throw new ArgumentException("表达式参数类型不兼容。");
         }
     }
 
@@ -182,7 +184,7 @@ public static class RuleExpressionEngine
             RuleValueKind.Decimal when value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out var number) => number,
             RuleValueKind.String or RuleValueKind.Enum when value.ValueKind == JsonValueKind.String => value.GetString(),
             RuleValueKind.Boolean when value.ValueKind is JsonValueKind.True or JsonValueKind.False => value.GetBoolean(),
-            _ => throw new ArgumentException("Constant value does not match its declared kind.")
+            _ => throw new ArgumentException("常量值与声明的类型不一致。")
         };
     }
 
@@ -194,13 +196,14 @@ public static class RuleExpressionEngine
     }
 
     /// <summary>检查变量可空性、基础类型及 Decimal 精度和小数位。</summary>
+    /// <remarks>核心逻辑：核对可空性、值类型及小数精度；调用时机：接收输入或维护默认值时。</remarks>
     public static void CheckValue(IExpressionVariable variable, object? value)
     {
         if (value is null)
         {
             if (!variable.IsNullable)
             {
-                throw new ArgumentException($"Variable {variable.Code} cannot be null.");
+                throw new ArgumentException($"变量 {variable.Code} 不能为 null。");
             }
             return;
         }
@@ -212,7 +215,7 @@ public static class RuleExpressionEngine
             _ => false
         } == false)
         {
-            throw new ArgumentException($"Variable {variable.Code} has an invalid value type.");
+            throw new ArgumentException($"变量 {variable.Code} 的值类型无效。");
         }
         if (value is decimal number)
         {
@@ -224,7 +227,7 @@ public static class RuleExpressionEngine
             var integer = parts[0].TrimStart('0').Length;
             if (fraction > scale || integer + fraction > precision || integer > precision - scale)
             {
-                throw new ArgumentException($"Variable {variable.Code} exceeds decimal precision or scale.");
+                throw new ArgumentException($"变量 {variable.Code} 超过小数精度或小数位数限制。");
             }
         }
     }
@@ -243,7 +246,7 @@ public static class RuleExpressionEngine
                                    ex is ArgumentException or InvalidOperationException or ArithmeticException or
                                        InvalidCastException or NullReferenceException)
         {
-            throw new RuleExpressionException(ex.Message, node.Start, node.Length, ex);
+            throw new RuleExpressionException(RuleErrorText.Describe(ex), node.Start, node.Length, ex);
         }
     }
 
@@ -258,7 +261,7 @@ public static class RuleExpressionEngine
         if (node.Op == "variable")
         {
             return values.TryGetValue(node.StableKey!.Value, out var value) ? value
-                : throw new InvalidOperationException("Referenced variable has no value.");
+                : throw new InvalidOperationException("引用的变量没有值。");
         }
         if (node.Op == "and")
         {
@@ -292,7 +295,7 @@ public static class RuleExpressionEngine
             "isNull" => args[0] is null,
             "in" => args.Skip(1).Any(a => Equals(a, args[0])),
             "function" => EvaluateFunction(node.Function!, args),
-            _ => throw new InvalidOperationException("Unsupported expression operation.")
+            _ => throw new InvalidOperationException("不支持的表达式操作。")
         };
     }
 
@@ -306,7 +309,7 @@ public static class RuleExpressionEngine
         {
             return string.CompareOrdinal(x, y);
         }
-        throw new InvalidOperationException("Cannot compare null or incompatible values.");
+        throw new InvalidOperationException("不能比较 null 或类型不兼容的值。");
     }
 
     /// <summary>仅计算已声明的纯函数，不执行反射或外部 I/O。</summary>
@@ -319,7 +322,7 @@ public static class RuleExpressionEngine
             "Max" => Math.Max((decimal)args[0]!, (decimal)args[1]!),
             "Round" => Round((decimal)args[0]!, (decimal)args[1]!),
             "Coalesce" => args[0] ?? args[1],
-            _ => throw new InvalidOperationException("Unsupported function.")
+            _ => throw new InvalidOperationException("不支持的函数。")
         };
     }
 
@@ -328,7 +331,7 @@ public static class RuleExpressionEngine
     {
         if (depth > 64)
         {
-            throw new ArgumentException("Expression nesting exceeds the limit.");
+            throw new ArgumentException("表达式嵌套层数超过限制。");
         }
     }
 
@@ -337,7 +340,7 @@ public static class RuleExpressionEngine
     {
         if (digits != decimal.Truncate(digits) || digits is < 0 or > 28)
         {
-            throw new ArgumentException("Round digits must be an integer from 0 to 28.");
+            throw new ArgumentException("Round 的小数位数必须是 0 到 28 之间的整数。");
         }
         return Math.Round(value, (int)digits, MidpointRounding.AwayFromZero);
     }

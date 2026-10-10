@@ -33,16 +33,16 @@ public sealed class RuleAssignment : Entity<Guid>
         IReadOnlyCollection<VariableDefinition> variables) : base(id)
     {
         var target = variables.SingleOrDefault(v => v.StableKey == targetKey)
-            ?? throw new ArgumentException("Assignment target does not exist.");
+            ?? throw new ArgumentException("赋值目标变量不存在。");
         if (target.Direction == RuleVariableDirection.Input)
         {
-            throw new ArgumentException("Input variables cannot be assigned.");
+            throw new ArgumentException("不能对输入变量赋值。");
         }
         if (sourceKind == RuleValueSourceKind.Constant)
         {
             if (constantJson is null || expressionAstJson is not null)
             {
-                throw new ArgumentException("Constant assignment requires only a constant value.");
+                throw new ArgumentException("常量赋值只能提供常量值。");
             }
             RuleExpressionEngine.CheckValue(target, RuleExpressionEngine.ReadValue(target.ValueKind, constantJson));
         }
@@ -50,17 +50,17 @@ public sealed class RuleAssignment : Entity<Guid>
         {
             if (constantJson is not null || string.IsNullOrWhiteSpace(expressionAstJson))
             {
-                throw new ArgumentException("Expression assignment requires only an AST.");
+                throw new ArgumentException("表达式赋值只能提供 AST。");
             }
             var kind = RuleExpressionEngine.Validate(expressionAstJson, variables, out _);
             if (kind != target.ValueKind && !(kind is null && target.IsNullable))
             {
-                throw new ArgumentException("Assignment expression type differs from target type.");
+                throw new ArgumentException("赋值表达式的类型与目标变量类型不一致。");
             }
         }
         else
         {
-            throw new ArgumentException("Unsupported assignment source.");
+            throw new ArgumentException("不支持的赋值来源。");
         }
         RuleId = ruleId;
         TargetVariableStableKey = targetKey;

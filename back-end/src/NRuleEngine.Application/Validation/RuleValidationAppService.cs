@@ -23,10 +23,11 @@ public class RuleValidationAppService : ApplicationService, IRuleValidationAppSe
     }
 
     /// <summary>载入完整修订与锁定契约，返回带对象路径的问题清单。</summary>
+    /// <remarks>核心逻辑：将领域校验问题映射为带对象路径的响应；调用时机：维护者检查草稿或发布前校验时。</remarks>
     public virtual async Task<ValidationReportDto> ValidateAsync(Guid revisionId)
     {
         var revision = await _revisions.FindWithVariablesAsync(revisionId)
-            ?? throw new ArgumentException("Revision does not exist.", nameof(revisionId));
+            ?? throw new ArgumentException("修订不存在。", nameof(revisionId));
         var model = await _models.GetAsync(revision.RuleModelId);
         var contract = _catalog.GetScenario(model.AppCode, revision.ScenarioCode, revision.ContractVersion);
         var issues = RuleRevisionValidator.Validate(revision, contract);

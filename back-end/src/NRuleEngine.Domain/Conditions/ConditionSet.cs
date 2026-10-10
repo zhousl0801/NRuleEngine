@@ -59,7 +59,7 @@ public sealed class ConditionSet : AuditedAggregateRoot<Guid>
         EnsureActive();
         if (revisionId == Guid.Empty)
         {
-            throw new ArgumentException("Revision is required.", nameof(revisionId));
+            throw new ArgumentException("必须提供修订标识。", nameof(revisionId));
         }
 
         ActiveRevisionId = revisionId;
@@ -76,14 +76,14 @@ public sealed class ConditionSet : AuditedAggregateRoot<Guid>
     {
         if (Status != RuleModelStatus.Active)
         {
-            throw new InvalidOperationException("Archived condition set cannot be changed.");
+            throw new InvalidOperationException("已归档的条件集不能修改。");
         }
     }
 
     private static string Required(string value, string name)
     {
         return string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException("Value is required.", name)
+            ? throw new ArgumentException("必须提供值。", name)
             : value.Trim();
     }
 }

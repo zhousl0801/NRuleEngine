@@ -9,11 +9,12 @@ namespace NRuleEngine.Domain.Conditions;
 public static class ConditionSetContentHasher
 {
     /// <summary>基于确定顺序的语义快照生成版本化 SHA-256 摘要。</summary>
+    /// <remarks>核心逻辑：对条件修订内容计算稳定哈希；调用时机：条件集发布或回滚校验时。</remarks>
     public static string Compute(ConditionSetRevision revision)
     {
         if (revision.ConditionAstJson is null)
         {
-            throw new InvalidOperationException("Condition is required.");
+            throw new InvalidOperationException("必须提供条件。");
         }
 
         var content = new

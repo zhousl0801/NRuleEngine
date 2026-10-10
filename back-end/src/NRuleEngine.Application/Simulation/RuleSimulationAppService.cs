@@ -23,10 +23,11 @@ public class RuleSimulationAppService : ApplicationService, IRuleSimulationAppSe
     }
 
     /// <summary>基于指定修订执行内存试算，返回命中、赋值及出口。</summary>
+    /// <remarks>核心逻辑：加载草稿及锁定契约后调用领域试算器；调用时机：维护者提交试算请求时。</remarks>
     public virtual async Task<SimulationResultDto> SimulateAsync(SimulateRuleDto input)
     {
         var revision = await _revisions.FindWithVariablesAsync(input.RevisionId)
-            ?? throw new ArgumentException("Revision does not exist.", nameof(input));
+            ?? throw new ArgumentException("修订不存在。", nameof(input));
         var model = await _models.GetAsync(revision.RuleModelId);
         var contract = _catalog.GetScenario(model.AppCode, revision.ScenarioCode, revision.ContractVersion);
         var result = RuleSimulator.Simulate(revision, contract, input.ContextJson, input.InputsJson);

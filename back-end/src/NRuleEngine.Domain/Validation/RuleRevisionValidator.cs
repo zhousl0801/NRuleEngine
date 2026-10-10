@@ -10,7 +10,7 @@ namespace NRuleEngine.Domain.Validation;
 public static class RuleRevisionValidator
 {
     /// <summary>对整份修订检查必需出口、表达式、依赖、写入冲突及本修订绑定歧义。</summary>
-    /// <remarks>跨模型活动绑定冲突由发布服务结合其他模型检查。</remarks>
+    /// <remarks>核心逻辑：综合检查出口覆盖、AST 类型、循环依赖和本修订绑定歧义；跨模型冲突由发布服务检查。调用时机：草稿试算及发布校验前。</remarks>
     public static IReadOnlyList<RuleValidationIssue> Validate(RuleModelRevision revision,
         RuleScenarioDescriptor contract, CancellationToken cancellationToken = default)
     {
@@ -18,11 +18,11 @@ public static class RuleRevisionValidator
         var issues = new List<RuleValidationIssue>();
         if (revision.Rules.Count == 0 || !revision.Rules.Any(r => r.IsEnabled))
         {
-            issues.Add(new RuleValidationIssue("NoRule", "rules", "At least one enabled rule is required."));
+            issues.Add(new RuleValidationIssue("NoRule", "rules", "至少需要一条已启用的规则。"));
         }
         if (revision.Bindings.Count == 0)
         {
-            issues.Add(new RuleValidationIssue("NoBinding", "bindings", "At least one binding is required."));
+            issues.Add(new RuleValidationIssue("NoBinding", "bindings", "至少需要一条场景绑定。"));
         }
 
         var requiredKeys = revision.Variables.Where(v => v.Direction == RuleVariableDirection.Output)
@@ -36,24 +36,24 @@ public static class RuleRevisionValidator
             var path = $"rules/{rule.Id}";
             if (rule.Assignments.Count == 0)
             {
-                issues.Add(new RuleValidationIssue("NoAssignment", path, "Rule has no assignments."));
+                issues.Add(new RuleValidationIssue("NoAssignment", path, "规则没有赋值定义。"));
             }
             if (revision.ExecutionMode == RuleExecutionMode.FirstMatch && rule.IsEnabled &&
                 !requiredKeys.IsSubsetOf(rule.Assignments.Select(a => a.TargetVariableStableKey)))
             {
-                issues.Add(new RuleValidationIssue("MissingOutput", path, "Rule does not assign every required output."));
+                issues.Add(new RuleValidationIssue("MissingOutput", path, "规则未对全部必需的输出变量赋值。"));
             }
             try
             {
                 if (RuleExpressionEngine.Validate(rule.ConditionAstJson, revision.Variables, out _) != RuleValueKind.Boolean)
                 {
-                    throw new ArgumentException("Condition must be Boolean.");
+                    throw new ArgumentException("条件表达式必须返回布尔值。");
                 }
             }
             catch (Exception ex) when (ex is ArgumentException or JsonException)
             {
                 var location = ex as RuleExpressionException;
-                issues.Add(new RuleValidationIssue("InvalidCondition", $"{path}/condition", ex.Message,
+                issues.Add(new RuleValidationIssue("InvalidCondition", $"{path}/condition", RuleErrorText.Describe(ex),
                     location?.Start, location?.Length));
             }
             foreach (var assignment in rule.Assignments)
@@ -63,7 +63,7 @@ public static class RuleRevisionValidator
                 var assignmentPath = $"{path}/assignments/{assignment.Id}";
                 if (target is null || target.Direction == RuleVariableDirection.Input)
                 {
-                    issues.Add(new RuleValidationIssue("InvalidTarget", assignmentPath, "Assignment target is missing or is an input."));
+                    issues.Add(new RuleValidationIssue("InvalidTarget", assignmentPath, "赋值目标不存在或是输入变量。"));
                     continue;
                 }
                 if (assignment.ValueSourceKind == RuleValueSourceKind.Expression)
@@ -74,7 +74,7 @@ public static class RuleRevisionValidator
                             out var references);
                         if (kind != target.ValueKind && !(kind is null && target.IsNullable))
                         {
-                            throw new ArgumentException("Assignment type differs from target type.");
+                            throw new ArgumentException("赋值类型与目标变量类型不一致。");
                         }
                         graph.TryAdd(target.StableKey, []);
                         graph[target.StableKey].UnionWith(references.Where(k => revision.Variables
@@ -83,7 +83,7 @@ public static class RuleRevisionValidator
                     catch (Exception ex) when (ex is ArgumentException or JsonException)
                     {
                         var location = ex as RuleExpressionException;
-                        issues.Add(new RuleValidationIssue("InvalidExpression", assignmentPath, ex.Message,
+                        issues.Add(new RuleValidationIssue("InvalidExpression", assignmentPath, RuleErrorText.Describe(ex),
                             location?.Start, location?.Length));
                     }
                 }
@@ -96,7 +96,7 @@ public static class RuleRevisionValidator
                     }
                     catch (Exception ex) when (ex is ArgumentException or JsonException)
                     {
-                        issues.Add(new RuleValidationIssue("InvalidConstant", assignmentPath, ex.Message));
+                        issues.Add(new RuleValidationIssue("InvalidConstant", assignmentPath, RuleErrorText.Describe(ex)));
                     }
                 }
             }
@@ -105,17 +105,17 @@ public static class RuleRevisionValidator
         if (revision.ExecutionMode == RuleExecutionMode.Sequential &&
             !requiredKeys.IsSubsetOf(enabled.SelectMany(r => r.Assignments).Select(a => a.TargetVariableStableKey)))
         {
-            issues.Add(new RuleValidationIssue("MissingOutput", "rules", "Enabled rules cannot produce every required output."));
+            issues.Add(new RuleValidationIssue("MissingOutput", "rules", "已启用规则无法生成全部必需的输出变量。"));
         }
         if (revision.ExecutionMode == RuleExecutionMode.Sequential && HasCycle(graph))
         {
-            issues.Add(new RuleValidationIssue("CyclicDependency", "rules", "Assignment references form a cycle."));
+            issues.Add(new RuleValidationIssue("CyclicDependency", "rules", "赋值引用形成循环依赖。"));
         }
         if (revision.ExecutionMode == RuleExecutionMode.Sequential &&
             revision.MultipleWritePolicy == MultipleWritePolicy.ErrorOnMultipleWrite &&
             enabled.SelectMany(r => r.Assignments).GroupBy(a => a.TargetVariableStableKey).Any(g => g.Count() > 1))
         {
-            issues.Add(new RuleValidationIssue("MultipleWrite", "rules", "Enabled rules may write the same variable."));
+            issues.Add(new RuleValidationIssue("MultipleWrite", "rules", "已启用规则可能重复写入同一变量。"));
         }
         foreach (var binding in revision.Bindings)
         {
@@ -123,7 +123,7 @@ public static class RuleRevisionValidator
             if (binding.AppCode != contract.AppCode || binding.ScenarioCode != contract.ScenarioCode ||
                 binding.ContractVersion != contract.ContractVersion)
             {
-                issues.Add(new RuleValidationIssue("InvalidBinding", $"bindings/{binding.Id}", "Binding contract differs from revision."));
+                issues.Add(new RuleValidationIssue("InvalidBinding", $"bindings/{binding.Id}", "绑定契约与修订不一致。"));
             }
         }
         var bindings = revision.Bindings.ToArray();
@@ -135,7 +135,7 @@ public static class RuleRevisionValidator
                 if (bindings[i].Priority == bindings[j].Priority && BindingsMayOverlap(bindings[i], bindings[j], contract))
                 {
                     issues.Add(new RuleValidationIssue("AmbiguousBinding", "bindings",
-                        $"Bindings {bindings[i].Id} and {bindings[j].Id} may match at the same priority."));
+                        $"绑定 {bindings[i].Id} 与 {bindings[j].Id} 可能在相同优先级下同时命中。"));
                 }
             }
         }
@@ -171,8 +171,8 @@ public static class RuleRevisionValidator
         return graph.Keys.Any(Visit);
     }
 
-    /// <summary>只要任一维度可证明互斥，两组 AND 条件便不会重叠。</summary>
     /// <summary>判断同一契约下的两条绑定是否可能同时命中；无法证明互斥时返回真。</summary>
+    /// <remarks>核心逻辑：逐维寻找可证明互斥的条件，任一维度互斥即判定不重叠；调用时机：校验修订内或跨模型绑定冲突时。</remarks>
     public static bool BindingsMayOverlap(ScenarioBinding left, ScenarioBinding right, RuleScenarioDescriptor contract)
     {
         foreach (var dimension in contract.BindingDimensions)
@@ -247,7 +247,7 @@ public static class RuleRevisionValidator
             RuleBindingOperator.GreaterThanOrEqual => comparison >= 0,
             RuleBindingOperator.LessThan => comparison < 0,
             RuleBindingOperator.LessThanOrEqual => comparison <= 0,
-            _ => throw new ArgumentException("Unknown binding operator.")
+            _ => throw new ArgumentException("未知的绑定操作符。")
         };
     }
 
@@ -261,6 +261,6 @@ public static class RuleRevisionValidator
         {
             return string.CompareOrdinal(x, y);
         }
-        throw new ArgumentException("Binding range values must be decimal or string.");
+        throw new ArgumentException("绑定范围值必须是小数或字符串。");
     }
 }

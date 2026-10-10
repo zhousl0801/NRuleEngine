@@ -22,6 +22,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task PublishesAndRollsBackWithoutChangingHistoricalRevision()
     {
+        // 发布后回滚到历史修订，比较活动指针与历史修订内容。
         var (modelId, first) = await CreatePreparedDraftAsync("release-history", "A", 125);
         var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var authoring = ServiceProvider.GetRequiredService<IRuleAuthoringAppService>();
@@ -86,6 +87,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task FailedGateDoesNotActivateOrWriteReleaseRecord()
     {
+        // 让门禁失败，确认事务没有切换活动修订或写入发布记录。
         var (modelId, revision) = await CreatePreparedDraftAsync("gate-failure", "A", 999);
         var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var release = ServiceProvider.GetRequiredService<IRuleReleaseAppService>();
@@ -110,6 +112,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task InvalidRevisionCannotPassPublicationValidation()
     {
+        // 用不完整草稿发布，确认完整校验先于活动指针切换。
         var (modelId, revision) = await CreatePreparedDraftAsync("invalid-release", "A", 125);
         var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var rules = ServiceProvider.GetRequiredService<IRuleAuthoringAppService>();
@@ -131,6 +134,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task RejectsCrossModelAmbiguityAndStaleModelStamp()
     {
+        // 分别构造过期并发戳和跨模型绑定重叠，验证发布保护。
         var (firstModelId, first) = await CreatePreparedDraftAsync("first-model", "A", 125);
         var (secondModelId, second) = await CreatePreparedDraftAsync("second-model", "A", 125);
         var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
@@ -164,6 +168,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task PersistsGateCasesAndReleaseRecordsInOneDatabase()
     {
+        // 写入门禁用例并发布后重读数据库，确认审计与用例一并持久化。
         var (modelId, revision) = await CreatePreparedDraftAsync("persist-release", "A", 125);
         var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var release = ServiceProvider.GetRequiredService<IRuleReleaseAppService>();
@@ -184,6 +189,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task AllowsDisjointBindingsAtTheSamePriorityAcrossModels()
     {
+        // 构造互斥绑定，证明跨模型同优先级本身不会导致发布失败。
         var (firstModelId, first) = await CreatePreparedDraftAsync("disjoint-a", "A", 125);
         var (secondModelId, second) = await CreatePreparedDraftAsync("disjoint-b", "B", 125);
         var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
@@ -204,6 +210,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     [Fact]
     public async Task RollbackRejectsBindingThatNowConflictsWithAnotherModel()
     {
+        // 先发布其他模型再回滚，确认历史绑定仍需重新检查当前冲突。
         var (firstModelId, first) = await CreatePreparedDraftAsync("rollback-conflict", "A", 125);
         var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var bindings = ServiceProvider.GetRequiredService<IRuleBindingAppService>();

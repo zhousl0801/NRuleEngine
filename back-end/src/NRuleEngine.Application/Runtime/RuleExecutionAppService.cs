@@ -34,6 +34,7 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
     }
 
     /// <summary>在宿主配置的时间预算内完成目录、绑定、输入和规则求值。</summary>
+    /// <remarks>核心逻辑：区分调用方取消、内部超时与存储或程序故障；调用时机：宿主调用规则执行入口时。</remarks>
     public virtual async Task<RuleExecutionResultDto> ExecuteAsync(ExecuteRuleDto input,
         CancellationToken cancellationToken = default)
     {
@@ -44,21 +45,21 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         {
             if (_options.Value.Timeout <= TimeSpan.Zero)
             {
-                throw new InvalidOperationException("Rule execution timeout must be positive.");
+                throw new InvalidOperationException("规则执行超时时长必须大于零。");
             }
             timeout.CancelAfter(_options.Value.Timeout);
             return await ExecuteCoreAsync(executionId, input, timeout.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogWarning("Rule execution {ExecutionId} exceeded its time budget", executionId);
-            throw new BusinessException(NRuleEngineErrorCodes.ExecutionTimeout)
+            _logger.LogWarning("规则执行 {ExecutionId} 超过时间预算", executionId);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ExecutionTimeout)
                 .WithData("ExecutionId", executionId).WithData("TimeoutMilliseconds", _options.Value.Timeout.TotalMilliseconds);
         }
         catch (DbException ex)
         {
-            _logger.LogError(ex, "Rule execution {ExecutionId} could not read storage", executionId);
-            throw new BusinessException(NRuleEngineErrorCodes.StorageUnavailable).WithData("ExecutionId", executionId);
+            _logger.LogError(ex, "规则执行 {ExecutionId} 无法读取存储", executionId);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.StorageUnavailable).WithData("ExecutionId", executionId);
         }
         catch (BusinessException)
         {
@@ -66,13 +67,14 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Rule execution {ExecutionId} failed unexpectedly", executionId);
-            throw new BusinessException(NRuleEngineErrorCodes.UnexpectedExecutionError)
+            _logger.LogError(ex, "规则执行 {ExecutionId} 发生意外错误", executionId);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.UnexpectedExecutionError)
                 .WithData("ExecutionId", executionId);
         }
     }
 
     /// <summary>批量载入活动修订，验证发布内容后按全场景优先级选择唯一绑定。</summary>
+    /// <remarks>核心逻辑：校验活动发布内容哈希并在所有模型间选择最高优先级的唯一绑定；调用时机：执行入口完成超时设置后。</remarks>
     protected virtual async Task<RuleExecutionResultDto> ExecuteCoreAsync(Guid executionId, ExecuteRuleDto input,
         CancellationToken cancellationToken)
     {
@@ -81,19 +83,19 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         if (!_catalog.GetApps().Any(x => x.AppCode == appCode))
         {
             return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.AppNotRegistered,
-                "Rule application is not registered.", data: new() { ["AppCode"] = appCode });
+                "规则应用尚未注册。", data: new() { ["AppCode"] = appCode });
         }
         var contracts = _catalog.GetScenarios(appCode).Where(x => x.ScenarioCode == scenarioCode)
             .ToDictionary(x => x.ContractVersion, StringComparer.Ordinal);
         if (contracts.Count == 0)
         {
             return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.ScenarioNotRegistered,
-                "Rule scenario is not registered.", data: new() { ["AppCode"] = appCode, ["ScenarioCode"] = scenarioCode });
+                "规则场景尚未注册。", data: new() { ["AppCode"] = appCode, ["ScenarioCode"] = scenarioCode });
         }
         if (input.ContractVersion is not null && !contracts.ContainsKey(input.ContractVersion))
         {
             return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.ContractVersionNotSupported,
-                "Rule scenario contract version is not supported.", data: new()
+                "不支持请求的规则场景契约版本。", data: new()
                 {
                     ["AppCode"] = appCode, ["ScenarioCode"] = scenarioCode,
                     ["ContractVersion"] = input.ContractVersion
@@ -105,7 +107,7 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         if (models.Length == 0)
         {
             return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.NoPublishedModel,
-                "No active published model exists for the scenario.");
+                "此场景没有活动的已发布模型。");
         }
         var revisions = (await _revisions.GetByIdsWithDetailsAsync(
                 models.Select(x => x.ActiveRevisionId!.Value).ToArray(), cancellationToken))
@@ -126,13 +128,13 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
             {
                 return Error(executionId, RuleExecutionStatus.Rejected,
                     NRuleEngineErrorCodes.PublishedRevisionUnavailable,
-                    "An active published revision is unavailable.", model.Id, model.ActiveRevisionId);
+                    "活动的已发布修订不可用。", model.Id, model.ActiveRevisionId);
             }
             if (!contracts.TryGetValue(revision.ContractVersion, out var contract))
             {
                 return Error(executionId, RuleExecutionStatus.Rejected,
                     NRuleEngineErrorCodes.ScenarioContractMismatch,
-                    "A pinned scenario contract is unavailable.", model.Id, revision.Id);
+                    "已发布修订锁定的场景契约不可用。", model.Id, revision.Id);
             }
             string actualHash;
             try
@@ -141,16 +143,16 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
             }
             catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException)
             {
-                _logger.LogError(ex, "Published rule content for {ExecutionId} could not be hashed", executionId);
-                throw new BusinessException(NRuleEngineErrorCodes.PublishedContentCorrupted)
+                _logger.LogError(ex, "执行 {ExecutionId} 的已发布规则内容无法计算哈希", executionId);
+                throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.PublishedContentCorrupted)
                     .WithData("ExecutionId", executionId).WithData("RuleModelId", model.Id)
                     .WithData("RevisionId", revision.Id);
             }
             if (actualHash != revision.ContentHash)
             {
-                _logger.LogError("Published rule content hash differs for {ExecutionId}, model {RuleModelId}, revision {RevisionId}",
+                _logger.LogError("执行 {ExecutionId} 的已发布规则内容哈希不一致，模型 {RuleModelId}，修订 {RevisionId}",
                     executionId, model.Id, revision.Id);
-                throw new BusinessException(NRuleEngineErrorCodes.PublishedContentCorrupted)
+                throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.PublishedContentCorrupted)
                     .WithData("ExecutionId", executionId).WithData("RuleModelId", model.Id)
                     .WithData("RevisionId", revision.Id);
             }
@@ -178,7 +180,7 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         {
             return Error(executionId, RuleExecutionStatus.Rejected,
                 NRuleEngineErrorCodes.ScenarioContractMismatch,
-                "No active published revision uses the requested contract version.");
+                "没有活动的已发布修订使用请求的契约版本。");
         }
         if (candidates.Count == 0)
         {
@@ -189,13 +191,13 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
             {
                 return Error(executionId, RuleExecutionStatus.Rejected,
                     NRuleEngineErrorCodes.RequiredContextMissing,
-                    "A required context dimension is missing.", data: new()
+                    "缺少必需的场景维度。", data: new()
                     {
                         ["DimensionCode"] = missingDimension
                     });
             }
             return Error(executionId, RuleExecutionStatus.NotMatched, NRuleEngineErrorCodes.NoMatchingBinding,
-                "No active binding matches the supplied context.", data: new()
+                "没有活动绑定匹配给定场景上下文。", data: new()
                 {
                     ["AppCode"] = appCode, ["ScenarioCode"] = scenarioCode,
                     ["ContextKeys"] = context.Keys.Order(StringComparer.Ordinal).Take(20).ToArray()
@@ -206,7 +208,7 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         if (winners.Length > 1)
         {
             return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.AmbiguousBinding,
-                "Several bindings match at the highest priority.", data: new()
+                "最高优先级存在多条命中的绑定。", data: new()
                 {
                     ["Priority"] = highest,
                     ["CandidateModelIds"] = winners.Select(x => x.Model.Id).Distinct().Take(20).ToArray(),
@@ -230,31 +232,32 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
     }
 
     /// <summary>把试算内部原因转换为已发布的稳定运行状态和错误码。</summary>
+    /// <remarks>核心逻辑：将内部试算失败归类为稳定状态和错误码并附定位字段；调用时机：已选中发布修订但未生成有效结果时。</remarks>
     protected virtual RuleExecutionResultDto MapSimulationFailure(Guid executionId, Guid modelId, Guid revisionId,
         RuleSimulationOutcome outcome)
     {
         var (status, code, message) = outcome.ErrorCode switch
         {
             "NoMatchingBinding" => (RuleExecutionStatus.NotMatched, NRuleEngineErrorCodes.NoMatchingBinding,
-                "No active binding matches the supplied context."),
+                "没有活动绑定匹配给定场景上下文。"),
             "AmbiguousBinding" => (RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.AmbiguousBinding,
-                "Several bindings match at the highest priority."),
+                "最高优先级存在多条命中的绑定。"),
             "UnknownInput" => (RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.UnknownInput,
-                "An undeclared input was supplied."),
+                "提供了未声明的输入变量。"),
             "MissingInput" => (RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.RequiredInputMissing,
-                "A required input is missing."),
+                "缺少必需的输入变量。"),
             "InputTypeMismatch" => (RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.InputTypeMismatch,
-                "An input value is invalid."),
+                "输入值无效。"),
             "InputConstraintViolated" => (RuleExecutionStatus.Rejected,
-                NRuleEngineErrorCodes.InputConstraintViolated, "An input value violates its declared constraints."),
+                NRuleEngineErrorCodes.InputConstraintViolated, "输入值不符合声明的约束。"),
             "MultipleWrite" => (RuleExecutionStatus.Failed, NRuleEngineErrorCodes.MultipleWriteConflict,
-                "A variable was assigned more than once."),
+                "同一变量被重复赋值。"),
             "MissingOutput" => (RuleExecutionStatus.Failed, NRuleEngineErrorCodes.RequiredOutputMissing,
-                "A required output was not produced."),
+                "未生成必需的输出变量。"),
             "ConditionFailed" or "AssignmentFailed" => (RuleExecutionStatus.Failed,
-                NRuleEngineErrorCodes.ExpressionEvaluationFailed, "Rule evaluation failed."),
+                NRuleEngineErrorCodes.ExpressionEvaluationFailed, "规则求值失败。"),
             _ => (RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.ScenarioContractMismatch,
-                "The published revision cannot be evaluated with its pinned contract.")
+                "已发布修订无法使用其锁定的契约求值。")
         };
         var data = new Dictionary<string, object?>();
         if (outcome.ErrorPath is not null)
@@ -276,12 +279,16 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         return Error(executionId, status, code, message, modelId, revisionId, outcome.BindingId, data);
     }
 
+    /// <summary>把内部 JSON 输出转换为可由响应独立持有的值。</summary>
+    /// <remarks>核心逻辑：复制文档根节点以避免释放文档后失效；调用时机：执行成功并组装输出时。</remarks>
     private static JsonElement ParseValue(string json)
     {
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
     }
 
+    /// <summary>生成带稳定错误码及定位数据的执行结果。</summary>
+    /// <remarks>核心逻辑：补入模型、修订和绑定标识并保持错误数据结构；调用时机：执行遇到可预期失败时。</remarks>
     private static RuleExecutionResultDto Error(Guid executionId, RuleExecutionStatus status, string code,
         string message, Guid? modelId = null, Guid? revisionId = null, Guid? bindingId = null,
         Dictionary<string, object?>? data = null)

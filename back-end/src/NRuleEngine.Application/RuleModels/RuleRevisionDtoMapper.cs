@@ -11,6 +11,7 @@ namespace NRuleEngine.Application.RuleModels;
 internal static class RuleRevisionDtoMapper
 {
     /// <summary>将修订快照映射为完整详情，规则按执行顺序展示。</summary>
+    /// <remarks>核心逻辑：按顺序映射变量、规则、绑定和门禁内容；调用时机：应用服务返回完整修订详情时。</remarks>
     public static RuleRevisionDto ToDto(RuleModelRevision revision)
     {
         var dto = new RuleRevisionDto(revision.Id, revision.RuleModelId, revision.RevisionNo, revision.BasedOnRevisionId,

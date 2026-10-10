@@ -42,7 +42,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     public VariableDefinition GetVariable(Guid stableKey)
     {
         return _variables.SingleOrDefault(v => v.StableKey == stableKey)
-            ?? throw new BusinessException(NRuleEngineErrorCodes.VariableNotFound);
+            ?? throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.VariableNotFound);
     }
     private List<RuleDefinition> _rules = [];
     /// <summary>修订中的规则及其赋值。</summary>
@@ -64,7 +64,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         if (revisionNo < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(revisionNo));
+            throw new ArgumentOutOfRangeException(nameof(revisionNo), "修订号必须大于零。");
         }
         RuleModelId = modelId;
         RevisionNo = revisionNo;
@@ -81,6 +81,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>复制修订内容到新草稿；实体 ID 更新，变量 StableKey 保留。</summary>
+    /// <remarks>核心逻辑：重建规则、绑定和门禁实体并保留变量稳定键；调用时机：从历史或活动修订创建草稿时。</remarks>
     public static RuleModelRevision CopyDraft(Guid id, Guid modelId, int revisionNo, RuleModelRevision source)
     {
         // 新草稿保留跨修订稳定标识，但每个变量获得新的实体标识。
@@ -104,13 +105,14 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>新增规则，并阻止相同优先级下的顺序值冲突。</summary>
+    /// <remarks>核心逻辑：检查草稿状态与排序组合后加入规则；调用时机：编制规则草稿时。</remarks>
     public RuleDefinition AddRule(Guid id, string name, int priority, int sortOrder, bool isEnabled,
         string? conditionSource, string conditionAstJson)
     {
         EnsureDraft();
         if (_rules.Any(r => r.Priority == priority && r.SortOrder == sortOrder))
         {
-            throw new ArgumentException("Rule priority and sort order must be unique together.");
+            throw new ArgumentException("规则的优先级与排序值组合不能重复。");
         }
         var rule = new RuleDefinition(id, Id, name, priority, sortOrder, isEnabled, conditionSource,
             conditionAstJson, Variables);
@@ -124,7 +126,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         EnsureDraft();
         if (!Enum.IsDefined(mode) || !Enum.IsDefined(writePolicy))
         {
-            throw new ArgumentException("Unsupported execution semantics.");
+            throw new ArgumentException("不支持的执行语义。");
         }
         ExecutionMode = mode;
         MultipleWritePolicy = writePolicy;
@@ -137,7 +139,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
-            ?? throw new ArgumentException("Rule does not belong to this revision.");
+            ?? throw new ArgumentException("规则不属于此修订。");
         var assignment = new RuleAssignment(assignmentId, ruleId, targetKey, sourceKind, constantJson,
             expressionSource, expressionAstJson, sortOrder, Variables);
         rule.AddAssignment(assignment);
@@ -151,7 +153,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         EnsureDraft();
         if (contract.ScenarioCode != ScenarioCode || contract.ContractVersion != ContractVersion)
         {
-            throw new ArgumentException("Binding contract differs from revision contract.");
+            throw new ArgumentException("绑定契约与修订契约不一致。");
         }
         var binding = new ScenarioBinding(id, Id, contract, priority);
         foreach (var criterion in criteria)
@@ -167,7 +169,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
-            ?? throw new ArgumentException("Rule does not belong to this revision.");
+            ?? throw new ArgumentException("规则不属于此修订。");
         _rules.Remove(rule);
     }
 
@@ -177,10 +179,10 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
-            ?? throw new ArgumentException("Rule does not belong to this revision.");
+            ?? throw new ArgumentException("规则不属于此修订。");
         if (_rules.Any(r => r.Id != ruleId && r.Priority == priority && r.SortOrder == sortOrder))
         {
-            throw new ArgumentException("Rule priority and sort order must be unique together.");
+            throw new ArgumentException("规则的优先级与排序值组合不能重复。");
         }
         rule.Update(name, priority, sortOrder, isEnabled, conditionSource, conditionAstJson, Variables);
     }
@@ -190,7 +192,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
-            ?? throw new ArgumentException("Rule does not belong to this revision.");
+            ?? throw new ArgumentException("规则不属于此修订。");
         rule.RemoveAssignment(assignmentId);
     }
 
@@ -201,7 +203,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
-            ?? throw new ArgumentException("Rule does not belong to this revision.");
+            ?? throw new ArgumentException("规则不属于此修订。");
         rule.UpdateAssignment(assignmentId, targetKey, sourceKind, constantJson, expressionSource,
             expressionAstJson, sortOrder, Variables);
     }
@@ -211,7 +213,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var binding = _bindings.SingleOrDefault(b => b.Id == bindingId)
-            ?? throw new ArgumentException("Binding does not belong to this revision.");
+            ?? throw new ArgumentException("绑定不属于此修订。");
         _bindings.Remove(binding);
     }
 
@@ -221,10 +223,10 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var binding = _bindings.SingleOrDefault(b => b.Id == bindingId)
-            ?? throw new ArgumentException("Binding does not belong to this revision.");
+            ?? throw new ArgumentException("绑定不属于此修订。");
         if (contract.ScenarioCode != ScenarioCode || contract.ContractVersion != ContractVersion)
         {
-            throw new ArgumentException("Binding contract differs from revision contract.");
+            throw new ArgumentException("绑定契约与修订契约不一致。");
         }
         binding.Update(contract, priority, criteria);
     }
@@ -236,13 +238,13 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         RuleCatalog.ValidateType(type);
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Variable code and name are required.");
+            throw new ArgumentException("必须提供变量编码和名称。");
         }
         code = code.Trim();
         name = name.Trim();
         if (Variables.Any(v => v.Code == code))
         {
-            throw new InvalidOperationException($"Duplicate variable code: {code}.");
+            throw new InvalidOperationException($"变量编码重复：{code}。");
         }
         var variable = VariableDefinition.NewIntermediate(id, Id, Guid.NewGuid(), code, name, type);
         _variables.Add(variable);
@@ -255,14 +257,14 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         EnsureDraft();
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Variable code and name are required.");
+            throw new ArgumentException("必须提供变量编码和名称。");
         }
         code = code.Trim();
         name = name.Trim();
         var variable = GetVariable(stableKey);
         if (Variables.Any(v => v != variable && v.Code == code))
         {
-            throw new InvalidOperationException($"Duplicate variable code: {code}.");
+            throw new InvalidOperationException($"变量编码重复：{code}。");
         }
         variable.Rename(code, name);
     }
@@ -287,6 +289,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>仅删除没有引用的草稿中间变量；契约变量及已发布修订保持不变。</summary>
+    /// <remarks>核心逻辑：先查找所有引用，再仅删除未被引用的用户变量；调用时机：维护者删除草稿中间变量时。</remarks>
     public void RemoveIntermediate(Guid stableKey)
     {
         EnsureDraft();
@@ -294,13 +297,13 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         if (variable.Origin != RuleVariableOrigin.UserDefined ||
             variable.Direction != RuleVariableDirection.Intermediate)
         {
-            throw new ArgumentException("Only user-defined intermediate variables can be removed.");
+            throw new ArgumentException("只能删除用户定义的中间变量。");
         }
         var references = RuleRevisionImpactAnalyzer.GetVariableReferences(this, stableKey)
             .Where(x => x.BlocksVariableDeletion).ToArray();
         if (references.Length > 0)
         {
-            throw new BusinessException(NRuleEngineErrorCodes.VariableReferenced)
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.VariableReferenced)
                 .WithData("References", references.Select(x => x.Path).Distinct().ToArray());
         }
         _variables.Remove(variable);
@@ -320,7 +323,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         EnsureDraft();
         if (_gateCases.Any(c => c.Name == name?.Trim()))
         {
-            throw new ArgumentException("Gate case name must be unique in a revision.");
+            throw new ArgumentException("同一修订内的门禁用例名称不能重复。");
         }
         var gateCase = new ReleaseGateCase(id, Id, name, contextJson, inputsJson, expectedOutputsJson);
         _gateCases.Add(gateCase);
@@ -332,21 +335,22 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var gateCase = _gateCases.SingleOrDefault(c => c.Id == gateCaseId)
-            ?? throw new ArgumentException("Gate case does not belong to this revision.");
+            ?? throw new ArgumentException("门禁用例不属于此修订。");
         _gateCases.Remove(gateCase);
     }
 
     /// <summary>通过门禁后冻结本修订及其内容哈希。</summary>
+    /// <remarks>核心逻辑：检查草稿状态并冻结内容哈希与变更说明；调用时机：发布服务通过全部门禁后。</remarks>
     public void Publish(string contentHash, string? changeSummary)
     {
         EnsureDraft();
         if (string.IsNullOrWhiteSpace(contentHash))
         {
-            throw new ArgumentException("Content hash is required.", nameof(contentHash));
+            throw new ArgumentException("必须提供内容哈希。", nameof(contentHash));
         }
         if (changeSummary?.Length > 2048)
         {
-            throw new ArgumentException("Change summary exceeds 2048 characters.", nameof(changeSummary));
+            throw new ArgumentException("变更说明不能超过 2048 个字符。", nameof(changeSummary));
         }
         ContentHash = contentHash;
         ChangeSummary = changeSummary;
@@ -358,7 +362,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         if (Status != RuleRevisionStatus.Draft)
         {
-            throw new InvalidOperationException("Only a draft can be edited.");
+            throw new InvalidOperationException("只能编辑草稿修订。");
         }
     }
 }

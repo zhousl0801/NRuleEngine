@@ -9,6 +9,7 @@ namespace NRuleEngine.Domain.Release;
 public static class RuleRevisionContentHasher
 {
     /// <summary>计算带算法及快照版本前缀的 SHA-256 内容哈希。</summary>
+    /// <remarks>核心逻辑：规范化修订内容后计算与实体标识无关的哈希；调用时机：发布时记录快照或运行时校验完整性时。</remarks>
     public static string Compute(string appCode, RuleModelRevision revision,
         CancellationToken cancellationToken = default)
     {

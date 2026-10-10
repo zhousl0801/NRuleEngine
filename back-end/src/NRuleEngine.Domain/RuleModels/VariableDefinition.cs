@@ -92,7 +92,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
     {
         if (Origin != RuleVariableOrigin.UserDefined)
         {
-            throw new InvalidOperationException("Contract variable code and name cannot be changed through this operation.");
+            throw new InvalidOperationException("此操作不能修改契约变量的编码和名称。");
         }
         Code = code;
         Name = name;
@@ -103,7 +103,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
     {
         if (Origin != RuleVariableOrigin.Contract || Direction != RuleVariableDirection.Input)
         {
-            throw new ArgumentException("Only contract inputs can use this operation.");
+            throw new ArgumentException("此操作只能用于契约输入变量。");
         }
         ValidateDefault(this, defaultValueJson);
         DefaultValueJson = defaultValueJson;
@@ -115,11 +115,11 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
     {
         if (Origin != RuleVariableOrigin.UserDefined || Direction != RuleVariableDirection.Intermediate)
         {
-            throw new ArgumentException("Only user-defined intermediate variables can be updated.");
+            throw new ArgumentException("只能更新用户定义的中间变量。");
         }
         if (unit?.Length > 64 || defaultValueJson?.Length > 4096)
         {
-            throw new ArgumentException("Variable property exceeds its size limit.");
+            throw new ArgumentException("变量属性超过长度限制。");
         }
         var type = new RuleTypeDescriptor(ValueKind, IsNullable, precision, Scale, EnumCode);
         RuleCatalog.ValidateType(type);
@@ -142,7 +142,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
         }
         if (defaultValueJson.Length > 4096)
         {
-            throw new ArgumentException("Default value exceeds its size limit.");
+            throw new ArgumentException("默认值超过长度限制。");
         }
         try
         {
@@ -151,7 +151,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
         }
         catch (JsonException ex)
         {
-            throw new ArgumentException("Default value is not valid JSON.", nameof(defaultValueJson), ex);
+            throw new ArgumentException("默认值不是有效的 JSON。", nameof(defaultValueJson), ex);
         }
     }
 }

@@ -53,7 +53,7 @@ public sealed class RuleModel : AuditedAggregateRoot<Guid>
     {
         if (Status != RuleModelStatus.Active)
         {
-            throw new InvalidOperationException("Archived model cannot create a draft.");
+            throw new InvalidOperationException("已归档的模型不能创建草稿。");
         }
 
         return NextRevisionNo++;
@@ -70,7 +70,7 @@ public sealed class RuleModel : AuditedAggregateRoot<Guid>
     {
         if (Status != RuleModelStatus.Active)
         {
-            throw new InvalidOperationException("Archived model cannot activate a revision.");
+            throw new InvalidOperationException("已归档的模型不能激活修订。");
         }
         ActiveRevisionId = revisionId;
         return NextReleaseNo++;
@@ -78,6 +78,6 @@ public sealed class RuleModel : AuditedAggregateRoot<Guid>
 
     private static string Required(string value, string name)
     {
-        return string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Value is required.", name) : value.Trim();
+        return string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("必须提供值。", name) : value.Trim();
     }
 }

@@ -14,6 +14,7 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void SimulatesDraftAndKeepsRulesIndependentAcrossCopies()
     {
+        // 用高低两档输入分别命中主规则与兜底规则，再确认复制后实体标识独立、变量稳定键不变。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         var input = revision.Variables.Single(v => v.Code == "inputWidth");
@@ -62,6 +63,7 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void RejectsInvalidExpressionAndAmbiguousBinding()
     {
+        // 先验证未知变量和赋值类型会被拒绝，再构造同优先级重叠绑定检查歧义诊断。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         var output = revision.Variables.Single(v => v.Code == "targetWidth");
@@ -84,6 +86,9 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void RejectsUnknownInputAndUnsupportedAstVersion()
     {
+        // 分别从 AST 版本和试算输入两条入口验证契约限制。
+        var malformed = Assert.Throws<JsonException>(() => RuleExpression.Parse("{"));
+        Assert.Contains("表达式 JSON 格式无效", malformed.Message);
         Assert.Throws<ArgumentException>(() => RuleExpression.Parse("{\"version\":2,\"root\":{\"op\":\"constant\"}}"));
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, SimulatedSizeExpansionScenario.Contract);
         var rule = revision.AddRule(Guid.NewGuid(), "all", 1, 1, true, null,
@@ -104,6 +109,7 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void DetectsSequentialCycleAndRepeatedWrites()
     {
+        // 构造顺序执行依赖和重复写入，确认校验器拦截不安全的规则组合。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         revision.SetExecutionSemantics(RuleExecutionMode.Sequential, MultipleWritePolicy.ErrorOnMultipleWrite);
@@ -131,6 +137,7 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void ValidatesFunctionsTypesAndSourceLocation()
     {
+        // 以错误函数参数触发表达式诊断，并核对错误位置随异常保留。
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1,
             SimulatedSizeExpansionScenario.Contract);
         var width = revision.Variables.Single(v => v.Code == "inputWidth");
@@ -159,6 +166,7 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void DisjointNumericRangesAreNotReportedAsAmbiguous()
     {
+        // 用不相交的数值区间证明同优先级绑定可安全共存。
         var contract = SimulatedSizeExpansionScenario.Contract with
         {
             BindingDimensions = [new BindingDimensionContract("inputWidth", "Input width", RuleValueKind.Decimal,
@@ -184,6 +192,7 @@ public sealed class RuleAuthoringTests
     [Fact]
     public void ContentHashIgnoresEntityIdsAndJsonPropertyOrderAcrossDraftCopies()
     {
+        // 比较复制前后及 JSON 字段顺序变化后的哈希，确认只由业务内容决定。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         var output = revision.Variables.Single(x => x.Code == "targetWidth");

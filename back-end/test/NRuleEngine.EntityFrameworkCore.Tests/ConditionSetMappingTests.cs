@@ -11,6 +11,7 @@ public sealed class ConditionSetMappingTests
     [Fact]
     public void PersistsInputSnapshotAndEnforcesStableCodeUniqueness()
     {
+        // 保存输入快照后重读，再触发唯一约束验证数据库映射。
         using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
         var options = new DbContextOptionsBuilder<NRuleEngineDbContext>().UseSqlite(connection).Options;
