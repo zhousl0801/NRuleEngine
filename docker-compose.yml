@@ -1,0 +1,17 @@
+services:
+  nrule-engine:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile
+    image: nrule-engine-host:local
+    environment:
+      Urls: http://0.0.0.0:8080
+      ConnectionStrings__Default: Data Source=/app/data/nrule-engine.sqlite
+      DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
+    ports:
+      - "127.0.0.1:5088:8080"
+    volumes:
+      - nrule-engine-data:/app/data
+
+volumes:
+  nrule-engine-data:
