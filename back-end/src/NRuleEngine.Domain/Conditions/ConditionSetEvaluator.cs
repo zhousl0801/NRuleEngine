@@ -8,12 +8,7 @@ public static class ConditionSetEvaluator
 {
     /// <summary>验证指定候选与输入后求值；无命中返回成功的空集合。</summary>
     /// <remarks>核心逻辑：先验证候选和输入，再按优先级与匹配模式裁决布尔结果；调用时机：应用服务执行条件集判定时。</remarks>
-    public static ConditionEvaluationResult Evaluate(
-        IReadOnlyCollection<ConditionCandidate> candidates,
-        ConditionScenarioDescriptor contract,
-        IReadOnlyDictionary<string, string> inputsJson,
-        ConditionMatchMode mode,
-        CancellationToken cancellationToken = default)
+    public static ConditionEvaluationResult Evaluate(IReadOnlyCollection<ConditionCandidate> candidates, ConditionScenarioDescriptor contract, IReadOnlyDictionary<string, string> inputsJson, ConditionMatchMode mode, CancellationToken cancellationToken = default)
     {
         if (!Enum.IsDefined(mode))
         {

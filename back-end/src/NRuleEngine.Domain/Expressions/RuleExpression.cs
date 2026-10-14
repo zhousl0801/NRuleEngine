@@ -10,6 +10,7 @@ public sealed class RuleExpression
 {
     /// <summary>AST 格式版本；当前只接受 1。</summary>
     public int Version { get; set; }
+
     /// <summary>本次表达式的根节点。</summary>
     public RuleExpressionNode Root { get; set; } = new();
 
@@ -36,6 +37,7 @@ public sealed class RuleExpression
         {
             throw new ArgumentException("不支持的表达式版本或缺少根节点。");
         }
+
         return expression;
     }
 

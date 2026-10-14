@@ -10,22 +10,31 @@ public sealed class RuleModel : AuditedAggregateRoot<Guid>
 {
     /// <summary>接入应用在代码中注册的编码。</summary>
     public string AppCode { get; private set; } = null!;
+
     /// <summary>模型所属的场景编码。</summary>
     public string ScenarioCode { get; private set; } = null!;
+
     /// <summary>创建首个草稿时使用的场景契约版本。</summary>
     public string InitialContractVersion { get; private set; } = null!;
+
     /// <summary>应用内唯一的模型业务编码。</summary>
     public string Code { get; private set; } = null!;
+
     /// <summary>模型的展示名称。</summary>
     public string Name { get; private set; } = null!;
+
     /// <summary>供维护者阅读的模型说明。</summary>
     public string? Description { get; private set; }
+
     /// <summary>当前激活的发布修订；尚未发布时为空。</summary>
     public Guid? ActiveRevisionId { get; private set; }
+
     /// <summary>模型是否仍允许创建草稿。</summary>
     public RuleModelStatus Status { get; private set; }
+
     /// <summary>下次创建修订时将分配的模型内序号。</summary>
     public int NextRevisionNo { get; private set; }
+
     /// <summary>下次发布或回滚记录使用的模型内序号。</summary>
     public int NextReleaseNo { get; private set; }
 
@@ -34,8 +43,14 @@ public sealed class RuleModel : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>按已选场景契约创建尚未发布的规则模型。</summary>
-    public RuleModel(Guid id, string appCode, string scenarioCode, string contractVersion, string code, string name, string? description)
-        : base(id)
+    public RuleModel(
+        Guid id,
+        string appCode,
+        string scenarioCode,
+        string contractVersion,
+        string code,
+        string name,
+        string? description) : base(id)
     {
         AppCode = Required(appCode, nameof(appCode));
         ScenarioCode = Required(scenarioCode, nameof(scenarioCode));
@@ -72,6 +87,7 @@ public sealed class RuleModel : AuditedAggregateRoot<Guid>
         {
             throw new InvalidOperationException("已归档的模型不能激活修订。");
         }
+
         ActiveRevisionId = revisionId;
         return NextReleaseNo++;
     }

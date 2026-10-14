@@ -10,8 +10,7 @@ public static class RuleRevisionContentHasher
 {
     /// <summary>计算带算法及快照版本前缀的 SHA-256 内容哈希。</summary>
     /// <remarks>核心逻辑：规范化修订内容后计算与实体标识无关的哈希；调用时机：发布时记录快照或运行时校验完整性时。</remarks>
-    public static string Compute(string appCode, RuleModelRevision revision,
-        CancellationToken cancellationToken = default)
+    public static string Compute(string appCode, RuleModelRevision revision, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var snapshot = JsonSerializer.SerializeToElement(new
@@ -35,8 +34,7 @@ public static class RuleRevisionContentHasher
                     constant = Parse(a.ConstantValueJson), expression = Parse(a.ExpressionAstJson)
                 })
             }),
-            bindings = revision.Bindings.OrderByDescending(x => x.Priority)
-                .ThenBy(BindingSortKey, StringComparer.Ordinal).Select(x => new
+            bindings = revision.Bindings.OrderByDescending(x => x.Priority).ThenBy(BindingSortKey, StringComparer.Ordinal).Select(x => new
                 {
                     x.Priority,
                     criteria = x.Criteria.OrderBy(c => c.DimensionCode).Select(c => new
@@ -51,14 +49,12 @@ public static class RuleRevisionContentHasher
             })
         });
         cancellationToken.ThrowIfCancellationRequested();
-        return "sha256:v1:" + Convert.ToHexString(SHA256.HashData(CanonicalBytes(snapshot, cancellationToken)))
-            .ToLowerInvariant();
+        return "sha256:v1:" + Convert.ToHexString(SHA256.HashData(CanonicalBytes(snapshot, cancellationToken))).ToLowerInvariant();
     }
 
     private static string BindingSortKey(ScenarioBinding binding)
     {
-        var criteria = JsonSerializer.SerializeToElement(binding.Criteria.OrderBy(x => x.DimensionCode)
-            .Select(x => new { x.DimensionCode, x.Operator, value = Parse(x.TypedValueJson) }));
+        var criteria = JsonSerializer.SerializeToElement(binding.Criteria.OrderBy(x => x.DimensionCode).Select(x => new { x.DimensionCode, x.Operator, value = Parse(x.TypedValueJson) }));
         return Convert.ToHexString(CanonicalBytes(criteria));
     }
 
@@ -78,12 +74,12 @@ public static class RuleRevisionContentHasher
         {
             return null;
         }
+
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
     }
 
-    private static void WriteCanonical(Utf8JsonWriter writer, JsonElement value,
-        CancellationToken cancellationToken)
+    private static void WriteCanonical(Utf8JsonWriter writer, JsonElement value, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (value.ValueKind == JsonValueKind.Object)

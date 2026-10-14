@@ -17,9 +17,7 @@ public class EfCoreReleaseScopeRepository
     /// <summary>更新已有协调行；首次发布插入唯一行，竞争创建会由数据库唯一约束拒绝。</summary>
     public virtual async Task AcquireAsync(string appCode, string scenarioCode)
     {
-        var changed = await (await GetDbSetAsync())
-            .Where(x => x.AppCode == appCode && x.ScenarioCode == scenarioCode)
-            .ExecuteUpdateAsync(x => x.SetProperty(s => s.Version, s => s.Version + 1));
+        var changed = await (await GetDbSetAsync()).Where(x => x.AppCode == appCode && x.ScenarioCode == scenarioCode).ExecuteUpdateAsync(x => x.SetProperty(s => s.Version, s => s.Version + 1));
         if (changed == 0)
         {
             await InsertAsync(new ReleaseScope(Guid.NewGuid(), appCode, scenarioCode), autoSave: true);

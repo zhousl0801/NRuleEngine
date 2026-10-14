@@ -50,16 +50,14 @@ public sealed class RulesController : AbpControllerBase
 
     /// <summary>修改草稿赋值。</summary>
     [HttpPut("{ruleId:guid}/assignments/{assignmentId:guid}")]
-    public Task<RuleRevisionDto> UpdateAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId,
-        [FromBody] AddAssignmentDto input)
+    public Task<RuleRevisionDto> UpdateAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId, [FromBody] AddAssignmentDto input)
     {
         return _rules.UpdateAssignmentAsync(revisionId, ruleId, assignmentId, input);
     }
 
     /// <summary>删除草稿规则赋值。</summary>
     [HttpDelete("{ruleId:guid}/assignments/{assignmentId:guid}")]
-    public Task<RuleRevisionDto> RemoveAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId,
-        [FromBody] DeleteDraftItemDto input)
+    public Task<RuleRevisionDto> RemoveAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId, [FromBody] DeleteDraftItemDto input)
     {
         return _rules.RemoveAssignmentAsync(revisionId, ruleId, assignmentId, input);
     }

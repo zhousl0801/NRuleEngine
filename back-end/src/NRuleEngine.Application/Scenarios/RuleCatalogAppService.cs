@@ -47,8 +47,7 @@ public class RuleCatalogAppService : ApplicationService, IRuleCatalogAppService
 
     /// <summary>按精确版本获取条件判定场景契约。</summary>
     /// <remarks>核心逻辑：按应用、场景和版本精确读取条件契约；调用时机：维护界面打开指定条件契约时。</remarks>
-    public virtual Task<ConditionScenarioDescriptor> GetConditionScenarioAsync(string appCode, string scenarioCode,
-        string contractVersion)
+    public virtual Task<ConditionScenarioDescriptor> GetConditionScenarioAsync(string appCode, string scenarioCode, string contractVersion)
     {
         return Task.FromResult(_catalog.GetConditionScenario(appCode, scenarioCode, contractVersion));
     }

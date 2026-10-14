@@ -14,6 +14,5 @@ public interface IRuleModelRevisionRepository : IRepository<RuleModelRevision, G
     Task<List<RuleModelRevision>> GetListByModelAsync(Guid modelId);
 
     /// <summary>一次读取活动模型对应的多份完整修订，避免逐模型数据库查询。</summary>
-    Task<List<RuleModelRevision>> GetByIdsWithDetailsAsync(IReadOnlyCollection<Guid> revisionIds,
-        CancellationToken cancellationToken = default);
+    Task<List<RuleModelRevision>> GetByIdsWithDetailsAsync(IReadOnlyCollection<Guid> revisionIds, CancellationToken cancellationToken = default);
 }

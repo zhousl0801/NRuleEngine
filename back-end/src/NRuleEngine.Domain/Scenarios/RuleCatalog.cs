@@ -18,8 +18,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
     /// 按注册顺序装配应用与场景；装配完成后目录保持只读。
     /// </summary>
     /// <remarks>核心逻辑：先注册应用，再注册场景并禁止重复初始化；调用时机：宿主启动并装配扩展贡献者时。</remarks>
-    public void Initialize(IEnumerable<IRuleAppContributor> appContributors, IEnumerable<IRuleScenarioContributor> scenarioContributors,
-        IEnumerable<IConditionScenarioContributor>? conditionContributors = null)
+    public void Initialize(IEnumerable<IRuleAppContributor> appContributors, IEnumerable<IRuleScenarioContributor> scenarioContributors, IEnumerable<IConditionScenarioContributor>? conditionContributors = null)
     {
         if (_initialized)
         {
@@ -72,8 +71,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
 
         if (!_apps.ContainsKey(descriptor.AppCode))
         {
-            throw new InvalidOperationException(
-                $"场景 {descriptor.ScenarioCode} 引用了未注册的应用编码 {descriptor.AppCode}。");
+            throw new InvalidOperationException($"场景 {descriptor.ScenarioCode} 引用了未注册的应用编码 {descriptor.AppCode}。");
         }
 
         var variables = descriptor.Inputs.Concat(descriptor.RequiredOutputs).ToArray();
@@ -104,13 +102,11 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         {
             Inputs = Array.AsReadOnly(descriptor.Inputs.ToArray()),
             RequiredOutputs = Array.AsReadOnly(descriptor.RequiredOutputs.ToArray()),
-            BindingDimensions = Array.AsReadOnly(descriptor.BindingDimensions
-                .Select(d => d with { AllowedOperators = Array.AsReadOnly(d.AllowedOperators.ToArray()) }).ToArray())
+            BindingDimensions = Array.AsReadOnly(descriptor.BindingDimensions.Select(d => d with { AllowedOperators = Array.AsReadOnly(d.AllowedOperators.ToArray()) }).ToArray())
         };
         if (!_scenarios.TryAdd((descriptor.AppCode, descriptor.ScenarioCode, descriptor.ContractVersion), copy))
         {
-            throw new InvalidOperationException(
-                $"场景契约重复：{descriptor.AppCode}/{descriptor.ScenarioCode}/{descriptor.ContractVersion}。");
+            throw new InvalidOperationException($"场景契约重复：{descriptor.AppCode}/{descriptor.ScenarioCode}/{descriptor.ContractVersion}。");
         }
     }
 
@@ -128,8 +124,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.AppNotRegistered).WithData("AppCode", appCode);
         }
 
-        return _scenarios.Values.Where(x => x.AppCode == appCode)
-            .OrderBy(x => x.ScenarioCode).ThenBy(x => x.ContractVersion).ToArray();
+        return _scenarios.Values.Where(x => x.AppCode == appCode).OrderBy(x => x.ScenarioCode).ThenBy(x => x.ContractVersion).ToArray();
     }
 
     /// <summary>按应用、场景和精确版本读取契约，缺失时给出业务错误码。</summary>
@@ -148,8 +143,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         var code = _scenarios.Keys.Any(k => k.App == appCode && k.Scenario == scenarioCode)
             ? NRuleEngineErrorCodes.ContractVersionNotSupported
             : NRuleEngineErrorCodes.ScenarioNotRegistered;
-        throw NRuleEngineBusinessExceptions.Create(code).WithData("AppCode", appCode)
-            .WithData("ScenarioCode", scenarioCode).WithData("ContractVersion", contractVersion);
+        throw NRuleEngineBusinessExceptions.Create(code).WithData("AppCode", appCode).WithData("ScenarioCode", scenarioCode).WithData("ContractVersion", contractVersion);
     }
 
     /// <summary>注册只声明入口变量的条件判定场景。</summary>
@@ -161,16 +155,19 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         {
             throw new ArgumentException("条件场景必须包含应用、编码和契约版本。");
         }
+
         if (!_apps.ContainsKey(descriptor.AppCode))
         {
             throw new InvalidOperationException("条件场景引用了未注册的应用。");
         }
+
         if (descriptor.Inputs.Any(v => string.IsNullOrWhiteSpace(v.Code) || string.IsNullOrWhiteSpace(v.Name) ||
                                        v.Direction != RuleVariableDirection.Input) ||
             descriptor.Inputs.Select(v => v.Code).Distinct(StringComparer.Ordinal).Count() != descriptor.Inputs.Count)
         {
             throw new ArgumentException("条件场景的输入契约无效。");
         }
+
         foreach (var input in descriptor.Inputs)
         {
             ValidateType(input.Type);
@@ -189,8 +186,8 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.AppNotRegistered).WithData("AppCode", appCode);
         }
-        return _conditionScenarios.Values.Where(x => x.AppCode == appCode)
-            .OrderBy(x => x.ScenarioCode).ThenBy(x => x.ContractVersion).ToArray();
+
+        return _conditionScenarios.Values.Where(x => x.AppCode == appCode).OrderBy(x => x.ScenarioCode).ThenBy(x => x.ContractVersion).ToArray();
     }
 
     /// <summary>按固定版本查找条件判定场景。</summary>
@@ -200,14 +197,15 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.AppNotRegistered).WithData("AppCode", appCode);
         }
+
         if (_conditionScenarios.TryGetValue((appCode, scenarioCode, contractVersion), out var descriptor))
         {
             return descriptor;
         }
+
         var code = _conditionScenarios.Keys.Any(k => k.App == appCode && k.Scenario == scenarioCode)
             ? NRuleEngineErrorCodes.ContractVersionNotSupported : NRuleEngineErrorCodes.ScenarioNotRegistered;
-        throw NRuleEngineBusinessExceptions.Create(code).WithData("AppCode", appCode)
-            .WithData("ScenarioCode", scenarioCode).WithData("ContractVersion", contractVersion);
+        throw NRuleEngineBusinessExceptions.Create(code).WithData("AppCode", appCode).WithData("ScenarioCode", scenarioCode).WithData("ContractVersion", contractVersion);
     }
 
     /// <summary>检查首版变量类型、Decimal 精度和 Enum 编码。</summary>
@@ -218,6 +216,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         {
             throw new ArgumentNullException(nameof(type), "必须提供变量类型描述。");
         }
+
         if (!Enum.IsDefined(type.Kind))
         {
             throw new ArgumentException("不支持的变量值类型。");

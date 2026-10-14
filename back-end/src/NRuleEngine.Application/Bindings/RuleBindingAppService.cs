@@ -32,8 +32,7 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
         var model = await _models.GetAsync(revision.RuleModelId);
         var contract = _catalog.GetScenario(model.AppCode, revision.ScenarioCode, revision.ContractVersion);
-        revision.AddBinding(GuidGenerator.Create(), contract, input.Priority,
-            input.Criteria.Select(c => (c.DimensionCode, c.Operator, c.TypedValueJson)).ToArray());
+        revision.AddBinding(GuidGenerator.Create(), contract, input.Priority, input.Criteria.Select(c => (c.DimensionCode, c.Operator, c.TypedValueJson)).ToArray());
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
@@ -46,16 +45,14 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
         var model = await _models.GetAsync(revision.RuleModelId);
         var contract = _catalog.GetScenario(model.AppCode, revision.ScenarioCode, revision.ContractVersion);
-        revision.UpdateBinding(bindingId, contract, input.Priority,
-            input.Criteria.Select(c => (c.DimensionCode, c.Operator, c.TypedValueJson)).ToArray());
+        revision.UpdateBinding(bindingId, contract, input.Priority, input.Criteria.Select(c => (c.DimensionCode, c.Operator, c.TypedValueJson)).ToArray());
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
 
     /// <summary>在并发检查后移除草稿绑定。</summary>
     /// <remarks>核心逻辑：确认修订版本后删除绑定并保存聚合；调用时机：维护者删除草稿绑定时。</remarks>
-    public virtual async Task<RuleRevisionDto> RemoveBindingAsync(Guid revisionId, Guid bindingId,
-        DeleteDraftItemDto input)
+    public virtual async Task<RuleRevisionDto> RemoveBindingAsync(Guid revisionId, Guid bindingId, DeleteDraftItemDto input)
     {
         var revision = await GetRevisionEntityAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);

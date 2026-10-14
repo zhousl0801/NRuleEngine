@@ -45,8 +45,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.DuplicateConditionSetCode);
         }
 
-        var set = new ConditionSet(GuidGenerator.Create(), input.AppCode, input.ScenarioCode,
-            input.ContractVersion, code, input.Name, input.Description);
+        var set = new ConditionSet(GuidGenerator.Create(), input.AppCode, input.ScenarioCode, input.ContractVersion, code, input.Name, input.Description);
         await _sets.InsertAsync(set, autoSave: true);
         var revision = new ConditionSetRevision(GuidGenerator.Create(), set.Id, set.AllocateRevisionNo(), contract);
         await _revisions.InsertAsync(revision, autoSave: true);
@@ -68,8 +67,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     {
         await _sets.GetAsync(setId);
         var revisions = await _revisions.GetListBySetAsync(setId);
-        return revisions.Select(x => new ConditionRevisionSummaryDto(x.Id, x.RevisionNo,
-            x.BasedOnRevisionId, x.Status, x.ContractVersion, x.ConcurrencyStamp)).ToArray();
+        return revisions.Select(x => new ConditionRevisionSummaryDto(x.Id, x.RevisionNo, x.BasedOnRevisionId, x.Status, x.ContractVersion, x.ConcurrencyStamp)).ToArray();
     }
 
     /// <summary>按发布序号倒序读取发布与回滚记录。</summary>
@@ -78,9 +76,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     {
         await _sets.GetAsync(setId);
         var records = await _records.GetListAsync(x => x.ConditionSetId == setId);
-        return records.OrderByDescending(x => x.ReleaseNo).Select(x => new ConditionReleaseDto(x.Id,
-            x.ActivatedRevisionId, x.PreviousRevisionId, x.ReleaseNo, x.Kind, x.ContentHash,
-            x.ChangeSummary)).ToArray();
+        return records.OrderByDescending(x => x.ReleaseNo).Select(x => new ConditionReleaseDto(x.Id, x.ActivatedRevisionId, x.PreviousRevisionId, x.ReleaseNo, x.Kind, x.ContentHash, x.ChangeSummary)).ToArray();
     }
 
     /// <summary>核对并发戳后归档条件集。</summary>
@@ -128,6 +124,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
             var contract = _catalog.GetConditionScenario(set.AppCode, set.ScenarioCode, set.InitialContractVersion);
             draft = new ConditionSetRevision(id, setId, revisionNo, contract);
         }
+
         await _revisions.InsertAsync(draft, autoSave: true);
         await _sets.UpdateAsync(set, autoSave: true);
         await uow.CompleteAsync();
@@ -179,9 +176,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         var number = set.Activate(revision.Id);
         await _revisions.UpdateAsync(revision, autoSave: true);
         await _sets.UpdateAsync(set, autoSave: true);
-        await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, revision.Id,
-            previous, number, ReleaseKind.Publish, hash, input.ChangeSummary,
-            gateCasesJson), autoSave: true);
+        await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, revision.Id, previous, number, ReleaseKind.Publish, hash, input.ChangeSummary, gateCasesJson), autoSave: true);
         await uow.CompleteAsync();
         return ToDto(set);
     }
@@ -210,8 +205,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         var previous = set.ActiveRevisionId;
         var number = set.Activate(target.Id);
         await _sets.UpdateAsync(set, autoSave: true);
-        await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, target.Id,
-            previous, number, ReleaseKind.Rollback, target.ContentHash, input.ChangeSummary), autoSave: true);
+        await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, target.Id, previous, number, ReleaseKind.Rollback, target.ContentHash, input.ChangeSummary), autoSave: true);
         await uow.CompleteAsync();
         return ToDto(set);
     }
@@ -258,9 +252,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
             return Error("InvalidInput", "输入值不是有效的 JSON。");
         }
         var result = ConditionSetEvaluator.Evaluate(candidates, contract, json, input.Mode);
-        return new ConditionEvaluationDto(result.Succeeded, result.Matched,
-            result.Matches.Select(x => new ConditionMatchDto(x.Code, x.ConditionSetId, x.RevisionId, x.Priority)).ToArray(),
-            result.ErrorCode, result.ErrorMessage);
+        return new ConditionEvaluationDto(result.Succeeded, result.Matched, result.Matches.Select(x => new ConditionMatchDto(x.Code, x.ConditionSetId, x.RevisionId, x.Priority)).ToArray(), result.ErrorCode, result.ErrorMessage);
     }
 
     /// <summary>将可预期的判定失败映射为协议结果。</summary>
@@ -272,8 +264,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
 
     /// <summary>要求正反样本均通过，并拒绝缺失或过大的输入。</summary>
     /// <remarks>核心逻辑：分别验证应命中和不应命中的样本；调用时机：发布条件集前执行门禁时。</remarks>
-    protected virtual bool GatePassed(ConditionSetRevision revision, ConditionScenarioDescriptor contract,
-        IReadOnlyList<ConditionGateCaseDto> cases)
+    protected virtual bool GatePassed(ConditionSetRevision revision, ConditionScenarioDescriptor contract, IReadOnlyList<ConditionGateCaseDto> cases)
     {
         if (cases.Count is < 2 or > 100 || cases.Any(x => x is null) ||
             !cases.Any(x => x.ExpectedMatch) || !cases.Any(x => !x.ExpectedMatch))
@@ -295,8 +286,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
                     return false;
                 }
 
-                if (!gateCase.Inputs.Keys.ToHashSet(StringComparer.Ordinal)
-                    .SetEquals(contract.Inputs.Select(x => x.Code)))
+                if (!gateCase.Inputs.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(contract.Inputs.Select(x => x.Code)))
                 {
                     return false;
                 }
@@ -354,20 +344,13 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
     protected virtual ConditionSetDto ToDto(ConditionSet set)
     {
-        return new ConditionSetDto(set.Id, set.AppCode, set.ScenarioCode, set.Code,
-            set.Name, set.Description, set.Status, set.ActiveRevisionId, set.ConcurrencyStamp);
+        return new ConditionSetDto(set.Id, set.AppCode, set.ScenarioCode, set.Code, set.Name, set.Description, set.Status, set.ActiveRevisionId, set.ConcurrencyStamp);
     }
 
     /// <summary>映射条件修订、输入稳定键及编制状态。</summary>
     /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
     protected virtual ConditionSetRevisionDto ToDto(ConditionSetRevision revision)
     {
-        return new ConditionSetRevisionDto(revision.Id, revision.ConditionSetId,
-            revision.RevisionNo, revision.BasedOnRevisionId, revision.Status, revision.ScenarioCode,
-            revision.ContractVersion, revision.Priority, revision.ConditionSource,
-            revision.ConditionAstJson, revision.ContentHash,
-            revision.Inputs.Select(input => new ConditionInputDto(input.StableKey, input.Code,
-                input.Name, input.ValueKind, input.IsNullable, input.Precision, input.Scale,
-                input.EnumCode)).ToArray(), revision.ConcurrencyStamp);
+        return new ConditionSetRevisionDto(revision.Id, revision.ConditionSetId, revision.RevisionNo, revision.BasedOnRevisionId, revision.Status, revision.ScenarioCode, revision.ContractVersion, revision.Priority, revision.ConditionSource, revision.ConditionAstJson, revision.ContentHash, revision.Inputs.Select(input => new ConditionInputDto(input.StableKey, input.Code, input.Name, input.ValueKind, input.IsNullable, input.Precision, input.Scale, input.EnumCode)).ToArray(), revision.ConcurrencyStamp);
     }
 }

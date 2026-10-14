@@ -2,9 +2,7 @@ using NRuleEngine.Host;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseAutofac();
-builder.Configuration.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: false)
-    .AddEnvironmentVariables()
-    .AddCommandLine(args);
+builder.Configuration.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: false).AddEnvironmentVariables().AddCommandLine(args);
 await builder.AddApplicationAsync<NRuleEngineHostModule>();
 
 var app = builder.Build();

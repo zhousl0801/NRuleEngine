@@ -11,6 +11,5 @@ public interface IRuleModelRepository : IRepository<RuleModel, Guid>
     Task<bool> ExistsAsync(string appCode, string code);
 
     /// <summary>按编码排序并按可选场景过滤模型。</summary>
-    Task<List<RuleModel>> GetListAsync(string appCode, string? scenarioCode,
-        CancellationToken cancellationToken = default);
+    Task<List<RuleModel>> GetListAsync(string appCode, string? scenarioCode, CancellationToken cancellationToken = default);
 }

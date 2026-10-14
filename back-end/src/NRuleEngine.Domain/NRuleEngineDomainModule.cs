@@ -23,9 +23,6 @@ public sealed class NRuleEngineDomainModule : AbpModule
     /// <summary>在宿主初始化时一次性冻结应用与场景契约目录。</summary>
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
     {
-        context.ServiceProvider.GetRequiredService<RuleCatalog>().Initialize(
-            context.ServiceProvider.GetServices<IRuleAppContributor>(),
-            context.ServiceProvider.GetServices<IRuleScenarioContributor>(),
-            context.ServiceProvider.GetServices<IConditionScenarioContributor>());
+        context.ServiceProvider.GetRequiredService<RuleCatalog>().Initialize(context.ServiceProvider.GetServices<IRuleAppContributor>(), context.ServiceProvider.GetServices<IRuleScenarioContributor>(), context.ServiceProvider.GetServices<IConditionScenarioContributor>());
     }
 }

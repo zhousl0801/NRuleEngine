@@ -11,7 +11,6 @@ public sealed class NRuleEngineDomainModuleTests : NRuleEngineTestBase<NRuleEngi
     public void ShouldInitializeDomainModule()
     {
         Assert.NotNull(ServiceProvider);
-        Assert.Equal("1.0", ServiceProvider.GetRequiredService<IRuleCatalog>()
-            .GetScenario("TEST-ODS", "size-expansion", "1.0").ContractVersion);
+        Assert.Equal("1.0", ServiceProvider.GetRequiredService<IRuleCatalog>().GetScenario("TEST-ODS", "size-expansion", "1.0").ContractVersion);
     }
 }

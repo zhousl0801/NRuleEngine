@@ -20,11 +20,9 @@ public class EfCoreConditionSetRepository : EfCoreRepository<NRuleEngineDbContex
     }
 
     /// <summary>按场景与明确候选编码批量载入条件集。</summary>
-    public virtual async Task<List<ConditionSet>> GetByCodesAsync(string appCode, string scenarioCode,
-        IReadOnlyCollection<string> codes, CancellationToken cancellationToken = default)
+    public virtual async Task<List<ConditionSet>> GetByCodesAsync(string appCode, string scenarioCode, IReadOnlyCollection<string> codes, CancellationToken cancellationToken = default)
     {
         return await (await GetDbSetAsync()).Where(x => x.AppCode == appCode &&
-                x.ScenarioCode == scenarioCode && codes.Contains(x.Code))
-            .ToListAsync(cancellationToken);
+                x.ScenarioCode == scenarioCode && codes.Contains(x.Code)).ToListAsync(cancellationToken);
     }
 }

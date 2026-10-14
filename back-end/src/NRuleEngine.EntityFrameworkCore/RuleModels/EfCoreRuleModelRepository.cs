@@ -19,8 +19,7 @@ public class EfCoreRuleModelRepository : EfCoreRepository<NRuleEngineDbContext, 
         return await (await GetDbSetAsync()).AnyAsync(x => x.AppCode == appCode && x.Code == code);
     }
 
-    public virtual async Task<List<RuleModel>> GetListAsync(string appCode, string? scenarioCode,
-        CancellationToken cancellationToken = default)
+    public virtual async Task<List<RuleModel>> GetListAsync(string appCode, string? scenarioCode, CancellationToken cancellationToken = default)
     {
         var query = (await GetDbSetAsync()).Where(x => x.AppCode == appCode);
         if (scenarioCode is not null)

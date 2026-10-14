@@ -41,16 +41,14 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
     {
         var revision = await GetRevisionAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
-        revision.AddGateCase(GuidGenerator.Create(), input.Name, input.ContextJson, input.InputsJson,
-            input.ExpectedOutputsJson);
+        revision.AddGateCase(GuidGenerator.Create(), input.Name, input.ContextJson, input.InputsJson, input.ExpectedOutputsJson);
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
 
     /// <summary>核对草稿并发戳后移除发布回归用例。</summary>
     /// <remarks>核心逻辑：核对草稿版本后移除指定样本；调用时机：维护者删除发布门禁用例时。</remarks>
-    public virtual async Task<RuleRevisionDto> RemoveGateCaseAsync(Guid revisionId, Guid gateCaseId,
-        DeleteDraftItemDto input)
+    public virtual async Task<RuleRevisionDto> RemoveGateCaseAsync(Guid revisionId, Guid gateCaseId, DeleteDraftItemDto input)
     {
         var revision = await GetRevisionAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
@@ -80,21 +78,19 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.PublishValidationFailed);
         }
+
         await CheckActiveBindingsAsync(model, revision, contract);
         var gateFailures = ReleaseGateEvaluator.Evaluate(revision, contract);
         if (gateFailures.Count > 0)
         {
-            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ReleaseGateFailed)
-                .WithData("GateFailures", gateFailures);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ReleaseGateFailed).WithData("GateFailures", gateFailures);
         }
 
         var hash = RuleRevisionContentHasher.Compute(model.AppCode, revision);
         var previous = model.ActiveRevisionId;
         revision.Publish(hash, input.ChangeSummary);
         var releaseNo = model.Activate(revision.Id);
-        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, revision.Id, previous,
-            releaseNo, ReleaseKind.Publish, hash, $"完整校验通过；{revision.GateCases.Count} 条门禁用例通过。",
-            revision.ChangeSummary);
+        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, revision.Id, previous, releaseNo, ReleaseKind.Publish, hash, $"完整校验通过；{revision.GateCases.Count} 条门禁用例通过。", revision.ChangeSummary);
         await _revisions.UpdateAsync(revision, autoSave: true);
         await _models.UpdateAsync(model, autoSave: true);
         await _records.InsertAsync(record, autoSave: true);
@@ -114,6 +110,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
+
         await _scopes.AcquireAsync(model.AppCode, model.ScenarioCode);
         var target = await GetRevisionAsync(input.TargetRevisionId);
         CheckStamp(target.ConcurrencyStamp, input.ExpectedTargetRevisionConcurrencyStamp);
@@ -121,6 +118,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
+
         var contract = _catalog.GetScenario(model.AppCode, target.ScenarioCode, target.ContractVersion);
         await CheckActiveBindingsAsync(model, target, contract);
         if (RuleRevisionContentHasher.Compute(model.AppCode, target) != target.ContentHash)
@@ -130,9 +128,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
 
         var previous = model.ActiveRevisionId;
         var releaseNo = model.Activate(target.Id);
-        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, target.Id, previous,
-            releaseNo, ReleaseKind.Rollback, target.ContentHash, "历史已发布修订已重新激活。",
-            target.ChangeSummary);
+        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, target.Id, previous, releaseNo, ReleaseKind.Rollback, target.ContentHash, "历史已发布修订已重新激活。", target.ChangeSummary);
         await _models.UpdateAsync(model, autoSave: true);
         await _records.InsertAsync(record, autoSave: true);
         await uow.CompleteAsync();
@@ -150,8 +146,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
 
     /// <summary>比较目标修订和其他活动模型的绑定；不同契约版本保守视为可能重叠。</summary>
     /// <remarks>核心逻辑：把目标绑定与其他活动模型逐一比较并拒绝同优先级重叠；调用时机：发布或回滚切换前。</remarks>
-    protected virtual async Task CheckActiveBindingsAsync(RuleModel model, RuleModelRevision target,
-        RuleScenarioDescriptor contract)
+    protected virtual async Task CheckActiveBindingsAsync(RuleModel model, RuleModelRevision target, RuleScenarioDescriptor contract)
     {
         var others = await _models.GetListAsync(model.AppCode, model.ScenarioCode);
         foreach (var other in others.Where(x => x.Id != model.Id && x.Status == RuleModelStatus.Active &&
@@ -162,6 +157,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
             {
                 throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
             }
+
             foreach (var candidate in target.Bindings)
             {
                 foreach (var existing in active.Bindings.Where(x => x.Priority == candidate.Priority))

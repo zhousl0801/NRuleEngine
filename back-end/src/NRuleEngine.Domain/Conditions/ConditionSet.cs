@@ -8,22 +8,31 @@ public sealed class ConditionSet : AuditedAggregateRoot<Guid>
 {
     /// <summary>代码注册的接入应用编码。</summary>
     public string AppCode { get; private set; } = null!;
+
     /// <summary>条件集所属的业务场景编码。</summary>
     public string ScenarioCode { get; private set; } = null!;
+
     /// <summary>创建首个草稿时使用的场景契约版本。</summary>
     public string InitialContractVersion { get; private set; } = null!;
+
     /// <summary>应用内唯一、跨修订稳定的条件集业务编码。</summary>
     public string Code { get; private set; } = null!;
+
     /// <summary>供维护者识别的条件集名称。</summary>
     public string Name { get; private set; } = null!;
+
     /// <summary>条件集的可选业务说明。</summary>
     public string? Description { get; private set; }
+
     /// <summary>当前活动的已发布修订；首次发布前为空。</summary>
     public Guid? ActiveRevisionId { get; private set; }
+
     /// <summary>活动或已归档状态；归档后不能新增草稿或激活修订。</summary>
     public RuleModelStatus Status { get; private set; }
+
     /// <summary>下一个模型内修订序号。</summary>
     public int NextRevisionNo { get; private set; }
+
     /// <summary>下一个发布或回滚审计序号。</summary>
     public int NextReleaseNo { get; private set; }
 
@@ -32,8 +41,14 @@ public sealed class ConditionSet : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>按已注册条件场景创建尚未发布的条件集。</summary>
-    public ConditionSet(Guid id, string appCode, string scenarioCode, string contractVersion,
-        string code, string name, string? description) : base(id)
+    public ConditionSet(
+        Guid id,
+        string appCode,
+        string scenarioCode,
+        string contractVersion,
+        string code,
+        string name,
+        string? description) : base(id)
     {
         AppCode = Required(appCode, nameof(appCode));
         ScenarioCode = Required(scenarioCode, nameof(scenarioCode));

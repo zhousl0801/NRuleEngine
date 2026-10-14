@@ -21,8 +21,7 @@ public sealed class RuleModelRevisionTests
         copied.RenameIntermediate(middle.StableKey, "widthDelta", "Width adjustment");
         Assert.Equal("delta", middle.Code);
         Assert.Equal("widthDelta", copied.Variables.Single(v => v.StableKey == middle.StableKey).Code);
-        Assert.Throws<InvalidOperationException>(() => copied.AddIntermediate(Guid.NewGuid(),
-            " widthDelta ", "Duplicate", new RuleTypeDescriptor(RuleValueKind.Decimal)));
+        Assert.Throws<InvalidOperationException>(() => copied.AddIntermediate(Guid.NewGuid(), " widthDelta ", "Duplicate", new RuleTypeDescriptor(RuleValueKind.Decimal)));
     }
 
     [Fact]

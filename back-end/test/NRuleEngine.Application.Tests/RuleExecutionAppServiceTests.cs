@@ -54,20 +54,16 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
 
         var unknown = Request("A");
         unknown.Inputs["extra"] = JsonSerializer.SerializeToElement(1);
-        Assert.Equal(NRuleEngineErrorCodes.UnknownInput,
-            (await execution.ExecuteAsync(unknown)).Error!.Code);
+        Assert.Equal(NRuleEngineErrorCodes.UnknownInput, (await execution.ExecuteAsync(unknown)).Error!.Code);
         var missingInput = Request("A");
         missingInput.Inputs.Clear();
-        Assert.Equal(NRuleEngineErrorCodes.RequiredInputMissing,
-            (await execution.ExecuteAsync(missingInput)).Error!.Code);
+        Assert.Equal(NRuleEngineErrorCodes.RequiredInputMissing, (await execution.ExecuteAsync(missingInput)).Error!.Code);
         var badType = Request("A");
         badType.Inputs["inputWidth"] = JsonSerializer.SerializeToElement("bad");
-        Assert.Equal(NRuleEngineErrorCodes.InputTypeMismatch,
-            (await execution.ExecuteAsync(badType)).Error!.Code);
+        Assert.Equal(NRuleEngineErrorCodes.InputTypeMismatch, (await execution.ExecuteAsync(badType)).Error!.Code);
         var constraint = Request("A");
         constraint.Inputs["inputWidth"] = JsonSerializer.SerializeToElement(0.123456789012m);
-        Assert.Equal(NRuleEngineErrorCodes.InputConstraintViolated,
-            (await execution.ExecuteAsync(constraint)).Error!.Code);
+        Assert.Equal(NRuleEngineErrorCodes.InputConstraintViolated, (await execution.ExecuteAsync(constraint)).Error!.Code);
     }
 
     [Fact]
@@ -87,8 +83,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         Assert.Equal(secondModelId, winner.RuleModelId);
         Assert.Equal(130, winner.Outputs["targetWidth"].GetDecimal());
 
-        var updated = await models.CreateDraftAsync(secondModelId, new CreateDraftDto(second.Id,
-            (await models.GetAsync(secondModelId)).ConcurrencyStamp));
+        var updated = await models.CreateDraftAsync(secondModelId, new CreateDraftDto(second.Id, (await models.GetAsync(secondModelId)).ConcurrencyStamp));
         updated = await rules.UpdateAssignmentAsync(updated.Id, updated.Rules[0].Id,
             updated.Rules[0].Assignments[0].Id, new AddAssignmentDto
             {
@@ -96,8 +91,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
                 ValueSourceKind = RuleValueSourceKind.Constant, ConstantValueJson = "140", SortOrder = 1,
                 ExpectedRevisionConcurrencyStamp = updated.ConcurrencyStamp
             });
-        updated = await release.RemoveGateCaseAsync(updated.Id, updated.GateCases[0].Id,
-            new DeleteDraftItemDto { ExpectedRevisionConcurrencyStamp = updated.ConcurrencyStamp });
+        updated = await release.RemoveGateCaseAsync(updated.Id, updated.GateCases[0].Id, new DeleteDraftItemDto { ExpectedRevisionConcurrencyStamp = updated.ConcurrencyStamp });
         updated = await release.AddGateCaseAsync(updated.Id, new AddReleaseGateCaseDto
         {
             Name = "runtime gate", ContextJson = "{\"productKind\":\"A\"}",
@@ -127,22 +121,16 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         // 模拟数据库中出现绕过发布门禁的并列绑定，并同步哈希，使测试直达运行时保护。
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())
         {
-            var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>()
-                .GetDbContextAsync();
-            await db.RuleBindingCriteria.Where(x => x.BindingId == second.Bindings[0].Id)
-                .ExecuteUpdateAsync(x => x.SetProperty(c => c.TypedValueJson, "\"A\""));
+            var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
+            await db.RuleBindingCriteria.Where(x => x.BindingId == second.Bindings[0].Id).ExecuteUpdateAsync(x => x.SetProperty(c => c.TypedValueJson, "\"A\""));
             db.ChangeTracker.Clear();
-            var changed = await db.RuleModelRevisions.Where(x => x.Id == second.Id)
-                .Include(x => x.Variables).Include(x => x.Rules).ThenInclude(x => x.Assignments)
-                .Include(x => x.Bindings).ThenInclude(x => x.Criteria)
-                .Include(x => x.GateCases).AsSplitQuery().SingleAsync();
+            var changed = await db.RuleModelRevisions.Where(x => x.Id == second.Id).Include(x => x.Variables).Include(x => x.Rules).ThenInclude(x => x.Assignments).Include(x => x.Bindings).ThenInclude(x => x.Criteria).Include(x => x.GateCases).AsSplitQuery().SingleAsync();
             db.Entry(changed).Property(x => x.ContentHash).CurrentValue =
                 RuleRevisionContentHasher.Compute("TEST-ODS", changed);
             await db.SaveChangesAsync();
             await uow.CompleteAsync();
         }
-        var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>()
-            .ExecuteAsync(Request("A"));
+        var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(Request("A"));
         Assert.Equal(RuleExecutionStatus.Rejected, result.Status);
         Assert.Equal(NRuleEngineErrorCodes.AmbiguousBinding, result.Error!.Code);
         Assert.Empty(result.Outputs);
@@ -193,8 +181,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
                 }),
                 SortOrder = 1, ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp
             });
-        revision = await release.RemoveGateCaseAsync(revision.Id, revision.GateCases[0].Id,
-            new DeleteDraftItemDto { ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp });
+        revision = await release.RemoveGateCaseAsync(revision.Id, revision.GateCases[0].Id, new DeleteDraftItemDto { ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp });
         revision = await release.AddGateCaseAsync(revision.Id, new AddReleaseGateCaseDto
         {
             Name = "nonzero width", ContextJson = "{\"productKind\":\"A\"}",
@@ -204,8 +191,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         await PublishAsync(modelId, revision);
         var request = Request("A");
         request.Inputs["inputWidth"] = JsonSerializer.SerializeToElement(0);
-        var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>()
-            .ExecuteAsync(request);
+        var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(request);
         Assert.Equal(RuleExecutionStatus.Failed, result.Status);
         Assert.Equal(NRuleEngineErrorCodes.ExpressionEvaluationFailed, result.Error!.Code);
         Assert.Equal(modelId, result.RuleModelId);
@@ -220,10 +206,8 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         await PublishAsync(modelId, revision);
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())
         {
-            var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>()
-                .GetDbContextAsync();
-            await db.RuleAssignments.Where(x => x.RuleId == revision.Rules[0].Id)
-                .ExecuteUpdateAsync(x => x.SetProperty(a => a.ConstantValueJson, "999"));
+            var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
+            await db.RuleAssignments.Where(x => x.RuleId == revision.Rules[0].Id).ExecuteUpdateAsync(x => x.SetProperty(a => a.ConstantValueJson, "999"));
             await uow.CompleteAsync();
         }
         var error = await Assert.ThrowsAsync<BusinessException>(() =>
@@ -231,19 +215,16 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         Assert.Equal(NRuleEngineErrorCodes.PublishedContentCorrupted, error.Code);
     }
 
-    private async Task<(Guid ModelId, RuleRevisionDto Revision)> PrepareDraftAsync(string code,
-        string productKind, int priority, int outputWidth)
+    private async Task<(Guid ModelId, RuleRevisionDto Revision)> PrepareDraftAsync(string code, string productKind, int priority, int outputWidth)
     {
         using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
-        var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>()
-            .GetDbContextAsync();
+        var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
         await db.Database.EnsureCreatedAsync();
         var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var rules = ServiceProvider.GetRequiredService<IRuleAuthoringAppService>();
         var bindings = ServiceProvider.GetRequiredService<IRuleBindingAppService>();
         var release = ServiceProvider.GetRequiredService<IRuleReleaseAppService>();
-        var model = await models.CreateAsync(new CreateRuleModelDto(
-            "TEST-ODS", "size-expansion", "1.0", code, code, null));
+        var model = await models.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", code, code, null));
         var revision = await models.GetRevisionAsync(Assert.Single(await models.GetRevisionsAsync(model.Id)).Id);
         revision = await rules.AddRuleAsync(revision.Id, new AddRuleDto
         {

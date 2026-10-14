@@ -17,7 +17,6 @@ public class EfCoreReleaseRecordRepository
     /// <summary>按模型内发布序号倒序读取历史。</summary>
     public virtual async Task<List<ReleaseRecord>> GetListByModelAsync(Guid modelId)
     {
-        return await (await GetDbSetAsync()).Where(x => x.RuleModelId == modelId)
-            .OrderByDescending(x => x.ReleaseNo).ToListAsync();
+        return await (await GetDbSetAsync()).Where(x => x.RuleModelId == modelId).OrderByDescending(x => x.ReleaseNo).ToListAsync();
     }
 }

@@ -14,8 +14,7 @@ public sealed class RuleModelMappingTests
         // 保存草稿变量并重读，再验证应用内模型编码唯一约束。
         using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
-        var options = new DbContextOptionsBuilder<NRuleEngineDbContext>()
-            .UseSqlite(connection).Options;
+        var options = new DbContextOptionsBuilder<NRuleEngineDbContext>().UseSqlite(connection).Options;
 
         using (var db = new NRuleEngineDbContext(options))
         {
@@ -42,14 +41,10 @@ public sealed class RuleModelMappingTests
     {
         return new RuleScenarioDescriptor("TEST-ODS", "size-expansion", "1.0",
             [
-                new VariableContract("inputWidth", "Input width", RuleVariableDirection.Input,
-                    new RuleTypeDescriptor(RuleValueKind.Decimal)),
-                new VariableContract("productKind", "Product kind", RuleVariableDirection.Input,
-                    new RuleTypeDescriptor(RuleValueKind.Enum, EnumCode: "test-kind"))
+                new VariableContract("inputWidth", "Input width", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Decimal)),
+                new VariableContract("productKind", "Product kind", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Enum, EnumCode: "test-kind"))
             ],
-            [new VariableContract("targetWidth", "Target width", RuleVariableDirection.Output,
-                new RuleTypeDescriptor(RuleValueKind.Decimal))],
-            [new BindingDimensionContract("productKind", "Product kind", RuleValueKind.Enum,
-                [RuleBindingOperator.Equals])]);
+            [new VariableContract("targetWidth", "Target width", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal))],
+            [new BindingDimensionContract("productKind", "Product kind", RuleValueKind.Enum, [RuleBindingOperator.Equals])]);
     }
 }

@@ -9,24 +9,34 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
 {
     /// <summary>所属条件集的标识。</summary>
     public Guid ConditionSetId { get; private set; }
+
     /// <summary>同一条件集内递增的修订序号。</summary>
     public int RevisionNo { get; private set; }
+
     /// <summary>复制草稿的来源修订；首个草稿为空。</summary>
     public Guid? BasedOnRevisionId { get; private set; }
+
     /// <summary>草稿、已发布或已放弃状态。</summary>
     public RuleRevisionStatus Status { get; private set; }
+
     /// <summary>修订锁定的条件场景编码。</summary>
     public string ScenarioCode { get; private set; } = null!;
+
     /// <summary>修订锁定的场景契约版本。</summary>
     public string ContractVersion { get; private set; } = null!;
+
     /// <summary>多个候选命中时的选择优先级，值越大越优先。</summary>
     public int Priority { get; private set; }
+
     /// <summary>供维护者阅读的原始条件文本；不参与执行。</summary>
     public string? ConditionSource { get; private set; }
+
     /// <summary>返回 Boolean 的版本化条件 AST；草稿可暂时为空。</summary>
     public string? ConditionAstJson { get; private set; }
+
     /// <summary>发布后固定的语义内容摘要；草稿为空。</summary>
     public string? ContentHash { get; private set; }
+
     /// <summary>本次发布的维护说明。</summary>
     public string? ChangeSummary { get; private set; }
     private List<ConditionInputDefinition> _inputs = [];
@@ -44,7 +54,11 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>按固定场景契约创建条件草稿及输入快照。</summary>
-    public ConditionSetRevision(Guid id, Guid setId, int revisionNo, ConditionScenarioDescriptor contract) : base(id)
+    public ConditionSetRevision(
+        Guid id,
+        Guid setId,
+        int revisionNo,
+        ConditionScenarioDescriptor contract) : base(id)
     {
         if (revisionNo < 1)
         {

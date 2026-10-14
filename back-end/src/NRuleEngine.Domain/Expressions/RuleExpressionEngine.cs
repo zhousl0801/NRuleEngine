@@ -10,8 +10,7 @@ public static class RuleExpressionEngine
 {
     /// <summary>检查 AST 节点类型和变量引用，返回表达式结果类型与引用集合。</summary>
     /// <remarks>核心逻辑：递归检查变量引用、函数参数和表达式静态类型；调用时机：保存条件或赋值 AST 时。</remarks>
-    public static RuleValueKind? Validate(string json, IReadOnlyCollection<IExpressionVariable> variables,
-        out IReadOnlySet<Guid> references)
+    public static RuleValueKind? Validate(string json, IReadOnlyCollection<IExpressionVariable> variables, out IReadOnlySet<Guid> references)
     {
         var keys = new HashSet<Guid>();
         var result = TypeOf(RuleExpression.Parse(json).Root, variables.ToDictionary(v => v.StableKey), keys, 0);
@@ -21,16 +20,14 @@ public static class RuleExpressionEngine
 
     /// <summary>使用已校验的 AST 和按 StableKey 索引的值计算表达式。</summary>
     /// <remarks>核心逻辑：根据已赋值变量求值并将失败定位到 AST 节点；调用时机：试算或运行规则时。</remarks>
-    public static object? Evaluate(string json, IReadOnlyDictionary<Guid, object?> values,
-        CancellationToken cancellationToken = default)
+    public static object? Evaluate(string json, IReadOnlyDictionary<Guid, object?> values, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return EvaluateNode(RuleExpression.Parse(json).Root, values, 0, cancellationToken);
     }
 
     /// <summary>为最深层失败节点保留源码位置，再交给上层报告。</summary>
-    private static RuleValueKind? TypeOf(RuleExpressionNode node, IReadOnlyDictionary<Guid, IExpressionVariable> variables,
-        HashSet<Guid> references, int depth)
+    private static RuleValueKind? TypeOf(RuleExpressionNode node, IReadOnlyDictionary<Guid, IExpressionVariable> variables, HashSet<Guid> references, int depth)
     {
         CheckDepth(depth);
         try
@@ -44,8 +41,7 @@ public static class RuleExpressionEngine
     }
 
     /// <summary>只允许确定的节点及操作数类型，不解释任意方法调用。</summary>
-    private static RuleValueKind? TypeOfCore(RuleExpressionNode node, IReadOnlyDictionary<Guid, IExpressionVariable> variables,
-        HashSet<Guid> references, int depth)
+    private static RuleValueKind? TypeOfCore(RuleExpressionNode node, IReadOnlyDictionary<Guid, IExpressionVariable> variables, HashSet<Guid> references, int depth)
     {
         var op = node.Op;
         if (op == "constant")
@@ -54,15 +50,18 @@ public static class RuleExpressionEngine
             {
                 throw new ArgumentException("常量必须包含类型和值。");
             }
+
             ReadConstant(node.Kind.Value, node.Value.Value);
             return node.Value.Value.ValueKind == JsonValueKind.Null ? null : node.Kind;
         }
+
         if (op == "variable")
         {
             if (node.StableKey is null || !variables.TryGetValue(node.StableKey.Value, out var variable))
             {
                 throw new ArgumentException("表达式引用了未知变量。");
             }
+
             references.Add(variable.StableKey);
             return variable.ValueKind;
         }
@@ -179,6 +178,7 @@ public static class RuleExpressionEngine
         {
             return null;
         }
+
         return kind switch
         {
             RuleValueKind.Decimal when value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out var number) => number,
@@ -205,8 +205,10 @@ public static class RuleExpressionEngine
             {
                 throw new ArgumentException($"变量 {variable.Code} 不能为 null。");
             }
+
             return;
         }
+
         if (variable.ValueKind switch
         {
             RuleValueKind.Decimal => value is decimal,
@@ -217,6 +219,7 @@ public static class RuleExpressionEngine
         {
             throw new ArgumentException($"变量 {variable.Code} 的值类型无效。");
         }
+
         if (value is decimal number)
         {
             var precision = variable.Precision ?? 28;
@@ -233,8 +236,7 @@ public static class RuleExpressionEngine
     }
 
     /// <summary>保留求值失败的节点位置，避免调用方解析异常文本。</summary>
-    private static object? EvaluateNode(RuleExpressionNode node, IReadOnlyDictionary<Guid, object?> values,
-        int depth, CancellationToken cancellationToken)
+    private static object? EvaluateNode(RuleExpressionNode node, IReadOnlyDictionary<Guid, object?> values, int depth, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CheckDepth(depth);
@@ -251,33 +253,37 @@ public static class RuleExpressionEngine
     }
 
     /// <summary>按节点语义求值；逻辑运算与 Coalesce 保持短路。</summary>
-    private static object? EvaluateNodeCore(RuleExpressionNode node, IReadOnlyDictionary<Guid, object?> values,
-        int depth, CancellationToken cancellationToken)
+    private static object? EvaluateNodeCore(RuleExpressionNode node, IReadOnlyDictionary<Guid, object?> values, int depth, CancellationToken cancellationToken)
     {
         if (node.Op == "constant")
         {
             return ReadConstant(node.Kind!.Value, node.Value!.Value);
         }
+
         if (node.Op == "variable")
         {
             return values.TryGetValue(node.StableKey!.Value, out var value) ? value
                 : throw new InvalidOperationException("引用的变量没有值。");
         }
+
         if (node.Op == "and")
         {
             return (bool)EvaluateNode(node.Args[0], values, depth + 1, cancellationToken)! &&
                 (bool)EvaluateNode(node.Args[1], values, depth + 1, cancellationToken)!;
         }
+
         if (node.Op == "or")
         {
             return (bool)EvaluateNode(node.Args[0], values, depth + 1, cancellationToken)! ||
                 (bool)EvaluateNode(node.Args[1], values, depth + 1, cancellationToken)!;
         }
+
         if (node.Op == "function" && node.Function == "Coalesce")
         {
             return EvaluateNode(node.Args[0], values, depth + 1, cancellationToken) ??
                 EvaluateNode(node.Args[1], values, depth + 1, cancellationToken);
         }
+
         var args = node.Args.Select(a => EvaluateNode(a, values, depth + 1, cancellationToken)).ToArray();
         return node.Op switch
         {
@@ -305,10 +311,12 @@ public static class RuleExpressionEngine
         {
             return a.CompareTo(b);
         }
+
         if (left is string x && right is string y)
         {
             return string.CompareOrdinal(x, y);
         }
+
         throw new InvalidOperationException("不能比较 null 或类型不兼容的值。");
     }
 
@@ -342,6 +350,7 @@ public static class RuleExpressionEngine
         {
             throw new ArgumentException("Round 的小数位数必须是 0 到 28 之间的整数。");
         }
+
         return Math.Round(value, (int)digits, MidpointRounding.AwayFromZero);
     }
 }

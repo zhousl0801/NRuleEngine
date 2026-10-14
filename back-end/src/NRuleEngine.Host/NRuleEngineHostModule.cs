@@ -37,13 +37,10 @@ public sealed class NRuleEngineHostModule : AbpModule
         context.Services.AddSingleton<IRuleScenarioContributor, DemoRuleScenarioContributor>();
         context.Services.AddSingleton<IConditionScenarioContributor, DemoConditionScenarioContributor>();
 
-        context.Services.AddAuthentication(LocalDevelopmentAuthenticationHandler.SchemeName)
-            .AddScheme<AuthenticationSchemeOptions, LocalDevelopmentAuthenticationHandler>(
-                LocalDevelopmentAuthenticationHandler.SchemeName, _ => { });
+        context.Services.AddAuthentication(LocalDevelopmentAuthenticationHandler.SchemeName).AddScheme<AuthenticationSchemeOptions, LocalDevelopmentAuthenticationHandler>(LocalDevelopmentAuthenticationHandler.SchemeName, _ => { });
         context.Services.AddAlwaysAllowAuthorization();
 
-        var origins = configuration.GetSection("Cors:Origins").GetChildren()
-            .Select(origin => origin.Value!).ToArray();
+        var origins = configuration.GetSection("Cors:Origins").GetChildren().Select(origin => origin.Value!).ToArray();
         context.Services.AddCors(options => options.AddPolicy(CorsPolicyName, policy =>
             policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
     }

@@ -68,8 +68,7 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.GateCasesJson);
             entity.HasIndex(x => new { x.ConditionSetId, x.ReleaseNo }).IsUnique();
             entity.HasOne<ConditionSet>().WithMany().HasForeignKey(x => x.ConditionSetId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne<ConditionSetRevision>().WithMany().HasForeignKey(x => x.ActivatedRevisionId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ConditionSetRevision>().WithMany().HasForeignKey(x => x.ActivatedRevisionId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<RuleModel>(entity =>
@@ -100,17 +99,13 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.ChangeSummary).HasMaxLength(2048);
             entity.HasIndex(x => new { x.RuleModelId, x.RevisionNo }).IsUnique();
             entity.HasOne<RuleModel>().WithMany().HasForeignKey(x => x.RuleModelId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasMany(x => x.Variables).WithOne().HasForeignKey(x => x.RevisionId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Variables).WithOne().HasForeignKey(x => x.RevisionId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(x => x.Variables).UsePropertyAccessMode(PropertyAccessMode.Field);
-            entity.HasMany(x => x.Rules).WithOne().HasForeignKey(x => x.RevisionId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Rules).WithOne().HasForeignKey(x => x.RevisionId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(x => x.Rules).UsePropertyAccessMode(PropertyAccessMode.Field);
-            entity.HasMany(x => x.Bindings).WithOne().HasForeignKey(x => x.RevisionId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Bindings).WithOne().HasForeignKey(x => x.RevisionId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(x => x.Bindings).UsePropertyAccessMode(PropertyAccessMode.Field);
-            entity.HasMany(x => x.GateCases).WithOne().HasForeignKey(x => x.RevisionId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.GateCases).WithOne().HasForeignKey(x => x.RevisionId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(x => x.GateCases).UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
@@ -138,8 +133,7 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.ConditionSource).HasMaxLength(8192);
             entity.Property(x => x.ConditionAstJson).IsRequired();
             entity.HasIndex(x => new { x.RevisionId, x.Priority, x.SortOrder }).IsUnique();
-            entity.HasMany(x => x.Assignments).WithOne().HasForeignKey(x => x.RuleId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Assignments).WithOne().HasForeignKey(x => x.RuleId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(x => x.Assignments).UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
@@ -161,8 +155,7 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.AppCode).IsRequired().HasMaxLength(64);
             entity.Property(x => x.ScenarioCode).IsRequired().HasMaxLength(128);
             entity.Property(x => x.ContractVersion).IsRequired().HasMaxLength(64);
-            entity.HasMany(x => x.Criteria).WithOne().HasForeignKey(x => x.BindingId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Criteria).WithOne().HasForeignKey(x => x.BindingId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(x => x.Criteria).UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
@@ -197,8 +190,7 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.ChangeSummary).HasMaxLength(2048);
             entity.HasIndex(x => new { x.RuleModelId, x.ReleaseNo }).IsUnique();
             entity.HasOne<RuleModel>().WithMany().HasForeignKey(x => x.RuleModelId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne<RuleModelRevision>().WithMany().HasForeignKey(x => x.ActivatedRevisionId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<RuleModelRevision>().WithMany().HasForeignKey(x => x.ActivatedRevisionId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<ReleaseScope>(entity =>

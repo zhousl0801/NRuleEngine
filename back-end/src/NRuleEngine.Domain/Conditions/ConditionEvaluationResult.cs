@@ -17,6 +17,7 @@ public sealed record ConditionEvaluationResult(
             return ErrorCode is null;
         }
     }
+
     /// <summary>是否至少有一个条件集命中。</summary>
     public bool Matched
     {

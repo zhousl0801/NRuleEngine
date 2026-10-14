@@ -17,13 +17,11 @@ internal static class RuleRevisionDtoMapper
         var dto = new RuleRevisionDto(revision.Id, revision.RuleModelId, revision.RevisionNo, revision.BasedOnRevisionId,
             revision.Status, revision.ScenarioCode, revision.ContractVersion, revision.ExecutionMode,
             revision.MultipleWritePolicy, revision.ConcurrencyStamp,
-            revision.Variables.Select(v => new RuleVariableDto(v.Id, v.StableKey, v.Code, v.Name, v.Direction,
-                v.Origin, new RuleTypeDescriptor(v.ValueKind, v.IsNullable, v.Precision, v.Scale, v.EnumCode))
+            revision.Variables.Select(v => new RuleVariableDto(v.Id, v.StableKey, v.Code, v.Name, v.Direction, v.Origin, new RuleTypeDescriptor(v.ValueKind, v.IsNullable, v.Precision, v.Scale, v.EnumCode))
             {
                 DefaultValueJson = v.DefaultValueJson, Unit = v.Unit
             }).ToArray());
-        dto.Rules = revision.Rules.OrderByDescending(r => r.Priority).ThenBy(r => r.SortOrder)
-            .Select(r => new RuleDefinitionDto
+        dto.Rules = revision.Rules.OrderByDescending(r => r.Priority).ThenBy(r => r.SortOrder).Select(r => new RuleDefinitionDto
             {
                 Id = r.Id, Name = r.Name, Priority = r.Priority, SortOrder = r.SortOrder,
                 IsEnabled = r.IsEnabled, ConditionSource = r.ConditionSource,
@@ -44,8 +42,7 @@ internal static class RuleRevisionDtoMapper
                 DimensionCode = c.DimensionCode, Operator = c.Operator, TypedValueJson = c.TypedValueJson
             }).ToArray()
         }).ToArray();
-        dto.GateCases = revision.GateCases.OrderBy(c => c.Name, StringComparer.Ordinal)
-            .Select(c => new ReleaseGateCaseDto
+        dto.GateCases = revision.GateCases.OrderBy(c => c.Name, StringComparer.Ordinal).Select(c => new ReleaseGateCaseDto
             {
                 Id = c.Id, Name = c.Name, ContextJson = c.ContextJson,
                 InputsJson = c.InputsJson, ExpectedOutputsJson = c.ExpectedOutputsJson

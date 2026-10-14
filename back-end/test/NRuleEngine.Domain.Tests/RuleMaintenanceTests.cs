@@ -18,18 +18,15 @@ public sealed class RuleMaintenanceTests
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
         var input = revision.Variables.Single(v => v.Code == "inputWidth");
         var output = revision.Variables.Single(v => v.Code == "targetWidth");
-        var middle = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra",
-            new RuleTypeDescriptor(RuleValueKind.Decimal));
-        var rule = revision.AddRule(Guid.NewGuid(), "calculate", 1, 1, true, null,
-            Ast(new { op = "constant", kind = RuleValueKind.Boolean, value = true }));
+        var middle = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra", new RuleTypeDescriptor(RuleValueKind.Decimal));
+        var rule = revision.AddRule(Guid.NewGuid(), "calculate", 1, 1, true, null, Ast(new { op = "constant", kind = RuleValueKind.Boolean, value = true }));
         revision.AddAssignment(rule.Id, Guid.NewGuid(), output.StableKey, RuleValueSourceKind.Expression,
             null, null, Ast(new { op = "add", args = new object[]
             {
                 new { op = "variable", stableKey = input.StableKey },
                 new { op = "variable", stableKey = middle.StableKey }
             } }), 1);
-        revision.AddBinding(Guid.NewGuid(), contract, 1,
-            [("productKind", RuleBindingOperator.Equals, "\"A\"")]);
+        revision.AddBinding(Guid.NewGuid(), contract, 1, [("productKind", RuleBindingOperator.Equals, "\"A\"")]);
         var context = new Dictionary<string, string> { ["productKind"] = "\"A\"" };
         var supplied = new Dictionary<string, string> { ["productKind"] = "\"A\"" };
         Assert.Equal("MissingInput", RuleSimulator.Simulate(revision, contract, context, supplied).ErrorCode);
@@ -39,8 +36,7 @@ public sealed class RuleMaintenanceTests
         revision.UpdateIntermediateProperties(middle.StableKey, "5", "mm", 28);
         Assert.Equal("125", RuleSimulator.Simulate(revision, contract, context, supplied).Outputs["targetWidth"]);
         supplied["inputWidth"] = "null";
-        Assert.Equal("InputConstraintViolated",
-            RuleSimulator.Simulate(revision, contract, context, supplied).ErrorCode);
+        Assert.Equal("InputConstraintViolated", RuleSimulator.Simulate(revision, contract, context, supplied).ErrorCode);
         Assert.Throws<ArgumentException>(() => revision.UpdateIntermediateProperties(input.StableKey, "1", null, 28));
         Assert.Throws<ArgumentException>(() => revision.UpdateIntermediateProperties(middle.StableKey, "5", null, 1));
 
@@ -56,8 +52,7 @@ public sealed class RuleMaintenanceTests
         // 先保留表达式引用验证变量删除被阻止，再检查删除规则的影响预览。
         var contract = SimulatedSizeExpansionScenario.Contract;
         var revision = new RuleModelRevision(Guid.NewGuid(), Guid.NewGuid(), 1, contract);
-        var middle = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra",
-            new RuleTypeDescriptor(RuleValueKind.Decimal));
+        var middle = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra", new RuleTypeDescriptor(RuleValueKind.Decimal));
         var output = revision.Variables.Single(v => v.Code == "targetWidth");
         var rule = revision.AddRule(Guid.NewGuid(), "uses extra", 1, 1, true, null,
             Ast(new { op = "gt", args = new object[]
@@ -65,8 +60,7 @@ public sealed class RuleMaintenanceTests
                 new { op = "variable", stableKey = middle.StableKey },
                 new { op = "constant", kind = RuleValueKind.Decimal, value = 0 }
             } }));
-        revision.AddAssignment(rule.Id, Guid.NewGuid(), output.StableKey,
-            RuleValueSourceKind.Constant, "125", null, null, 1);
+        revision.AddAssignment(rule.Id, Guid.NewGuid(), output.StableKey, RuleValueSourceKind.Constant, "125", null, null, 1);
         revision.AddGateCase(Guid.NewGuid(), "check", "{}", "{}", "{\"targetWidth\":125}");
 
         var references = RuleRevisionImpactAnalyzer.GetVariableReferences(revision, middle.StableKey);
@@ -79,8 +73,7 @@ public sealed class RuleMaintenanceTests
         revision.RemoveRule(rule.Id);
         revision.RemoveIntermediate(middle.StableKey);
         Assert.DoesNotContain(revision.Variables, v => v.StableKey == middle.StableKey);
-        var recreated = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra",
-            new RuleTypeDescriptor(RuleValueKind.Decimal));
+        var recreated = revision.AddIntermediate(Guid.NewGuid(), "extra", "Extra", new RuleTypeDescriptor(RuleValueKind.Decimal));
         Assert.NotEqual(middle.StableKey, recreated.StableKey);
     }
 

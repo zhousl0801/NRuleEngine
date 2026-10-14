@@ -6,8 +6,6 @@ public sealed class SimulatedConditionScenarioContributor : IConditionScenarioCo
 {
     public void Configure(IConditionScenarioRegistry registry)
     {
-        registry.Add(new ConditionScenarioDescriptor("TEST-ODS", "route-machine-param-eligibility", "1.0",
-            [new VariableContract("THICKNESS", "Thickness", RuleVariableDirection.Input,
-                new RuleTypeDescriptor(RuleValueKind.Decimal))]));
+        registry.Add(new ConditionScenarioDescriptor("TEST-ODS", "route-machine-param-eligibility", "1.0", [new VariableContract("THICKNESS", "Thickness", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Decimal))]));
     }
 }

@@ -14,12 +14,16 @@ public sealed record RuleSimulationOutcome(Guid RevisionId, Guid? BindingId, boo
 {
     /// <summary>执行失败所对应的规则或赋值路径。</summary>
     public string? ErrorPath { get; init; }
+
     /// <summary>可选的表达式错误起始字符位置。</summary>
     public int? Start { get; init; }
+
     /// <summary>可选的表达式错误字符跨度。</summary>
     public int? Length { get; init; }
+
     /// <summary>本次试算中实际执行的赋值及其结果。</summary>
     public IReadOnlyList<RuleAssignmentOutcome> Assignments { get; init; } = [];
+
     /// <summary>与输入或必需出口错误相关的变量编码。</summary>
     public string? ErrorVariableCode { get; init; }
 }

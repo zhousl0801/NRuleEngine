@@ -30,8 +30,7 @@ public sealed class ReleaseController : AbpControllerBase
     /// <summary>删除草稿发布回归用例。</summary>
     [Authorize(NRuleEnginePermissions.Manage)]
     [HttpDelete("revisions/{revisionId:guid}/gate-cases/{gateCaseId:guid}")]
-    public Task<RuleRevisionDto> RemoveGateCaseAsync(Guid revisionId, Guid gateCaseId,
-        [FromBody] DeleteDraftItemDto input)
+    public Task<RuleRevisionDto> RemoveGateCaseAsync(Guid revisionId, Guid gateCaseId, [FromBody] DeleteDraftItemDto input)
     {
         return _release.RemoveGateCaseAsync(revisionId, gateCaseId, input);
     }

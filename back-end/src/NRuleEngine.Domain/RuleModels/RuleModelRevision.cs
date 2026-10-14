@@ -16,22 +16,31 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
 {
     /// <summary>本修订所属规则模型的标识。</summary>
     public Guid RuleModelId { get; private set; }
+
     /// <summary>同一模型内递增的修订序号。</summary>
     public int RevisionNo { get; private set; }
+
     /// <summary>复制草稿所依据的源修订；首个草稿为空。</summary>
     public Guid? BasedOnRevisionId { get; private set; }
+
     /// <summary>修订状态；只有草稿允许修改内容。</summary>
     public RuleRevisionStatus Status { get; private set; }
+
     /// <summary>修订锁定的场景编码。</summary>
     public string ScenarioCode { get; private set; } = null!;
+
     /// <summary>修订锁定的场景契约版本。</summary>
     public string ContractVersion { get; private set; } = null!;
+
     /// <summary>FirstMatch 或 Sequential 规则执行方式。</summary>
     public RuleExecutionMode ExecutionMode { get; private set; }
+
     /// <summary>Sequential 模式下同一变量被多次写入的裁决策略。</summary>
     public MultipleWritePolicy MultipleWritePolicy { get; private set; }
+
     /// <summary>发布后固定的内容摘要；草稿阶段可以为空。</summary>
     public string? ContentHash { get; private set; }
+
     /// <summary>维护者填写的本次修订说明。</summary>
     public string? ChangeSummary { get; private set; }
     private List<VariableDefinition> _variables = [];
@@ -59,13 +68,18 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>按固定场景契约创建草稿，并实例化契约入口与必需出口变量。</summary>
-    public RuleModelRevision(Guid id, Guid modelId, int revisionNo, RuleScenarioDescriptor contract, Guid? basedOnRevisionId = null)
-        : base(id)
+    public RuleModelRevision(
+        Guid id,
+        Guid modelId,
+        int revisionNo,
+        RuleScenarioDescriptor contract,
+        Guid? basedOnRevisionId = null) : base(id)
     {
         if (revisionNo < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(revisionNo), "修订号必须大于零。");
         }
+
         RuleModelId = modelId;
         RevisionNo = revisionNo;
         BasedOnRevisionId = basedOnRevisionId;
@@ -106,16 +120,15 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
 
     /// <summary>新增规则，并阻止相同优先级下的顺序值冲突。</summary>
     /// <remarks>核心逻辑：检查草稿状态与排序组合后加入规则；调用时机：编制规则草稿时。</remarks>
-    public RuleDefinition AddRule(Guid id, string name, int priority, int sortOrder, bool isEnabled,
-        string? conditionSource, string conditionAstJson)
+    public RuleDefinition AddRule(Guid id, string name, int priority, int sortOrder, bool isEnabled, string? conditionSource, string conditionAstJson)
     {
         EnsureDraft();
         if (_rules.Any(r => r.Priority == priority && r.SortOrder == sortOrder))
         {
             throw new ArgumentException("规则的优先级与排序值组合不能重复。");
         }
-        var rule = new RuleDefinition(id, Id, name, priority, sortOrder, isEnabled, conditionSource,
-            conditionAstJson, Variables);
+
+        var rule = new RuleDefinition(id, Id, name, priority, sortOrder, isEnabled, conditionSource, conditionAstJson, Variables);
         _rules.Add(rule);
         return rule;
     }
@@ -128,33 +141,31 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("不支持的执行语义。");
         }
+
         ExecutionMode = mode;
         MultipleWritePolicy = writePolicy;
     }
 
     /// <summary>给本修订的指定规则增加赋值，并校验目标和值类型。</summary>
-    public RuleAssignment AddAssignment(Guid ruleId, Guid assignmentId, Guid targetKey,
-        RuleValueSourceKind sourceKind, string? constantJson, string? expressionSource,
-        string? expressionAstJson, int sortOrder)
+    public RuleAssignment AddAssignment(Guid ruleId, Guid assignmentId, Guid targetKey, RuleValueSourceKind sourceKind, string? constantJson, string? expressionSource, string? expressionAstJson, int sortOrder)
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
             ?? throw new ArgumentException("规则不属于此修订。");
-        var assignment = new RuleAssignment(assignmentId, ruleId, targetKey, sourceKind, constantJson,
-            expressionSource, expressionAstJson, sortOrder, Variables);
+        var assignment = new RuleAssignment(assignmentId, ruleId, targetKey, sourceKind, constantJson, expressionSource, expressionAstJson, sortOrder, Variables);
         rule.AddAssignment(assignment);
         return assignment;
     }
 
     /// <summary>按本修订锁定的场景契约加入一组绑定条件。</summary>
-    public ScenarioBinding AddBinding(Guid id, RuleScenarioDescriptor contract, int priority,
-        IReadOnlyCollection<(string Code, RuleBindingOperator Operator, string ValueJson)> criteria)
+    public ScenarioBinding AddBinding(Guid id, RuleScenarioDescriptor contract, int priority, IReadOnlyCollection<(string Code, RuleBindingOperator Operator, string ValueJson)> criteria)
     {
         EnsureDraft();
         if (contract.ScenarioCode != ScenarioCode || contract.ContractVersion != ContractVersion)
         {
             throw new ArgumentException("绑定契约与修订契约不一致。");
         }
+
         var binding = new ScenarioBinding(id, Id, contract, priority);
         foreach (var criterion in criteria)
         {
@@ -174,8 +185,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>更新规则条件和顺序，不更换规则标识。</summary>
-    public void UpdateRule(Guid ruleId, string name, int priority, int sortOrder, bool isEnabled,
-        string? conditionSource, string conditionAstJson)
+    public void UpdateRule(Guid ruleId, string name, int priority, int sortOrder, bool isEnabled, string? conditionSource, string conditionAstJson)
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
@@ -184,6 +194,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("规则的优先级与排序值组合不能重复。");
         }
+
         rule.Update(name, priority, sortOrder, isEnabled, conditionSource, conditionAstJson, Variables);
     }
 
@@ -197,15 +208,12 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>更新指定赋值的目标、来源和值，并保持赋值标识。</summary>
-    public void UpdateAssignment(Guid ruleId, Guid assignmentId, Guid targetKey,
-        RuleValueSourceKind sourceKind, string? constantJson, string? expressionSource,
-        string? expressionAstJson, int sortOrder)
+    public void UpdateAssignment(Guid ruleId, Guid assignmentId, Guid targetKey, RuleValueSourceKind sourceKind, string? constantJson, string? expressionSource, string? expressionAstJson, int sortOrder)
     {
         EnsureDraft();
         var rule = _rules.SingleOrDefault(r => r.Id == ruleId)
             ?? throw new ArgumentException("规则不属于此修订。");
-        rule.UpdateAssignment(assignmentId, targetKey, sourceKind, constantJson, expressionSource,
-            expressionAstJson, sortOrder, Variables);
+        rule.UpdateAssignment(assignmentId, targetKey, sourceKind, constantJson, expressionSource, expressionAstJson, sortOrder, Variables);
     }
 
     /// <summary>从草稿移除指定场景绑定。</summary>
@@ -218,8 +226,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>按锁定契约替换指定绑定的优先级和全部条件。</summary>
-    public void UpdateBinding(Guid bindingId, RuleScenarioDescriptor contract, int priority,
-        IReadOnlyCollection<(string Code, RuleBindingOperator Operator, string ValueJson)> criteria)
+    public void UpdateBinding(Guid bindingId, RuleScenarioDescriptor contract, int priority, IReadOnlyCollection<(string Code, RuleBindingOperator Operator, string ValueJson)> criteria)
     {
         EnsureDraft();
         var binding = _bindings.SingleOrDefault(b => b.Id == bindingId)
@@ -228,6 +235,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("绑定契约与修订契约不一致。");
         }
+
         binding.Update(contract, priority, criteria);
     }
 
@@ -240,12 +248,14 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("必须提供变量编码和名称。");
         }
+
         code = code.Trim();
         name = name.Trim();
         if (Variables.Any(v => v.Code == code))
         {
             throw new InvalidOperationException($"变量编码重复：{code}。");
         }
+
         var variable = VariableDefinition.NewIntermediate(id, Id, Guid.NewGuid(), code, name, type);
         _variables.Add(variable);
         return variable;
@@ -259,6 +269,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("必须提供变量编码和名称。");
         }
+
         code = code.Trim();
         name = name.Trim();
         var variable = GetVariable(stableKey);
@@ -266,6 +277,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new InvalidOperationException($"变量编码重复：{code}。");
         }
+
         variable.Rename(code, name);
     }
 
@@ -282,9 +294,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     {
         EnsureDraft();
         var variable = GetVariable(stableKey);
-        var constants = Rules.SelectMany(r => r.Assignments)
-            .Where(a => a.TargetVariableStableKey == stableKey && a.ValueSourceKind == RuleValueSourceKind.Constant)
-            .Select(a => a.ConstantValueJson!).ToArray();
+        var constants = Rules.SelectMany(r => r.Assignments).Where(a => a.TargetVariableStableKey == stableKey && a.ValueSourceKind == RuleValueSourceKind.Constant).Select(a => a.ConstantValueJson!).ToArray();
         variable.UpdateIntermediateProperties(defaultValueJson, unit, precision, constants);
     }
 
@@ -299,13 +309,13 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("只能删除用户定义的中间变量。");
         }
-        var references = RuleRevisionImpactAnalyzer.GetVariableReferences(this, stableKey)
-            .Where(x => x.BlocksVariableDeletion).ToArray();
+
+        var references = RuleRevisionImpactAnalyzer.GetVariableReferences(this, stableKey).Where(x => x.BlocksVariableDeletion).ToArray();
         if (references.Length > 0)
         {
-            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.VariableReferenced)
-                .WithData("References", references.Select(x => x.Path).Distinct().ToArray());
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.VariableReferenced).WithData("References", references.Select(x => x.Path).Distinct().ToArray());
         }
+
         _variables.Remove(variable);
     }
 
@@ -317,14 +327,14 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>增加以场景上下文、输入和预期输出组成的发布门禁用例。</summary>
-    public ReleaseGateCase AddGateCase(Guid id, string name, string contextJson, string inputsJson,
-        string expectedOutputsJson)
+    public ReleaseGateCase AddGateCase(Guid id, string name, string contextJson, string inputsJson, string expectedOutputsJson)
     {
         EnsureDraft();
         if (_gateCases.Any(c => c.Name == name?.Trim()))
         {
             throw new ArgumentException("同一修订内的门禁用例名称不能重复。");
         }
+
         var gateCase = new ReleaseGateCase(id, Id, name, contextJson, inputsJson, expectedOutputsJson);
         _gateCases.Add(gateCase);
         return gateCase;
@@ -348,10 +358,12 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         {
             throw new ArgumentException("必须提供内容哈希。", nameof(contentHash));
         }
+
         if (changeSummary?.Length > 2048)
         {
             throw new ArgumentException("变更说明不能超过 2048 个字符。", nameof(changeSummary));
         }
+
         ContentHash = contentHash;
         ChangeSummary = changeSummary;
         Status = RuleRevisionStatus.Published;

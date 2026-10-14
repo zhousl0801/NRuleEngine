@@ -6,6 +6,5 @@ namespace NRuleEngine.Application.Contracts.Runtime;
 public interface IRuleExecutionAppService : IApplicationService
 {
     /// <summary>返回结构化业务结果；调用方取消原样传播，系统故障通过异常返回。</summary>
-    Task<RuleExecutionResultDto> ExecuteAsync(ExecuteRuleDto input,
-        CancellationToken cancellationToken = default);
+    Task<RuleExecutionResultDto> ExecuteAsync(ExecuteRuleDto input, CancellationToken cancellationToken = default);
 }

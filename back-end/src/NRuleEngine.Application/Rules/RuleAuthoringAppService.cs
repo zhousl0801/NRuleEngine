@@ -24,8 +24,7 @@ public class RuleAuthoringAppService : ApplicationService, IRuleAuthoringAppServ
     {
         var revision = await GetRevisionEntityAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
-        revision.AddRule(GuidGenerator.Create(), input.Name, input.Priority, input.SortOrder,
-            input.IsEnabled, input.ConditionSource, input.ConditionAstJson);
+        revision.AddRule(GuidGenerator.Create(), input.Name, input.Priority, input.SortOrder, input.IsEnabled, input.ConditionSource, input.ConditionAstJson);
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
@@ -36,8 +35,7 @@ public class RuleAuthoringAppService : ApplicationService, IRuleAuthoringAppServ
     {
         var revision = await GetRevisionEntityAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
-        revision.UpdateRule(ruleId, input.Name, input.Priority, input.SortOrder, input.IsEnabled,
-            input.ConditionSource, input.ConditionAstJson);
+        revision.UpdateRule(ruleId, input.Name, input.Priority, input.SortOrder, input.IsEnabled, input.ConditionSource, input.ConditionAstJson);
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
@@ -48,23 +46,18 @@ public class RuleAuthoringAppService : ApplicationService, IRuleAuthoringAppServ
     {
         var revision = await GetRevisionEntityAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
-        revision.AddAssignment(ruleId, GuidGenerator.Create(), input.TargetVariableStableKey,
-            input.ValueSourceKind, input.ConstantValueJson, input.ExpressionSource,
-            input.ExpressionAstJson, input.SortOrder);
+        revision.AddAssignment(ruleId, GuidGenerator.Create(), input.TargetVariableStableKey, input.ValueSourceKind, input.ConstantValueJson, input.ExpressionSource, input.ExpressionAstJson, input.SortOrder);
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
 
     /// <summary>修改赋值目标与来源，并拒绝重复目标和顺序冲突。</summary>
     /// <remarks>核心逻辑：重新校验赋值类型、目标和冲突；调用时机：维护者修改规则赋值时。</remarks>
-    public virtual async Task<RuleRevisionDto> UpdateAssignmentAsync(Guid revisionId, Guid ruleId,
-        Guid assignmentId, AddAssignmentDto input)
+    public virtual async Task<RuleRevisionDto> UpdateAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId, AddAssignmentDto input)
     {
         var revision = await GetRevisionEntityAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
-        revision.UpdateAssignment(ruleId, assignmentId, input.TargetVariableStableKey,
-            input.ValueSourceKind, input.ConstantValueJson, input.ExpressionSource,
-            input.ExpressionAstJson, input.SortOrder);
+        revision.UpdateAssignment(ruleId, assignmentId, input.TargetVariableStableKey, input.ValueSourceKind, input.ConstantValueJson, input.ExpressionSource, input.ExpressionAstJson, input.SortOrder);
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }
@@ -82,8 +75,7 @@ public class RuleAuthoringAppService : ApplicationService, IRuleAuthoringAppServ
 
     /// <summary>删除指定规则下的一条赋值。</summary>
     /// <remarks>核心逻辑：核对版本后删除指定规则中的赋值；调用时机：维护者删除草稿赋值时。</remarks>
-    public virtual async Task<RuleRevisionDto> RemoveAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId,
-        DeleteDraftItemDto input)
+    public virtual async Task<RuleRevisionDto> RemoveAssignmentAsync(Guid revisionId, Guid ruleId, Guid assignmentId, DeleteDraftItemDto input)
     {
         var revision = await GetRevisionEntityAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);

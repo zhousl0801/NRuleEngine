@@ -8,12 +8,16 @@ public sealed class ReleaseGateCase : Entity<Guid>
 {
     /// <summary>所属修订的标识。</summary>
     public Guid RevisionId { get; private set; }
+
     /// <summary>维护者识别此用例的名称。</summary>
     public string Name { get; private set; } = null!;
+
     /// <summary>按绑定维度编码索引的 JSON 对象，属性值也是 JSON 值。</summary>
     public string ContextJson { get; private set; } = null!;
+
     /// <summary>按入口变量编码索引的 JSON 对象，属性值也是 JSON 值。</summary>
     public string InputsJson { get; private set; } = null!;
+
     /// <summary>按出口变量编码索引的预期 JSON 对象，发布时要求逐项相等。</summary>
     public string ExpectedOutputsJson { get; private set; } = null!;
 
@@ -22,13 +26,19 @@ public sealed class ReleaseGateCase : Entity<Guid>
     }
 
     /// <summary>创建输入与期望均为 JSON 对象的发布门禁用例。</summary>
-    public ReleaseGateCase(Guid id, Guid revisionId, string name, string contextJson, string inputsJson,
+    public ReleaseGateCase(
+        Guid id,
+        Guid revisionId,
+        string name,
+        string contextJson,
+        string inputsJson,
         string expectedOutputsJson) : base(id)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Length > 256)
         {
             throw new ArgumentException("门禁用例名称长度必须在 1 到 256 个字符之间。", nameof(name));
         }
+
         ValidateObject(contextJson, nameof(contextJson));
         ValidateObject(inputsJson, nameof(inputsJson));
         ValidateObject(expectedOutputsJson, nameof(expectedOutputsJson));
@@ -52,6 +62,7 @@ public sealed class ReleaseGateCase : Entity<Guid>
         {
             throw new ArgumentException("门禁用例数据必须是 JSON 对象。", name);
         }
+
         var keys = new HashSet<string>(StringComparer.Ordinal);
         if (document.RootElement.EnumerateObject().Any(property => !keys.Add(property.Name)))
         {

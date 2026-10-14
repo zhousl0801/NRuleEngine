@@ -30,10 +30,7 @@ public sealed class RuleModelDtoContractTests
     public void RevisionOutputSerializesVariableDetails()
     {
         // 序列化修订详情并核对变量字段，防止输出契约遗漏。
-        var revision = new RuleRevisionDto(Guid.NewGuid(), Guid.NewGuid(), 1, null, RuleRevisionStatus.Draft,
-            "size-expansion", "1.0", RuleExecutionMode.FirstMatch, MultipleWritePolicy.ErrorOnMultipleWrite,
-            "stamp", [new RuleVariableDto(Guid.NewGuid(), Guid.NewGuid(), "inputWidth", "Input width",
-                RuleVariableDirection.Input, RuleVariableOrigin.Contract, new RuleTypeDescriptor(RuleValueKind.Decimal))]);
+        var revision = new RuleRevisionDto(Guid.NewGuid(), Guid.NewGuid(), 1, null, RuleRevisionStatus.Draft, "size-expansion", "1.0", RuleExecutionMode.FirstMatch, MultipleWritePolicy.ErrorOnMultipleWrite, "stamp", [new RuleVariableDto(Guid.NewGuid(), Guid.NewGuid(), "inputWidth", "Input width", RuleVariableDirection.Input, RuleVariableOrigin.Contract, new RuleTypeDescriptor(RuleValueKind.Decimal))]);
 
         var restored = JsonSerializer.Deserialize<RuleRevisionDto>(JsonSerializer.Serialize(revision));
 

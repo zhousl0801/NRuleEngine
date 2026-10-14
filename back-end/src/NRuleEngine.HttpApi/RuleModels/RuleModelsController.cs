@@ -111,32 +111,28 @@ public sealed class RuleModelsController : AbpControllerBase
     /// 重命名草稿中的中间变量。
     /// </summary>
     [HttpPut("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}")]
-    public Task<RuleRevisionDto> RenameIntermediateVariableAsync(Guid revisionId, Guid stableKey,
-        [FromBody] RenameIntermediateVariableDto input)
+    public Task<RuleRevisionDto> RenameIntermediateVariableAsync(Guid revisionId, Guid stableKey, [FromBody] RenameIntermediateVariableDto input)
     {
         return _service.RenameIntermediateVariableAsync(revisionId, stableKey, input);
     }
 
     /// <summary>配置草稿契约入口默认值。</summary>
     [HttpPut("revisions/{revisionId:guid}/inputs/{stableKey:guid}/default")]
-    public Task<RuleRevisionDto> SetInputDefaultAsync(Guid revisionId, Guid stableKey,
-        [FromBody] SetInputDefaultDto input)
+    public Task<RuleRevisionDto> SetInputDefaultAsync(Guid revisionId, Guid stableKey, [FromBody] SetInputDefaultDto input)
     {
         return _service.SetInputDefaultAsync(revisionId, stableKey, input);
     }
 
     /// <summary>更新草稿中间变量默认值与单位。</summary>
     [HttpPut("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}/properties")]
-    public Task<RuleRevisionDto> UpdateIntermediatePropertiesAsync(Guid revisionId, Guid stableKey,
-        [FromBody] UpdateIntermediatePropertiesDto input)
+    public Task<RuleRevisionDto> UpdateIntermediatePropertiesAsync(Guid revisionId, Guid stableKey, [FromBody] UpdateIntermediatePropertiesDto input)
     {
         return _service.UpdateIntermediatePropertiesAsync(revisionId, stableKey, input);
     }
 
     /// <summary>单独修改草稿中间变量的 Decimal 精度。</summary>
     [HttpPut("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}/precision")]
-    public Task<RuleRevisionDto> SetIntermediatePrecisionAsync(Guid revisionId, Guid stableKey,
-        [FromBody] SetIntermediatePrecisionDto input)
+    public Task<RuleRevisionDto> SetIntermediatePrecisionAsync(Guid revisionId, Guid stableKey, [FromBody] SetIntermediatePrecisionDto input)
     {
         return _service.SetIntermediatePrecisionAsync(revisionId, stableKey, input);
     }
@@ -150,8 +146,7 @@ public sealed class RuleModelsController : AbpControllerBase
 
     /// <summary>删除没有引用的草稿中间变量。</summary>
     [HttpDelete("revisions/{revisionId:guid}/intermediate-variables/{stableKey:guid}")]
-    public Task<RuleRevisionDto> RemoveIntermediateVariableAsync(Guid revisionId, Guid stableKey,
-        [FromBody] DeleteDraftItemDto input)
+    public Task<RuleRevisionDto> RemoveIntermediateVariableAsync(Guid revisionId, Guid stableKey, [FromBody] DeleteDraftItemDto input)
     {
         return _service.RemoveIntermediateVariableAsync(revisionId, stableKey, input);
     }
@@ -172,8 +167,7 @@ public sealed class RuleModelsController : AbpControllerBase
 
     /// <summary>设置草稿执行语义。</summary>
     [HttpPut("revisions/{revisionId:guid}/execution-semantics")]
-    public Task<RuleRevisionDto> UpdateExecutionSemanticsAsync(Guid revisionId,
-        [FromBody] UpdateExecutionSemanticsDto input)
+    public Task<RuleRevisionDto> UpdateExecutionSemanticsAsync(Guid revisionId, [FromBody] UpdateExecutionSemanticsDto input)
     {
         return _service.UpdateExecutionSemanticsAsync(revisionId, input);
     }

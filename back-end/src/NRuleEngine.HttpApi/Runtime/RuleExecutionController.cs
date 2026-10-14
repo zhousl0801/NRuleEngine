@@ -21,8 +21,7 @@ public sealed class RuleExecutionController : AbpControllerBase
 
     /// <summary>返回成功、未匹配、拒绝或计算失败的结构化结果。</summary>
     [HttpPost]
-    public Task<RuleExecutionResultDto> ExecuteAsync([FromBody] ExecuteRuleDto input,
-        CancellationToken cancellationToken)
+    public Task<RuleExecutionResultDto> ExecuteAsync([FromBody] ExecuteRuleDto input, CancellationToken cancellationToken)
     {
         return _execution.ExecuteAsync(input, cancellationToken);
     }

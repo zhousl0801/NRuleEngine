@@ -36,8 +36,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         var validation = ServiceProvider.GetRequiredService<IRuleValidationAppService>();
         var simulation = ServiceProvider.GetRequiredService<IRuleSimulationAppService>();
 
-        var model = await service.CreateAsync(new CreateRuleModelDto(
-            "TEST-ODS", "size-expansion", "1.0", "authoring", "Authoring", null));
+        var model = await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "authoring", "Authoring", null));
         var revision = await service.GetRevisionAsync(Assert.Single(await service.GetRevisionsAsync(model.Id)).Id);
         var output = revision.Variables.Single(v => v.Code == "targetWidth");
         revision = await rules.AddRuleAsync(revision.Id, new AddRuleDto
@@ -82,8 +81,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         Assert.Equal("125", result.OutputsJson["targetWidth"]);
 
         var currentModel = await service.GetAsync(model.Id);
-        var copy = await service.CreateDraftAsync(model.Id,
-            new CreateDraftDto(revision.Id, currentModel.ConcurrencyStamp));
+        var copy = await service.CreateDraftAsync(model.Id, new CreateDraftDto(revision.Id, currentModel.ConcurrencyStamp));
         await uow.SaveChangesAsync();
         Assert.Single(copy.Rules);
         Assert.Single(copy.Bindings);
@@ -176,27 +174,21 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         Assert.Equal("TEST-ODS", Assert.Single(await catalog.GetAppsAsync()).AppCode);
         Assert.Equal("size-expansion", Assert.Single(await catalog.GetScenariosAsync("TEST-ODS")).ScenarioCode);
 
-        var model = await service.CreateAsync(new CreateRuleModelDto(
-            "TEST-ODS", "size-expansion", "1.0", "width", "Width", null));
+        var model = await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "width", "Width", null));
         await uow.SaveChangesAsync();
         var initialSummary = Assert.Single(await service.GetRevisionsAsync(model.Id));
         var initial = await service.GetRevisionAsync(initialSummary.Id);
         Assert.Equal(2, initial.Variables.Count);
         var initialStamp = initial.ConcurrencyStamp;
 
-        var changed = await service.AddIntermediateVariableAsync(initial.Id,
-            new AddIntermediateVariableDto("delta", "Adjustment", new RuleTypeDescriptor(RuleValueKind.Decimal),
-                initialStamp));
+        var changed = await service.AddIntermediateVariableAsync(initial.Id, new AddIntermediateVariableDto("delta", "Adjustment", new RuleTypeDescriptor(RuleValueKind.Decimal), initialStamp));
         await uow.SaveChangesAsync();
         Assert.Equal(3, changed.Variables.Count);
         Assert.NotEqual(initialStamp, changed.ConcurrencyStamp);
-        await Assert.ThrowsAsync<BusinessException>(() => service.AddIntermediateVariableAsync(initial.Id,
-            new AddIntermediateVariableDto("stale", "Stale", new RuleTypeDescriptor(RuleValueKind.Decimal),
-                initialStamp)));
+        await Assert.ThrowsAsync<BusinessException>(() => service.AddIntermediateVariableAsync(initial.Id, new AddIntermediateVariableDto("stale", "Stale", new RuleTypeDescriptor(RuleValueKind.Decimal), initialStamp)));
 
         var freshModel = await service.GetAsync(model.Id);
-        var second = await service.CreateDraftAsync(model.Id,
-            new CreateDraftDto(initial.Id, freshModel.ConcurrencyStamp));
+        var second = await service.CreateDraftAsync(model.Id, new CreateDraftDto(initial.Id, freshModel.ConcurrencyStamp));
         await uow.SaveChangesAsync();
         Assert.Equal(initial.Id, second.BasedOnRevisionId);
         Assert.Equal(changed.Variables.Select(x => x.StableKey), second.Variables.Select(x => x.StableKey));
@@ -212,24 +204,20 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         RuleRevisionDto source;
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())
         {
-            var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>()
-                .GetDbContextAsync();
+            var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
             await db.Database.EnsureCreatedAsync();
             var models = ServiceProvider.GetRequiredService<IRuleModelAppService>();
             var rules = ServiceProvider.GetRequiredService<IRuleAuthoringAppService>();
             var bindings = ServiceProvider.GetRequiredService<IRuleBindingAppService>();
             var release = ServiceProvider.GetRequiredService<IRuleReleaseAppService>();
-            sourceModel = await models.CreateAsync(new CreateRuleModelDto(
-                "TEST-ODS", "size-expansion", "1.0", "source-copy", "Source", null));
+            sourceModel = await models.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "source-copy", "Source", null));
             source = await models.GetRevisionAsync(Assert.Single(await models.GetRevisionsAsync(sourceModel.Id)).Id);
             var input = source.Variables.Single(v => v.Code == "inputWidth");
             source = await models.SetInputDefaultAsync(source.Id, input.StableKey, new SetInputDefaultDto
             {
                 DefaultValueJson = "120", ExpectedRevisionConcurrencyStamp = source.ConcurrencyStamp
             });
-            source = await models.AddIntermediateVariableAsync(source.Id,
-                new AddIntermediateVariableDto("extra", "Extra", new RuleTypeDescriptor(RuleValueKind.Decimal),
-                    source.ConcurrencyStamp));
+            source = await models.AddIntermediateVariableAsync(source.Id, new AddIntermediateVariableDto("extra", "Extra", new RuleTypeDescriptor(RuleValueKind.Decimal), source.ConcurrencyStamp));
             var middle = source.Variables.Single(v => v.Code == "extra");
             source = await models.UpdateIntermediatePropertiesAsync(source.Id, middle.StableKey,
                 new UpdateIntermediatePropertiesDto
@@ -298,8 +286,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
             ExpectedSourceRevisionConcurrencyStamp = source.ConcurrencyStamp
         });
         var copy = await service.GetRevisionAsync(Assert.Single(await service.GetRevisionsAsync(copyModel.Id)).Id);
-        Assert.Equal(source.Variables.Select(v => v.StableKey).Order(),
-            copy.Variables.Select(v => v.StableKey).Order());
+        Assert.Equal(source.Variables.Select(v => v.StableKey).Order(), copy.Variables.Select(v => v.StableKey).Order());
         Assert.Equal("120", copy.Variables.Single(v => v.Code == "inputWidth").DefaultValueJson);
         Assert.Equal("mm", copy.Variables.Single(v => v.Code == "extra").Unit);
         Assert.Equal(source.GateCases[0].InputsJson, copy.GateCases[0].InputsJson);
@@ -309,15 +296,12 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         Assert.True(impact.BlocksOperation);
         Assert.Equal(copy.ConcurrencyStamp, impact.ConcurrencyStamp);
         Assert.Contains(impact.References, x => x.Kind == "AssignmentExpression");
-        var blocked = await Assert.ThrowsAsync<BusinessException>(() => service.RemoveIntermediateVariableAsync(
-            copy.Id, middleKey,
-            new DeleteDraftItemDto { ExpectedRevisionConcurrencyStamp = copy.ConcurrencyStamp }));
+        var blocked = await Assert.ThrowsAsync<BusinessException>(() => service.RemoveIntermediateVariableAsync(copy.Id, middleKey, new DeleteDraftItemDto { ExpectedRevisionConcurrencyStamp = copy.ConcurrencyStamp }));
         Assert.Equal(NRuleEngineErrorCodes.VariableReferenced, blocked.Code);
         var ruleRemovalImpact = await service.GetRuleRemovalImpactAsync(copy.Id, copy.Rules[0].Id);
         Assert.False(ruleRemovalImpact.BlocksOperation);
         Assert.Contains(ruleRemovalImpact.References, x => x.Kind == "AffectedVariable");
-        var assignmentRemovalImpact = await service.GetAssignmentRemovalImpactAsync(copy.Id, copy.Rules[0].Id,
-            copy.Rules[0].Assignments[0].Id);
+        var assignmentRemovalImpact = await service.GetAssignmentRemovalImpactAsync(copy.Id, copy.Rules[0].Id, copy.Rules[0].Assignments[0].Id);
         Assert.False(assignmentRemovalImpact.BlocksOperation);
         Assert.Contains(assignmentRemovalImpact.References, x => x.Kind == "AffectedVariable");
 
@@ -334,10 +318,8 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         });
         Assert.Equal(RuleExecutionStatus.Succeeded, result.Status);
         Assert.Equal(125, result.Outputs["targetWidth"].GetDecimal());
-        Assert.Contains((await service.GetArchiveImpactAsync(copyModel.Id)).References,
-            x => x.Kind == "ActiveRevision");
-        Assert.Contains((await service.GetArchiveImpactAsync(copyModel.Id)).References,
-            x => x.Kind == "RuntimeSelection");
+        Assert.Contains((await service.GetArchiveImpactAsync(copyModel.Id)).References, x => x.Kind == "ActiveRevision");
+        Assert.Contains((await service.GetArchiveImpactAsync(copyModel.Id)).References, x => x.Kind == "RuntimeSelection");
         Assert.Null((await service.GetAsync(sourceModel.Id)).ActiveRevisionId);
 
         var published = await service.GetRevisionAsync(copy.Id);
@@ -346,12 +328,10 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
             SourceRevisionId = copy.Id, Code = "copied-published", Name = "From published",
             ExpectedSourceRevisionConcurrencyStamp = published.ConcurrencyStamp
         });
-        var publishedCopy = await service.GetRevisionAsync(
-            Assert.Single(await service.GetRevisionsAsync(fromPublished.Id)).Id);
+        var publishedCopy = await service.GetRevisionAsync(Assert.Single(await service.GetRevisionsAsync(fromPublished.Id)).Id);
         Assert.Equal(RuleRevisionStatus.Draft, publishedCopy.Status);
         Assert.Null(fromPublished.ActiveRevisionId);
         Assert.Equal(published.GateCases[0].InputsJson, publishedCopy.GateCases[0].InputsJson);
-        Assert.Equal(published.Variables.Select(v => v.StableKey).Order(),
-            publishedCopy.Variables.Select(v => v.StableKey).Order());
+        Assert.Equal(published.Variables.Select(v => v.StableKey).Order(), publishedCopy.Variables.Select(v => v.StableKey).Order());
     }
 }

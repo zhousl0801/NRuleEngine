@@ -30,8 +30,8 @@ public static class ReleaseGateEvaluator
                 failures.Add($"{gateCase.Name}: {outcome.ErrorCode}: {outcome.ErrorMessage}");
                 continue;
             }
-            if (!expected.Keys.Order(StringComparer.Ordinal).SequenceEqual(
-                    outcome.Outputs.Keys.Order(StringComparer.Ordinal)) ||
+
+            if (!expected.Keys.Order(StringComparer.Ordinal).SequenceEqual(outcome.Outputs.Keys.Order(StringComparer.Ordinal)) ||
                 expected.Any(item => !SameJson(item.Value, outcome.Outputs[item.Key])))
             {
                 failures.Add($"{gateCase.Name}：输出值与预期不一致。");
@@ -43,8 +43,7 @@ public static class ReleaseGateEvaluator
     private static Dictionary<string, string> ReadValues(string json)
     {
         using var document = JsonDocument.Parse(json);
-        return document.RootElement.EnumerateObject()
-            .ToDictionary(x => x.Name, x => x.Value.GetRawText(), StringComparer.Ordinal);
+        return document.RootElement.EnumerateObject().ToDictionary(x => x.Name, x => x.Value.GetRawText(), StringComparer.Ordinal);
     }
 
     private static bool SameJson(string expected, string actual)

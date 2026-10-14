@@ -22,6 +22,7 @@ public static class RuleRevisionImpactAnalyzer
             {
                 references.Add(new RuleImpactReference("Condition", conditionPath, true));
             }
+
             foreach (var assignment in rule.Assignments)
             {
                 var path = $"rules/{rule.Id}/assignments/{assignment.Id}";
@@ -29,12 +30,14 @@ public static class RuleRevisionImpactAnalyzer
                 {
                     references.Add(new RuleImpactReference("AssignmentTarget", $"{path}/target", true));
                 }
+
                 var expressionKeys = assignment.ValueSourceKind == RuleValueSourceKind.Expression
                     ? ReadKeys(assignment.ExpressionAstJson!, $"{path}/expression", references) : [];
                 if (expressionKeys.Contains(stableKey))
                 {
                     references.Add(new RuleImpactReference("AssignmentExpression", $"{path}/expression", true));
                 }
+
                 foreach (var source in conditionKeys.Concat(expressionKeys))
                 {
                     edges.TryAdd(source, []);
@@ -66,26 +69,23 @@ public static class RuleRevisionImpactAnalyzer
                 {
                     references.Add(new RuleImpactReference("GateCaseInput", $"gate-cases/{gateCase.Id}/inputs", true));
                 }
+
                 if (affectedVariable.Direction == RuleVariableDirection.Output &&
                     ContainsProperty(gateCase.ExpectedOutputsJson, affectedVariable.Code))
                 {
-                    references.Add(new RuleImpactReference("GateCaseOutput", $"gate-cases/{gateCase.Id}/outputs",
-                        affectedVariable.StableKey == stableKey));
+                    references.Add(new RuleImpactReference("GateCaseOutput", $"gate-cases/{gateCase.Id}/outputs", affectedVariable.StableKey == stableKey));
                 }
             }
         }
-        return references.GroupBy(x => (x.Kind, x.Path, x.BlocksVariableDeletion))
-            .Select(x => x.First()).OrderBy(x => x.Path, StringComparer.Ordinal).ToArray();
+        return references.GroupBy(x => (x.Kind, x.Path, x.BlocksVariableDeletion)).Select(x => x.First()).OrderBy(x => x.Path, StringComparer.Ordinal).ToArray();
     }
 
     /// <summary>预览删除规则或赋值后可能受影响的目标变量及下游对象。</summary>
     /// <remarks>核心逻辑：追踪赋值目标的下游变量依赖；调用时机：维护者预览删除赋值时。</remarks>
-    public static IReadOnlyList<RuleImpactReference> GetAssignmentRemovalImpact(RuleModelRevision revision,
-        Guid ruleId, Guid assignmentId)
+    public static IReadOnlyList<RuleImpactReference> GetAssignmentRemovalImpact(RuleModelRevision revision, Guid ruleId, Guid assignmentId)
     {
         var assignment = revision.Rules.Single(r => r.Id == ruleId).Assignments.Single(a => a.Id == assignmentId);
-        return [new RuleImpactReference("AffectedVariable",
-            $"variables/{assignment.TargetVariableStableKey}", false),
+        return [new RuleImpactReference("AffectedVariable", $"variables/{assignment.TargetVariableStableKey}", false),
             ..GetVariableReferences(revision, assignment.TargetVariableStableKey)];
     }
 
@@ -94,9 +94,7 @@ public static class RuleRevisionImpactAnalyzer
     public static IReadOnlyList<RuleImpactReference> GetRuleRemovalImpact(RuleModelRevision revision, Guid ruleId)
     {
         var rule = revision.Rules.Single(r => r.Id == ruleId);
-        return rule.Assignments.SelectMany(a => GetAssignmentRemovalImpact(revision, ruleId, a.Id))
-            .GroupBy(x => (x.Kind, x.Path, x.BlocksVariableDeletion)).Select(x => x.First())
-            .OrderBy(x => x.Path, StringComparer.Ordinal).ToArray();
+        return rule.Assignments.SelectMany(a => GetAssignmentRemovalImpact(revision, ruleId, a.Id)).GroupBy(x => (x.Kind, x.Path, x.BlocksVariableDeletion)).Select(x => x.First()).OrderBy(x => x.Path, StringComparer.Ordinal).ToArray();
     }
 
     private static HashSet<Guid> ReadKeys(string json, string path, List<RuleImpactReference> references)
@@ -121,6 +119,7 @@ public static class RuleRevisionImpactAnalyzer
         {
             keys.Add(stableKey);
         }
+
         foreach (var child in node.Args ?? [])
         {
             Collect(child, keys);

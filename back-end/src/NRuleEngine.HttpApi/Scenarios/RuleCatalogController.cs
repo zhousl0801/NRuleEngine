@@ -58,8 +58,7 @@ public sealed class RuleCatalogController : AbpControllerBase
 
     /// <summary>按精确版本获取条件判定场景契约。</summary>
     [HttpGet("apps/{appCode}/condition-scenarios/{scenarioCode}/versions/{contractVersion}")]
-    public Task<ConditionScenarioDescriptor> GetConditionScenarioAsync(string appCode, string scenarioCode,
-        string contractVersion)
+    public Task<ConditionScenarioDescriptor> GetConditionScenarioAsync(string appCode, string scenarioCode, string contractVersion)
     {
         return _service.GetConditionScenarioAsync(appCode, scenarioCode, contractVersion);
     }

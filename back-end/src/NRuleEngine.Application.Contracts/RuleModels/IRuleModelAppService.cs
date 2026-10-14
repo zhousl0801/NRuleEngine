@@ -44,12 +44,10 @@ public interface IRuleModelAppService : IApplicationService
     Task<RuleRevisionDto> SetInputDefaultAsync(Guid revisionId, Guid stableKey, SetInputDefaultDto input);
 
     /// <summary>更新草稿用户中间变量的默认值和单位。</summary>
-    Task<RuleRevisionDto> UpdateIntermediatePropertiesAsync(Guid revisionId, Guid stableKey,
-        UpdateIntermediatePropertiesDto input);
+    Task<RuleRevisionDto> UpdateIntermediatePropertiesAsync(Guid revisionId, Guid stableKey, UpdateIntermediatePropertiesDto input);
 
     /// <summary>单独修改草稿用户中间变量的 Decimal 精度。</summary>
-    Task<RuleRevisionDto> SetIntermediatePrecisionAsync(Guid revisionId, Guid stableKey,
-        SetIntermediatePrecisionDto input);
+    Task<RuleRevisionDto> SetIntermediatePrecisionAsync(Guid revisionId, Guid stableKey, SetIntermediatePrecisionDto input);
 
     /// <summary>查看变量的直接引用和下游影响。</summary>
     Task<MaintenanceImpactDto> GetVariableReferencesAsync(Guid revisionId, Guid stableKey);

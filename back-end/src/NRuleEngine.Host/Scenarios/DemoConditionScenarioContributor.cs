@@ -7,8 +7,6 @@ public sealed class DemoConditionScenarioContributor : IConditionScenarioContrib
 {
     public void Configure(IConditionScenarioRegistry registry)
     {
-        registry.Add(new ConditionScenarioDescriptor("DEMO", "thickness-eligibility", "1.0",
-            [new VariableContract("thickness", "厚度", RuleVariableDirection.Input,
-                new RuleTypeDescriptor(RuleValueKind.Decimal))]));
+        registry.Add(new ConditionScenarioDescriptor("DEMO", "thickness-eligibility", "1.0", [new VariableContract("thickness", "厚度", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Decimal))]));
     }
 }
