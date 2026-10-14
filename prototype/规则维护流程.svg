@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">NRuleEngine 规则维护流程原型</title>
+  <desc id="description">规则维护的第一步：左侧选择草稿规则，中间填写规则信息和结构化条件，右侧显示草稿状态、变量及并发冲突入口。</desc>
+  <defs><style>
+    text{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}
+    .mono{font-family:'SFMono-Regular',Consolas,monospace}.white{fill:#eef3ff}.muted{fill:#b8c3d8}.faint{fill:#8e9cba}.mint{fill:#75aaff}.gold{fill:#e8bd79}
+    .tiny{font-size:10px}.small{font-size:12px}.body{font-size:13px}.label{font-size:10px;letter-spacing:1.4px}
+  </style></defs>
+  <rect width="1440" height="900" fill="#151b2b"/>
+  <g transform="translate(0,-54)">
+  <text x="30" y="96" class="muted tiny">← 返回规则集</text>
+  <text x="30" y="168" class="white" font-size="32" font-weight="570" letter-spacing="-1.8">维护规则</text>
+  <text x="30" y="191" class="muted small">编辑草稿中的规则条件与赋值。</text>
+  <text x="1252" y="125" class="faint tiny">查看修订</text><rect x="1220" y="133" width="190" height="38" rx="7" fill="#202a43" stroke="#3e475d"/><text x="1233" y="157" class="white tiny">草稿 R04 · 可编辑  ▾</text><text x="1250" y="188" class="faint mono tiny">修订标识 #42</text>
+  <rect x="30" y="220" width="232" height="650" rx="13" fill="#292e44" stroke="#3c4965"/>
+  <text x="48" y="275" class="white" font-size="15" font-weight="600">当前规则</text>
+  <rect x="214" y="243" width="30" height="30" rx="7" fill="#243e6d" stroke="#3f4c6b"/><text x="222" y="265" class="mint" font-size="19">＋</text>
+  <rect x="41" y="297" width="210" height="84" rx="9" fill="#2c426c" stroke="#4a597c"/><text x="55" y="318" class="faint mono tiny">规则 01 · 优先级 100</text><text x="55" y="341" class="white small" font-weight="600">标准规格计算</text><text x="55" y="363" class="mint tiny">已保存 · 2 项赋值</text>
+  <rect x="41" y="389" width="210" height="84" rx="9" fill="#222a3f" stroke="#3c4965"/><text x="55" y="410" class="faint mono tiny">规则 02 · 优先级 60</text><text x="55" y="433" class="muted small">特殊规格修正</text><text x="55" y="455" class="faint tiny">已保存 · 2 项赋值</text>
+  <rect x="41" y="481" width="210" height="84" rx="9" fill="#222a3f" stroke="#3c4965"/><text x="55" y="502" class="faint mono tiny">规则 03 · 优先级 10</text><text x="55" y="525" class="muted small">默认值处理</text><text x="55" y="547" class="faint tiny">已保存 · 2 项赋值</text>
+  <path d="M47 782h198" stroke="#3c4965"/><text x="48" y="809" class="white tiny" font-weight="600">草稿与线上隔离</text><text x="48" y="830" class="faint tiny">线上修订只读，不能直接修改。</text>
+  <rect x="278" y="220" width="843" height="54" rx="10" fill="#202b45" stroke="#3c4965"/>
+  <rect x="284" y="226" width="273" height="42" rx="7" fill="#344f7d" stroke="#4a597c"/><text x="320" y="252" class="mint mono tiny">01</text><text x="344" y="252" class="white small">规则与条件</text>
+  <text x="598" y="252" class="faint mono tiny">02</text><text x="622" y="252" class="muted small">赋值动作</text><text x="871" y="252" class="faint mono tiny">03</text><text x="895" y="252" class="muted small">校验与试算</text>
+  <rect x="278" y="284" width="843" height="586" rx="13" fill="#292e44" stroke="#3c4965"/>
+  <text x="301" y="345" class="white" font-size="18" font-weight="600">规则与命中条件</text><text x="301" y="365" class="muted tiny">设置规则信息与命中条件。</text>
+  <rect x="1041" y="308" width="60" height="24" rx="5" fill="#243e6d"/><text x="1052" y="324" class="mint tiny">已保存</text>
+  <text x="301" y="401" class="muted tiny">规则名称</text><rect x="301" y="408" width="778" height="39" rx="7" fill="#202a43" stroke="#3e475d"/><text x="314" y="433" class="white small">标准规格计算</text>
+  <text x="301" y="476" class="muted tiny">优先级</text><rect x="301" y="483" width="380" height="39" rx="7" fill="#202a43" stroke="#3e475d"/><text x="314" y="508" class="white small">100</text><text x="701" y="476" class="muted tiny">同级顺序</text><rect x="701" y="483" width="378" height="39" rx="7" fill="#202a43" stroke="#3e475d"/><text x="714" y="508" class="white small">1</text>
+  <rect x="301" y="540" width="15" height="15" rx="3" fill="#75aaff"/><text x="304" y="552" fill="#0c1b3b" class="tiny">✓</text><text x="325" y="552" class="white tiny">启用规则</text><text x="797" y="552" class="faint tiny">停用后不参与执行</text>
+  <path d="M301 577h778" stroke="#3c4965"/>
+  <text x="301" y="609" class="white" font-size="14" font-weight="600">命中条件</text><text x="301" y="628" class="muted tiny">添加条件或条件组，逐层设置“且”或“或”。</text>
+  <rect x="301" y="645" width="778" height="37" rx="8" fill="#2b344b" stroke="#3b455b"/><text x="315" y="668" class="white tiny">主条件组</text><text x="440" y="668" class="muted tiny">组内关系：全部满足（且） ▾</text><text x="867" y="668" class="mint tiny">＋ 条件</text><text x="960" y="668" class="mint tiny">＋ 子组</text>
+  <rect x="301" y="692" width="778" height="49" rx="8" fill="#2b344b" stroke="#3c4965"/><rect x="312" y="701" width="303" height="31" rx="6" fill="#202a43" stroke="#3e475d"/><text x="324" y="722" class="white tiny">入口宽度  ▾</text><rect x="624" y="701" width="141" height="31" rx="6" fill="#202a43" stroke="#3e475d"/><text x="636" y="722" class="white tiny">≥  ▾</text><rect x="774" y="701" width="261" height="31" rx="6" fill="#202a43" stroke="#3e475d"/><text x="786" y="722" class="white tiny">120</text><text x="1051" y="722" class="faint" font-size="17">×</text>
+  <rect x="301" y="750" width="778" height="49" rx="8" fill="#2b344b" stroke="#3c4965"/><rect x="312" y="759" width="303" height="31" rx="6" fill="#202a43" stroke="#3e475d"/><text x="324" y="780" class="white tiny">产品类别  ▾</text><rect x="624" y="759" width="141" height="31" rx="6" fill="#202a43" stroke="#3e475d"/><text x="636" y="780" class="white tiny">=  ▾</text><rect x="774" y="759" width="261" height="31" rx="6" fill="#202a43" stroke="#3e475d"/><text x="786" y="780" class="white tiny">A</text><text x="1051" y="780" class="faint" font-size="17">×</text>
+  <rect x="301" y="813" width="778" height="38" rx="8" fill="#293f65" stroke="#3b4762"/><text x="315" y="829" class="mint tiny">条件预览 · 支持嵌套子组与括号</text><text x="315" y="844" fill="#d2daeb" class="mono tiny">入口宽度 ≥ 120  AND  产品类别 = A</text><text x="992" y="829" class="mint tiny">查看条件结构</text>
+  <rect x="1138" y="220" width="272" height="650" rx="13" fill="#292e44" stroke="#3c4965"/>
+  <text x="1156" y="276" class="white" font-size="15" font-weight="600">维护状态</text>
+  <circle cx="1166" cy="310" r="8" fill="#243e6d"/><text x="1162" y="314" class="mint tiny">✓</text><text x="1185" y="314" class="muted tiny">当前 R04 为可编辑草稿</text>
+  <circle cx="1166" cy="342" r="8" fill="#243e6d"/><text x="1162" y="346" class="mint tiny">✓</text><text x="1185" y="346" class="muted tiny">规则与条件已保存</text>
+  <circle cx="1166" cy="374" r="8" fill="#243e6d"/><text x="1162" y="378" class="mint tiny">✓</text><text x="1185" y="378" class="muted tiny">2 项赋值已保存</text>
+  <circle cx="1166" cy="406" r="8" fill="#243e6d"/><text x="1162" y="410" class="mint tiny">✓</text><text x="1185" y="410" class="muted tiny">并发戳可用于下一次写入</text>
+  <path d="M1138 436h272" stroke="#3c4965"/><text x="1156" y="467" class="white small" font-weight="600">场景变量</text>
+  <text x="1156" y="499" class="muted tiny">入口宽度</text><text x="1305" y="499" class="faint mono tiny">数值</text><path d="M1156 510h236" stroke="#3c4965"/>
+  <text x="1156" y="531" class="muted tiny">产品类别</text><text x="1317" y="531" class="faint mono tiny">文本</text><path d="M1156 542h236" stroke="#3c4965"/>
+  <text x="1156" y="563" class="muted tiny">展开系数</text><text x="1305" y="563" class="faint mono tiny">数值</text><path d="M1156 574h236" stroke="#3c4965"/>
+  <text x="1156" y="595" class="muted tiny">展开宽度</text><text x="1305" y="595" class="faint mono tiny">数值</text><path d="M1156 606h236" stroke="#3c4965"/>
+  <text x="1156" y="627" class="muted tiny">计算状态</text><text x="1317" y="627" class="faint mono tiny">文本</text>
+  <text x="1156" y="658" class="faint tiny">变量引用使用稳定键；契约变量锁定。</text>
+  <path d="M1138 687h272" stroke="#3c4965"/><text x="1156" y="719" class="white small" font-weight="600">并发冲突</text><text x="1156" y="742" class="faint tiny">旧并发戳写入会被拒绝，刷新后</text><text x="1156" y="758" class="faint tiny">需核对本地与服务端差异。</text>
+  <rect x="1156" y="786" width="236" height="36" rx="7" fill="#222b3f" stroke="#414f6f"/><text x="1201" y="809" class="mint tiny">模拟冲突</text>
+  </g>
+</svg>

@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>规则管理</title>
+  <style>
+    :root {
+      --bg: #151b2b;
+      --sidebar: #0c1b3b;
+      --surface: #292e44;
+      --surface-2: #333c55;
+      --surface-3: #38445f;
+      --line: #3c4965;
+      --text: #eef3ff;
+      --muted: #b8c3d8;
+      --faint: #8e9cba;
+      --accent: #75aaff;
+      --accent-soft: #243e6d;
+      --warm: #e8bd79;
+      --warm-soft: #3f3540;
+      --danger: #ff727d;
+      --danger-soft: #422c2d;
+      --radius: 14px;
+      --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; color: var(--text); background: var(--bg); font: 14px/1.55 var(--sans); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 232px minmax(0, 1fr); }
+    .sidebar { position: sticky; top: 0; height: 100vh; padding: 25px 14px 18px; display: flex; flex-direction: column; background: var(--sidebar); border-right: 1px solid #242c3d; }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 12px 29px; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; color: var(--bg); background: var(--accent); border-radius: 8px; font: 700 18px/1 var(--mono); letter-spacing: -.12em; padding-right: 3px; }
+    .brand strong { display: block; font-size: 15px; letter-spacing: -.04em; line-height: 1.1; }
+    .brand small { color: var(--faint); font: 10px var(--mono); letter-spacing: .08em; }
+    .nav-label { padding: 0 13px 10px; color: var(--faint); font-size: 10px; letter-spacing: .16em; }
+    .nav-list { display: grid; gap: 4px; }
+    .nav-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 13px; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 10px; text-align: left; }
+    .nav-item:hover { color: var(--text); background: #202a41; }
+    .nav-item.active { color: var(--text); background: #2c426c; border-color: #323e5a; }
+    .nav-item svg { width: 18px; height: 18px; flex: none; stroke-width: 1.7; }
+    .nav-item span { flex: 1; }
+    .nav-item em { color: var(--faint); font: 11px var(--mono); font-style: normal; }
+    .sidebar-note { margin: auto 7px 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #202a41; }
+    .sidebar-note[hidden] { display: none; }
+    .sidebar-note .overline { margin-bottom: 11px; }
+    .scope-row { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; }
+    .scope-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+    .scope-sub { margin-top: 4px; color: var(--faint); font-size: 11px; }
+    .shell { min-width: 0; }
+    .topbar { height: 65px; padding: 0 36px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .crumb { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    .crumb b { color: var(--text); font-weight: 550; }
+    .crumb .slash { color: #4d566b; }
+    .top-actions { display: flex; align-items: center; gap: 14px; }
+    .sample { display: inline-flex; align-items: center; gap: 7px; color: var(--warm); font-size: 11px; }
+    .sample:before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--warm); }
+    .top-date { color: var(--faint); font: 11px var(--mono); }
+    main { padding: 28px 36px 56px; max-width: 1760px; margin: 0 auto; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 22px; margin-bottom: 25px; }
+    .overline { color: var(--accent); font: 11px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 8px 0 6px; font-size: clamp(26px, 2.3vw, 36px); font-weight: 560; letter-spacing: -.065em; line-height: 1.23; }
+    h2 { margin: 0; font-size: 18px; font-weight: 560; letter-spacing: -.035em; }
+    h3 { margin: 0; font-size: 14px; font-weight: 570; }
+    p { margin: 0; }
+    .subtle { color: var(--muted); }
+    .head-copy { max-width: 690px; color: var(--muted); font-size: 13px; }
+    .head-actions { display: flex; gap: 9px; align-items: center; padding-top: 14px; flex: none; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 35px; padding: 7px 13px; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; white-space: nowrap; font-size: 12px; font-weight: 550; }
+    .btn:hover { border-color: #5a6681; background: #262d3e; }
+    .btn.primary { background: var(--accent); color: #0c1b3b; border-color: var(--accent); }
+    .btn.primary:hover { background: #9fc5ff; }
+    .btn.ghost { background: transparent; }
+    .btn.small { min-height: 29px; padding: 4px 9px; font-size: 11px; }
+    .btn svg, .icon svg { width: 15px; height: 15px; }
+    .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 530; line-height: 1.2; }
+    .status-pill:before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .status-pill.draft { color: var(--warm); background: var(--warm-soft); }
+    .status-pill.live { color: var(--accent); background: var(--accent-soft); }
+    .status-pill.muted { color: var(--muted); background: var(--surface-3); }
+    .meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 11px; color: var(--faint); font-size: 11px; }
+    .meta-row i { width: 1px; height: 12px; background: var(--line); }
+    .mono { font-family: var(--mono); letter-spacing: -.02em; }
+    .journey { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0 0 23px; border: 1px solid var(--line); border-radius: var(--radius); background: #202b45; overflow: hidden; }
+    .step { position: relative; min-height: 73px; display: flex; align-items: center; gap: 12px; padding: 13px 17px; border-right: 1px solid var(--line); }
+    .step:last-child { border-right: 0; }
+    .step-number { width: 28px; height: 28px; flex: none; display: grid; place-items: center; color: var(--faint); border: 1px solid #3f4657; border-radius: 8px; font: 11px var(--mono); }
+    .step.current .step-number { color: #1e2943; background: var(--accent); border-color: var(--accent); }
+    .step strong { display: block; font-size: 12px; font-weight: 570; }
+    .step small { display: block; margin-top: 2px; color: var(--faint); font-size: 10px; white-space: nowrap; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 18px; align-items: start; }
+    .main-panel, .aside-panel, .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    .tabs { display: flex; gap: 2px; padding: 0 18px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+    .tab { min-height: 51px; padding: 2px 14px 0; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; white-space: nowrap; font-size: 12px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-pane { display: none; padding: 21px 23px 24px; }
+    .tab-pane.active { display: block; }
+    .section-top { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 17px; }
+    .section-top .subtle { font-size: 11px; margin-top: 3px; }
+    .rule-layout { display: grid; grid-template-columns: 235px minmax(0, 1fr); gap: 15px; }
+    .rule-list { display: grid; align-content: start; gap: 8px; }
+    .rule-card { width: 100%; min-height: 82px; padding: 11px 12px; text-align: left; color: var(--muted); background: #2b344b; border: 1px solid var(--line); border-radius: 10px; }
+    .rule-card.active { color: var(--text); border-color: #506085; background: #2c426c; }
+    .rule-card:hover { border-color: #5a657d; }
+    .rule-card .rule-no { color: var(--faint); font: 10px var(--mono); }
+    .rule-card strong { display: block; margin-top: 3px; font-size: 12px; font-weight: 550; }
+    .rule-card small { display: block; margin-top: 5px; font-size: 10px; color: var(--faint); }
+    .rule-card.active small { color: #95a2c2; }
+    .rule-editor { min-width: 0; padding: 16px 17px 18px; border: 1px solid var(--line); border-radius: 11px; background: #222a3f; }
+    .editor-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; margin-bottom: 15px; }
+    .editor-head h3 { margin-top: 4px; font-size: 15px; }
+    .tiny-label { display: block; color: var(--faint); font: 10px var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+    .divider { height: 1px; background: var(--line); margin: 17px 0; }
+    .expression { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+    .chip { display: inline-flex; align-items: center; min-height: 27px; padding: 3px 8px; border: 1px solid #414e6c; border-radius: 6px; color: #b0bedf; background: #202a41; font: 11px var(--mono); }
+    .chip.operator { color: #d8c5a9; background: #3a332b; border-color: #6a5941; }
+    .chip.value { color: var(--text); background: #262c3b; border-color: #42495b; }
+    .expression .join { color: var(--faint); font: 10px var(--mono); }
+    .assignment { display: flex; align-items: center; gap: 8px; margin-top: 9px; min-width: 0; }
+    .assignment .arrow { color: var(--accent); }
+    .assignment .right { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 11px var(--mono); }
+    .editor-foot { margin-top: 19px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .editor-foot span { color: var(--faint); font-size: 10px; }
+    .aside-panel { overflow: hidden; }
+    .aside-block { padding: 18px; border-bottom: 1px solid var(--line); }
+    .aside-block:last-child { border-bottom: 0; }
+    .aside-title { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 13px; }
+    .aside-title h3 { font-size: 12px; }
+    .aside-title small { color: var(--faint); font: 10px var(--mono); }
+    .check-row { display: flex; gap: 9px; align-items: flex-start; margin: 11px 0; color: var(--muted); font-size: 11px; }
+    .check-icon { flex: none; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: var(--accent-soft); font: 11px var(--mono); }
+    .check-icon.wait { color: var(--warm); background: var(--warm-soft); }
+    .aside-actions { display: grid; gap: 8px; }
+    .aside-actions .btn { justify-content: flex-start; width: 100%; }
+    .hint { margin-top: 10px; color: var(--faint); font-size: 10px; line-height: 1.55; }
+    .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .info-card { padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: #222b3f; }
+    .info-card .value { display: block; margin-top: 7px; font-size: 19px; line-height: 1.2; }
+    .info-card .label { color: var(--faint); font-size: 10px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .data-table th { text-align: left; color: var(--faint); font-weight: 500; border-bottom: 1px solid var(--line); padding: 9px 10px; white-space: nowrap; }
+    .data-table td { padding: 12px 10px; border-bottom: 1px solid #262d3e; color: var(--muted); }
+    .data-table tr:last-child td { border-bottom: 0; }
+    .data-table td strong { color: var(--text); font-weight: 550; }
+    .data-table .locked { color: var(--faint); }
+    .tag { display: inline-block; padding: 3px 7px; border-radius: 5px; background: var(--surface-3); color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .tag.green { color: var(--accent); background: var(--accent-soft); }
+    .tag.gold { color: var(--warm); background: var(--warm-soft); }
+    .inner-note { display: flex; gap: 9px; padding: 11px 12px; border: 1px solid #3c4354; border-radius: 8px; color: #b3bbcc; background: #242c3d; font-size: 11px; margin-bottom: 15px; }
+    .inner-note b { color: var(--accent); }
+    .binding-list, .case-list, .release-list, .catalog-grid { display: grid; gap: 10px; }
+    .binding-card, .case-card, .release-card, .catalog-card { border: 1px solid var(--line); background: #222a3f; border-radius: 10px; padding: 15px 16px; }
+    .binding-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .binding-card strong, .case-card strong, .release-card strong { font-size: 12px; font-weight: 560; }
+    .binding-card p, .case-card p, .release-card p { margin-top: 5px; color: var(--faint); font-size: 11px; }
+    .case-card, .release-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .catalog-card { min-height: 180px; padding: 20px; }
+    .catalog-card .kicker { color: var(--accent); font: 10px var(--mono); letter-spacing: .1em; }
+    .catalog-card h2 { margin-top: 11px; }
+    .catalog-card p { margin-top: 6px; font-size: 12px; color: var(--muted); }
+    .catalog-card .bottom { margin-top: 24px; padding-top: 13px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; color: var(--faint); font-size: 10px; }
+    .catalog-card .bottom button { border: 0; background: transparent; color: var(--accent); font-size: 11px; }
+    .scope-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 19px; border: 1px solid var(--line); border-radius: var(--radius); background: #202b45; }
+    .scope-cell { padding: 16px 20px; border-right: 1px solid var(--line); }
+    .scope-cell:last-child { border-right: 0; }
+    .scope-cell span { display: block; margin-bottom: 4px; color: var(--faint); font-size: 10px; }
+    .scope-cell strong { font-size: 12px; font-weight: 550; }
+    .set-list { display: grid; gap: 10px; }
+    .set-card { display: grid; grid-template-columns: minmax(230px, 1.2fr) minmax(180px, 1fr) minmax(145px, .7fr) auto; align-items: center; gap: 20px; padding: 20px 21px; border: 1px solid var(--line); border-radius: 11px; background: #2b344b; }
+    .set-card:hover { border-color: #44516f; }
+    .set-card h3 { margin: 4px 0; font-size: 15px; }
+    .set-card p { color: var(--faint); font-size: 11px; }
+    .set-card .set-code { color: var(--accent); font: 10px var(--mono); letter-spacing: .07em; }
+    .set-card .set-field { min-width: 0; }
+    .set-card .set-field > span:first-child { display: block; margin-bottom: 6px; color: var(--faint); font-size: 10px; }
+    .set-card .set-field strong { display: block; color: var(--muted); font-size: 11px; font-weight: 500; line-height: 1.5; }
+    .set-card .set-states { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 24px; }
+    .set-card .set-states .status-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 75px; height: 24px; margin: 0; padding: 0 8px; font-size: 11px; line-height: 1; }
+    .set-card .btn { justify-self: end; }
+    .set-note { margin-top: 18px; padding: 17px 19px; border: 1px solid #344160; border-radius: 10px; background: #232b3e; }
+    .set-note strong { color: var(--accent); font-size: 12px; }
+    .set-note p { margin-top: 5px; color: #a8b2c8; font-size: 11px; }
+    .condition-layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; }
+    .condition-list { padding: 9px; }
+    .condition-item { width: 100%; display: flex; gap: 11px; align-items: center; padding: 13px 12px; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 8px; text-align: left; }
+    .condition-item.active { background: #2c426c; border-color: #334162; }
+    .condition-item:hover { background: #222b3f; }
+    .condition-item .glyph { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 8px; color: var(--accent); background: var(--accent-soft); font: 14px var(--mono); }
+    .condition-item strong { display: block; color: var(--text); font-size: 12px; font-weight: 550; }
+    .condition-item small { color: var(--faint); font-size: 10px; }
+    .condition-detail { padding: 23px; min-height: 445px; }
+    .condition-detail .expression { padding: 17px; border: 1px solid var(--line); border-radius: 9px; background: #212a40; }
+    .condition-explain { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .condition-explain > div { padding: 15px; border: 1px solid var(--line); border-radius: 9px; }
+    .condition-explain strong { display: block; margin-top: 6px; font-size: 20px; }
+    .condition-explain small { color: var(--faint); font-size: 10px; }
+    .timeline { position: relative; padding-left: 24px; border-left: 1px solid #3e4658; margin: 10px 0 0 5px; }
+    .timeline-item { position: relative; padding: 0 0 23px 16px; }
+    .timeline-item:before { content: ""; position: absolute; left: -29px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); border: 3px solid var(--surface); }
+    .timeline-item:last-child { padding-bottom: 0; }
+    .timeline-item .time { color: var(--faint); font: 10px var(--mono); }
+    .timeline-item strong { display: block; margin: 3px 0; font-size: 12px; }
+    .timeline-item p { color: var(--muted); font-size: 11px; }
+    .callout { padding: 16px 17px; background: #242b3d; border: 1px solid #344160; border-radius: 10px; color: #b8c1d6; font-size: 11px; }
+    .callout strong { display: block; color: var(--accent); font-size: 12px; margin-bottom: 4px; }
+    .modal-wrap { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; padding: 20px; background: #090f20d9; }
+    .modal-wrap.open { display: flex; }
+    .modal { width: min(100%, 510px); padding: 24px; border: 1px solid #454f67; border-radius: 16px; background: #292e44; box-shadow: 0 25px 70px #0008; }
+    .modal h2 { margin: 7px 0 7px; font-size: 22px; }
+    .modal p { color: var(--muted); font-size: 12px; }
+    .modal-content { margin-top: 19px; }
+    .field { display: block; color: var(--muted); font-size: 11px; margin: 12px 0; }
+    .field input { display: block; width: 100%; height: 37px; padding: 8px 10px; margin-top: 6px; color: var(--text); background: #1f2a41; border: 1px solid #3c455a; border-radius: 7px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+    .toast { position: fixed; bottom: 23px; right: 23px; z-index: 20; display: none; max-width: 380px; padding: 11px 15px; border: 1px solid #586585; border-radius: 8px; background: #2d4874; color: #d4ddf2; box-shadow: 0 15px 35px #0008; font-size: 12px; }
+    .toast.show { display: block; }
+    @media (max-width: 1250px) { .workspace { grid-template-columns: minmax(0, 1fr); } .aside-panel { display: grid; grid-template-columns: repeat(3, 1fr); } .aside-block { border-bottom: 0; border-right: 1px solid var(--line); } .aside-block:last-child { border-right: 0; } }
+    @media (max-width: 900px) { .app { grid-template-columns: 70px minmax(0, 1fr); } .sidebar { padding-left: 8px; padding-right: 8px; } .brand { justify-content: center; padding-left: 0; padding-right: 0; } .brand strong, .brand small, .nav-label, .nav-item span, .nav-item em, .sidebar-note { display: none; } .nav-item { justify-content: center; padding: 11px; } .topbar { padding: 0 22px; } main { padding: 24px 22px; } .journey { grid-template-columns: repeat(2, 1fr); } .step:nth-child(2) { border-right: 0; } .step:nth-child(-n+2) { border-bottom: 1px solid var(--line); } .set-card { grid-template-columns: 1fr 1fr; } .set-card .btn { justify-self: start; } }
+    @media (max-width: 700px) { .page-head { flex-direction: column; gap: 10px; } .head-actions { padding: 0; flex-wrap: wrap; } .rule-layout, .condition-layout, .catalog-grid { grid-template-columns: 1fr; } .rule-list { grid-template-columns: repeat(2, 1fr); } .aside-panel { grid-template-columns: 1fr; } .aside-block { border-bottom: 1px solid var(--line); border-right: 0; } .top-date { display: none; } .tabs { padding: 0 8px; } .tab { padding: 2px 10px 0; } .tab-pane { padding: 16px; } .info-grid { grid-template-columns: 1fr 1fr; } .scope-bar { grid-template-columns: 1fr; } .scope-cell { border-right: 0; border-bottom: 1px solid var(--line); } .scope-cell:last-child { border-bottom: 0; } }
+    @media (max-width: 470px) { .app { grid-template-columns: 55px minmax(0,1fr); } .topbar { padding: 0 15px; } main { padding: 19px 13px; } .crumb { gap: 5px; font-size: 10px; } .sample { display: none; } .journey { grid-template-columns: 1fr 1fr; } .step { padding: 9px; gap: 7px; } .step small { display: none; } .rule-list, .set-card { grid-template-columns: 1fr; } .condition-explain { grid-template-columns: 1fr; } }
+    @media (prefers-reduced-motion: no-preference) { .btn, .nav-item, .tab, .rule-card, .condition-item { transition: background .16s ease, border-color .16s ease, color .16s ease; } }
+
+    /* 与宿主订单设计系统一致的蓝色操作层；绿色只用于成功状态。 */
+    .status-pill.live, .tag.green { color: #35c78a; background: #1d463e; }
+    .btn.primary { background: #43609d; border-color: #6388d0; color: #f6f9ff; }
+    .btn.primary:hover { background: #5072b4; }
+    .nav-item.active, .rule-card.active, .condition-item.active { background: #344d7b; border-color: #6489ce; }
+    .topbar { background: #0c1b3b; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="规则引擎导航">
+      <div class="brand"><div class="brand-mark">规</div><div><strong>规则管理</strong></div></div>
+      <div class="nav-label">工作空间</div>
+      <nav class="nav-list">
+        <button class="nav-item" data-view="catalog" aria-label="场景"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>场景</span></button>
+        <button class="nav-item active" data-view="model-list" aria-label="规则集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="8" cy="5" r="2" fill="#0c1b3b"/><circle cx="15" cy="12" r="2" fill="#0c1b3b"/><circle cx="11" cy="19" r="2" fill="#0c1b3b"/></svg><span>规则集</span><em>03</em></button>
+        <button class="nav-item" data-view="conditions" aria-label="条件集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h9l3 5h4M4 17h9l3-5h4"/><circle cx="4" cy="7" r="2"/><circle cx="4" cy="17" r="2"/></svg><span>条件集</span><em>02</em></button>
+        <button class="nav-item" data-view="releases" aria-label="发布记录"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20h16M12 17V3m-5 5 5-5 5 5M6 15v3m12-3v3"/></svg><span>发布记录</span></button>
+      </nav>
+      <div class="sidebar-note" id="scope-note"><div class="overline">当前场景</div><div class="scope-row"><span class="scope-dot"></span>尺寸展开</div><div class="scope-sub">契约版本 2</div></div>
+    </aside>
+    <div class="shell">
+      <header class="topbar"><div class="crumb"><span>业务应用</span><span class="slash">/</span><span>规则管理</span><span class="slash">/</span><b id="crumb-current">规则集</b></div></header>
+      <main>
+        <section class="screen active" id="view-model-list">
+          <div class="page-head"><div><h1>尺寸展开 · 规则集</h1><p class="head-copy">一个场景可以拥有多个独立规则集。每个规则集分别维护草稿与发布版本，并通过场景绑定参与运行选择。</p></div><div class="head-actions"><button class="btn primary" data-action="new-model">＋ 新建规则集</button></div></div>
+          <div class="scope-bar"><div class="scope-cell"><span>当前场景</span><strong>尺寸展开</strong></div><div class="scope-cell"><span>场景契约</span><strong>版本 2</strong></div></div>
+          <div class="panel" style="padding:22px"><div class="section-top"><div><h2>场景内规则集</h2><p class="subtle">3 个规则集 · 3 个活动发布修订 · 1 个待完成草稿</p></div><span class="tag">按场景筛选</span></div><div class="set-list">
+            <div class="set-card"><div><span class="set-code">SIZE-EXP-01</span><h3>尺寸展开规则</h3><p>主流程：常规与特殊产品规格计算</p></div><div class="set-field"><span>当前绑定范围</span><strong>产品 A / B · 2 项绑定</strong></div><div class="set-field"><span>版本</span><div class="set-states"><span class="status-pill live">线上 R03</span><span class="status-pill draft">草稿 R04</span></div></div><button class="btn" data-view="models">编辑</button></div>
+            <div class="set-card"><div><span class="set-code">SIZE-EXP-LINE</span><h3>精整线展开规则</h3><p>精整线独立维护的计算范围</p></div><div class="set-field"><span>当前绑定范围</span><strong>工艺路线 = 精整 · 产品 C</strong></div><div class="set-field"><span>版本</span><div class="set-states"><span class="status-pill live">线上 R02</span></div></div><button class="btn ghost" data-action="model-line">查看</button></div>
+            <div class="set-card"><div><span class="set-code">SIZE-EXP-TRIAL</span><h3>试验规格规则</h3><p>小范围试验规格的计算规则</p></div><div class="set-field"><span>当前绑定范围</span><strong>产品 D · 试验工艺</strong></div><div class="set-field"><span>版本</span><div class="set-states"><span class="status-pill live">线上 R01</span></div></div><button class="btn ghost" data-action="model-trial">查看</button></div>
+          </div></div><div class="set-note"><strong>运行选择发生在整个场景内</strong><p>运行时检查这 3 个规则集的活动修订及其绑定，选择唯一的最高优先级命中绑定；若最高优先级并列，则返回绑定歧义。优先级属于绑定，不属于规则集本身。</p></div>
+        </section>
+        <section class="screen" id="view-models">
+          <div style="margin-bottom:14px"><button class="btn small ghost" data-view="model-list">← 返回规则集</button></div>
+          <div class="page-head"><div><h1>尺寸展开规则</h1><p class="head-copy">在这个规则集内编制草稿，并在发布前完成整份校验、试算与门禁用例核对。</p><div class="meta-row"><span class="status-pill draft">草稿 R04</span><span class="status-pill live">线上 R03</span><span class="mono">SIZE-EXP-01</span><i></i><span>契约版本 2</span><i></i><span>首条命中</span></div></div><div class="head-actions"><button class="btn ghost" data-action="copy">复制规则集</button><button class="btn ghost" data-action="validate">校验草稿</button><button class="btn primary" data-action="simulate">试算</button></div></div>
+          <div class="journey" aria-label="规则发布流程"><div class="step current"><span class="step-number">01</span><div><strong>编制草稿</strong><small>变量、规则、绑定</small></div></div><div class="step"><span class="step-number">02</span><div><strong>完整校验</strong><small>检查依赖与冲突</small></div></div><div class="step"><span class="step-number">03</span><div><strong>试算与门禁</strong><small>验证输入与输出</small></div></div><div class="step"><span class="step-number">04</span><div><strong>发布切换</strong><small>更新活动修订</small></div></div></div>
+          <div class="workspace"><div class="main-panel"><div class="tabs" role="tablist" aria-label="规则模型内容"><button class="tab active" role="tab" aria-selected="true" data-tab="rules">规则编制</button><button class="tab" role="tab" aria-selected="false" data-tab="variables">变量 <span class="mono">06</span></button><button class="tab" role="tab" aria-selected="false" data-tab="bindings">场景绑定 <span class="mono">02</span></button><button class="tab" role="tab" aria-selected="false" data-tab="cases">门禁用例 <span class="mono">03</span></button><button class="tab" role="tab" aria-selected="false" data-tab="versions">版本</button></div>
+            <div class="tab-pane active" id="tab-rules" role="tabpanel"><div class="section-top"><div><h2>规则编制</h2><p class="subtle">按执行顺序查看条件和赋值；优先级独立设置。</p></div><button class="btn small" data-action="new-rule">＋ 新建规则</button></div><div class="rule-layout"><div class="rule-list"><button class="rule-card active" data-rule="0"><span class="rule-no">规则 01 · 优先级 100</span><strong>标准规格计算</strong><small>2 个条件 · 2 项赋值</small></button><button class="rule-card" data-rule="1"><span class="rule-no">规则 02 · 优先级 60</span><strong>特殊规格修正</strong><small>2 个条件 · 2 项赋值</small></button><button class="rule-card" data-rule="2"><span class="rule-no">规则 03 · 优先级 10</span><strong>默认值处理</strong><small>无条件 · 2 项赋值</small></button></div><div class="rule-editor"><div class="editor-head"><div><span class="tiny-label">规则 01</span><h3 id="rule-title">标准规格计算</h3></div><span class="tag green">已保存</span></div><span class="tiny-label">当以下条件成立</span><div class="expression" id="rule-conditions"><span class="chip">入口宽度</span><span class="chip operator">≥</span><span class="chip value">120</span><span class="join">且</span><span class="chip">产品类别</span><span class="chip operator">=</span><span class="chip value">A</span></div><div class="divider"></div><span class="tiny-label">写入结果</span><div id="rule-assignments"><div class="assignment"><span class="chip">展开宽度</span><span class="arrow">←</span><span class="right">Round(入口宽度 × 展开系数, 2)</span></div><div class="assignment"><span class="chip">计算状态</span><span class="arrow">←</span><span class="right">"已计算"</span></div></div><div class="editor-foot"><span>变量引用以稳定键保存 · 此处展示名称</span><button class="btn small" data-action="edit-rule">编辑规则</button></div></div></div></div>
+            <div class="tab-pane" id="tab-variables" role="tabpanel"><div class="section-top"><div><h2>变量</h2><p class="subtle">入口与必需出口由场景契约锁定；可维护中间变量。</p></div><button class="btn small" data-action="new-variable">＋ 中间变量</button></div><div class="inner-note"><b>契约约束</b><span>契约变量的编码、方向和类型不可在此修改。删除中间变量前先查看引用。</span></div><table class="data-table"><thead><tr><th>变量</th><th>编码</th><th>方向</th><th>类型</th><th>维护</th></tr></thead><tbody><tr><td><strong>入口宽度</strong></td><td class="mono">inputWidth</td><td><span class="tag">入口</span></td><td>数值</td><td class="locked">契约锁定 · 可设默认值</td></tr><tr><td><strong>产品类别</strong></td><td class="mono">productKind</td><td><span class="tag">入口</span></td><td>文本</td><td class="locked">契约锁定 · 可设默认值</td></tr><tr><td><strong>展开系数</strong></td><td class="mono">factor</td><td><span class="tag gold">中间</span></td><td>数值</td><td><button class="btn small" data-action="references">查看引用</button></td></tr><tr><td><strong>偏移量</strong></td><td class="mono">offset</td><td><span class="tag gold">中间</span></td><td>数值</td><td><button class="btn small" data-action="references">查看引用</button></td></tr><tr><td><strong>展开宽度</strong></td><td class="mono">outputWidth</td><td><span class="tag green">出口</span></td><td>数值</td><td class="locked">契约锁定</td></tr><tr><td><strong>计算状态</strong></td><td class="mono">calcStatus</td><td><span class="tag green">出口</span></td><td>文本</td><td class="locked">契约锁定</td></tr></tbody></table></div>
+            <div class="tab-pane" id="tab-bindings" role="tabpanel"><div class="section-top"><div><h2>场景绑定</h2><p class="subtle">按场景上下文选择规则集；同场景最高优先级并列且同时命中会造成歧义。</p></div><button class="btn small" data-action="new-binding">＋ 添加绑定</button></div><div class="binding-list"><div class="binding-card"><div><strong>常规产品</strong><p>产品类别 = A <span class="mono">·</span> 工艺路线 ∈ [通用, 精整]</p></div><span class="tag green">优先级 100</span></div><div class="binding-card"><div><strong>特殊产品</strong><p>产品类别 = B <span class="mono">·</span> 工艺路线 = 精整</p></div><span class="tag">优先级 80</span></div></div><p class="hint">绑定维度与候选值来自宿主注册的场景契约。</p></div>
+            <div class="tab-pane" id="tab-cases" role="tabpanel"><div class="section-top"><div><h2>门禁用例</h2><p class="subtle">保存可重复运行的输入和预期输出，发布时自动执行。</p></div><button class="btn small" data-action="new-case">＋ 添加用例</button></div><div class="case-list"><div class="case-card"><div><strong>标准尺寸 · 正常输出</strong><p>产品 A / 宽度 120 → 展开宽度 126.00</p></div><span class="tag green">通过</span></div><div class="case-card"><div><strong>特殊规格 · 修正值</strong><p>产品 B / 宽度 180 → 展开宽度 189.50</p></div><span class="tag green">通过</span></div><div class="case-card"><div><strong>缺少可选入口</strong><p>使用草稿中配置的默认值</p></div><span class="tag gold">待复核</span></div></div><p class="hint"></p></div>
+            <div class="tab-pane" id="tab-versions" role="tabpanel"><div class="section-top"><div><h2>版本</h2><p class="subtle">草稿独立于线上修订；历史发布内容只读。</p></div><button class="btn small" data-action="new-draft">从线上创建草稿</button></div><div class="release-list"><div class="release-card"><div><strong>R04 · 当前草稿</strong><p>2026-10-10 · 未影响运行时</p></div><span class="status-pill draft">草稿</span></div><div class="release-card"><div><strong>R03 · 线上运行</strong><p>2026-10-08 · 发布记录 #003</p></div><span class="status-pill live">活动</span></div><div class="release-card"><div><strong>R02 · 历史发布</strong><p>2026-10-03 · 发布记录 #002</p></div><button class="btn small" data-action="rollback">查看回滚</button></div></div><div style="margin-top:18px"><button class="btn small ghost" data-action="archive">查看归档影响</button></div></div>
+          </div><aside class="aside-panel"><div class="aside-block"><div class="aside-title"><h3>发布准备</h3><small>R04</small></div><div class="check-row"><span class="check-icon">✓</span><span>场景契约版本 2 已锁定</span></div><div class="check-row"><span class="check-icon">✓</span><span>3 条规则与 2 项绑定已保存</span></div><div class="check-row"><span class="check-icon wait">·</span><span>门禁用例有 1 项待复核</span></div><p class="hint">发布状态以校验结果为准。</p></div><div class="aside-block"><div class="aside-title"><h3>当前线上</h3><small>运行中</small></div><div class="info-grid" style="grid-template-columns:1fr 1fr"><div class="info-card"><span class="label">活动修订</span><span class="value mono">R03</span></div><div class="info-card"><span class="label">发布序号</span><span class="value mono">#003</span></div></div><p class="hint">编辑草稿不会改变线上执行结果。</p></div><div class="aside-block"><div class="aside-title"><h3>快捷操作</h3></div><div class="aside-actions"><button class="btn ghost" data-action="validate">校验草稿</button><button class="btn ghost" data-action="simulate">试算</button><button class="btn ghost" data-action="publish">发布检查</button></div></div></aside></div>
+        </section>
+        <section class="screen" id="view-catalog"><div class="page-head"><div><h1>场景</h1><p class="head-copy">选择场景，查看对应的规则集或条件集。</p></div></div><div class="catalog-grid"><div class="catalog-card"><span class="kicker">赋值场景 · 契约版本 2</span><h2>尺寸展开</h2><p>以入口数据和场景上下文计算必需出口。</p><div class="bottom"><span>3 个规则集</span><button data-view="model-list">查看规则集</button></div></div><div class="catalog-card"><span class="kicker">判定场景 · 契约版本 1</span><h2>候选适用判定</h2><p>对明确给定的候选编码执行布尔条件判定。</p><div class="bottom"><span>2 个条件集</span><button data-view="conditions">查看条件集</button></div></div></div></section>
+        <section class="screen" id="view-conditions"><div class="page-head"><div><h1>条件集</h1><p class="head-copy">维护“候选是否满足条件”的判定逻辑。条件集没有赋值和出口，发布时需正反样本验证。</p></div><div class="head-actions"><button class="btn primary" data-action="new-condition">＋ 新建条件集</button></div></div><div class="condition-layout"><div class="panel condition-list"><button class="condition-item active" data-condition="0"><span class="glyph">?</span><span><strong>标准候选适用</strong><small>COND-A · 线上 R02 · 草稿 R03</small></span></button><button class="condition-item" data-condition="1"><span class="glyph">?</span><span><strong>特殊候选适用</strong><small>COND-B · 线上 R01</small></span></button></div><div class="panel condition-detail"><div class="section-top"><div><span class="tiny-label">判定条件</span><h2 id="condition-title" style="margin-top:6px">标准候选适用</h2><p class="subtle" id="condition-description">契约版本 1 · 优先级 100 · 草稿 R03</p></div><span class="status-pill draft">草稿</span></div><div class="expression" id="condition-expression"><span class="chip">入口宽度</span><span class="chip operator">≥</span><span class="chip value">120</span><span class="join">且</span><span class="chip">产品类别</span><span class="chip operator">=</span><span class="chip value">A</span></div><div class="condition-explain"><div><small>预期满足的样本</small><strong>02</strong><span class="tag green">已通过</span></div><div><small>预期不满足的样本</small><strong>02</strong><span class="tag green">已通过</span></div></div><div class="divider"></div><div class="inner-note"><b>候选判定</b><span>调用方明确提供候选编码。可选择首条命中或全部命中，不在此维护业务参数值。</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-action="condition-test">试算候选</button><button class="btn" data-action="condition-publish">发布检查</button></div></div></div></section>
+        <section class="screen" id="view-releases"><div class="page-head"><div><h1>发布记录</h1><p class="head-copy">按模型或条件集追溯活动修订、历史发布与回滚。回滚会生成新的发布记录。</p></div></div><div class="workspace"><div class="panel" style="padding:23px"><div class="section-top"><div><h2>尺寸展开规则</h2><p class="subtle">尺寸展开 · 规则集编码 SIZE-EXP-01</p></div><span class="status-pill live">线上 R03</span></div><div class="timeline"><div class="timeline-item"><span class="time">2026-10-08 · #003</span><strong>发布 R03</strong><p>完整校验和门禁用例通过，活动修订切换至 R03。</p></div><div class="timeline-item"><span class="time">2026-10-03 · #002</span><strong>发布 R02</strong><p>历史修订只读，可作为回滚目标。</p></div><div class="timeline-item"><span class="time">2026-09-28 · #001</span><strong>首次发布 R01</strong><p>建立模型的第一个活动修订。</p></div></div></div><aside class="panel" style="padding:19px"><h3>回滚前检查</h3><p class="subtle" style="font-size:11px;margin:9px 0 16px">只允许选择同一对象的历史发布修订，并重新核对内容与当前状态。</p><button class="btn" data-action="rollback">查看回滚</button><p class="hint"></p></aside></div></section>
+      </main>
+    </div>
+  </div>
+  <div class="modal-wrap" id="modal-wrap" role="presentation"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><span class="overline" id="modal-kicker">操作说明</span><h2 id="modal-title"></h2><p id="modal-description"></p><div class="modal-content" id="modal-content"></div><div class="modal-actions"><button class="btn ghost" id="modal-close">关闭</button><button class="btn primary" id="modal-confirm">了解</button></div></div></div>
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+    const viewNames = {catalog: '场景', 'model-list': '规则集', models: '尺寸展开规则', conditions: '条件集', releases: '发布记录'};
+    const ruleData = [
+      {title:'标准规格计算', number:'规则 01', conditions:'<span class="chip">入口宽度</span><span class="chip operator">≥</span><span class="chip value">120</span><span class="join">且</span><span class="chip">产品类别</span><span class="chip operator">=</span><span class="chip value">A</span>', assignments:'<div class="assignment"><span class="chip">展开宽度</span><span class="arrow">←</span><span class="right">Round(入口宽度 × 展开系数, 2)</span></div><div class="assignment"><span class="chip">计算状态</span><span class="arrow">←</span><span class="right">"已计算"</span></div>'},
+      {title:'特殊规格修正', number:'规则 02', conditions:'<span class="chip">产品类别</span><span class="chip operator">=</span><span class="chip value">B</span><span class="join">且</span><span class="chip">入口宽度</span><span class="chip operator">&gt;</span><span class="chip value">160</span>', assignments:'<div class="assignment"><span class="chip">展开宽度</span><span class="arrow">←</span><span class="right">Round(入口宽度 × 展开系数 + 偏移量, 2)</span></div><div class="assignment"><span class="chip">计算状态</span><span class="arrow">←</span><span class="right">"已修正"</span></div>'},
+      {title:'默认值处理', number:'规则 03', conditions:'<span class="chip value">始终执行（兜底）</span>', assignments:'<div class="assignment"><span class="chip">展开宽度</span><span class="arrow">←</span><span class="right">0</span></div><div class="assignment"><span class="chip">计算状态</span><span class="arrow">←</span><span class="right">"使用默认值"</span></div>'}
+    ];
+    const modalData = {
+      'copy':['复制规则集','选择源修订并填写新编码。复制后会生成独立的规则模型和首个草稿，不自动发布。','<label class="field">新规则集名称<input value="尺寸展开规则 · 副本"></label><label class="field">新编码<input value="SIZE-EXP-COPY"></label>'],
+      'model-line':['精整线展开规则','这个规则集有独立的活动修订与场景绑定；同一场景下可与其他规则集同时发布。','<div class="inner-note"><b>绑定范围</b><span>工艺路线 = 精整、产品 C；线上 R02。</span></div>'],
+      'model-trial':['试验规格规则','这个规则集只承担试验规格范围，不改变同场景下其他规则集的草稿或发布历史。','<div class="inner-note"><b>绑定范围</b><span>产品 D、试验工艺；线上 R01。</span></div>'],
+      'validate':['校验草稿 R04','完整校验会检查变量引用、依赖环、重复写入和绑定歧义；实际结果以服务端响应为准。','<div class="inner-note"><b>校验结果</b><span>发布前需复核门禁用例及跨模型绑定。</span></div>'],
+      'simulate':['试算草稿 R04','输入场景上下文和入口值，查看命中绑定、规则条件、实际赋值和最终出口。试算不会改变线上修订，也不保存完整过程。','<label class="field">入口宽度<input value="120"></label><label class="field">产品类别<input value="A"></label><div class="inner-note"><b>试算结果</b><span>命中「标准规格计算」；展开宽度 = 126.00，计算状态 = 已计算。</span></div>'],
+      'publish':['发布检查','发布会重新执行完整校验、门禁用例及跨模型绑定检查，并核对并发版本。这里仅展示发布前确认内容。','<div class="check-row"><span class="check-icon">✓</span><span>草稿内容与场景契约版本</span></div><div class="check-row"><span class="check-icon wait">·</span><span>待复核门禁用例及跨模型绑定冲突</span></div>'],
+      'references':['变量引用与删除影响','删除草稿中间变量前，应定位规则条件、表达式、赋值目标及相关用例。有阻塞引用时不能删除。','<div class="binding-card"><div><strong>展开系数被 2 处引用</strong><p>规则 01 / 赋值表达式 · 用例 01 / 间接影响</p></div></div>'],
+      'rollback':['回滚流程','选择历史发布修订后，服务端核对内容哈希和并发状态，再切换活动修订并生成新发布记录。','<div class="inner-note"><b>目标修订</b><span>从线上 R03 回滚至历史 R02；请核对目标修订。</span></div>'],
+      'archive':['归档影响','归档模型会影响当前活动修订的运行选择；先查看服务端返回的影响摘要，再执行归档。','<div class="inner-note"><b>影响提示</b><span>当前模型有活动修订 R03；请核对归档影响。</span></div>'],
+      'condition-test':['试算候选','条件集对明确给定的候选编码判定。首条命中返回最高优先级的唯一结果；全部命中返回所有结果。','<label class="field">候选编码<input value="COND-A, COND-B"></label><div class="inner-note"><b>试算结果</b><span>候选甲满足条件。</span></div>'],
+      'condition-publish':['条件集发布检查','条件集发布要求 2–100 条样本，至少包含一个预期 true 和一个预期 false 的样本。','<div class="check-row"><span class="check-icon">✓</span><span>2 个 true 样本、2 个 false 样本</span></div>']
+    };
+    const generic = {
+      'new-model':['新建规则集','在当前场景下创建独立规则集和首个草稿，随后配置变量、规则、绑定与门禁用例。'],
+      'new-rule':['新建规则','填写编码、顺序、优先级，再编制布尔条件与赋值。'],
+      'edit-rule':['编辑规则','根据变量和函数编制条件，检查类型错误。'],
+      'new-variable':['新建中间变量','中间变量属于当前规则模型；入口和必需出口由场景契约提供。'],
+      'new-binding':['添加场景绑定','维度、操作符与候选值应来自已注册场景契约。'],
+      'new-case':['添加门禁用例','填写场景上下文、入口值和预期出口。发布时会重跑这些用例。'],
+      'new-draft':['从线上创建草稿','以当前活动修订为来源创建新的可编辑草稿；线上修订保持只读。'],
+      'new-condition':['新建条件集','选择已注册的布尔条件场景，并创建条件集和首个草稿。']
+    };
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
+    function showView(view) {
+      $$('.screen').forEach(el => el.classList.toggle('active', el.id === `view-${view}`));
+      $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view || (view === 'models' && el.dataset.view === 'model-list')));
+      $('#crumb-current').textContent = viewNames[view];
+      $('#scope-note').hidden = view !== 'model-list' && view !== 'models';
+      if (location.hash !== `#${view}`) history.replaceState(null, '', `#${view}`);
+      window.scrollTo({top:0, behavior:'instant'});
+    }
+    function showTab(tab) {
+      $$('.tab').forEach(el => { const active = el.dataset.tab === tab; el.classList.toggle('active', active); el.setAttribute('aria-selected', active); });
+      $$('.tab-pane').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
+    }
+    function openModal(action) {
+      const item = modalData[action] || generic[action];
+      if (!item) return;
+      $('#modal-kicker').textContent = action === 'publish' || action === 'condition-publish' ? '发布检查' : '操作说明';
+      $('#modal-title').textContent = item[0];
+      $('#modal-description').textContent = item[1];
+      $('#modal-content').innerHTML = item[2] || '<div class="callout"><strong>操作说明</strong>此操作尚未接入服务端。</div>';
+      $('#modal-wrap').classList.add('open');
+      $('#modal-close').focus();
+    }
+    function closeModal() { $('#modal-wrap').classList.remove('open'); }
+    document.addEventListener('click', event => {
+      const view = event.target.closest('[data-view]'); if (view) { showView(view.dataset.view); return; }
+      const tab = event.target.closest('[data-tab]'); if (tab) { showTab(tab.dataset.tab); return; }
+      const rule = event.target.closest('[data-rule]'); if (rule) { const index = Number(rule.dataset.rule), data = ruleData[index]; $$('.rule-card').forEach(el => el.classList.toggle('active', el === rule)); $('#rule-title').textContent = data.title; $('.editor-head .tiny-label').textContent = data.number; $('#rule-conditions').innerHTML = data.conditions; $('#rule-assignments').innerHTML = data.assignments; return; }
+      const condition = event.target.closest('[data-condition]'); if (condition) { const second = condition.dataset.condition === '1'; $$('.condition-item').forEach(el => el.classList.toggle('active', el === condition)); $('#condition-title').textContent = second ? '特殊候选适用' : '标准候选适用'; $('#condition-description').textContent = second ? '契约版本 1 · 优先级 60 · 线上 R01' : '契约版本 1 · 优先级 100 · 草稿 R03'; $('#condition-expression').innerHTML = second ? '<span class="chip">产品类别</span><span class="chip operator">=</span><span class="chip value">B</span><span class="join">且</span><span class="chip">入口宽度</span><span class="chip operator">&gt;</span><span class="chip value">160</span>' : ruleData[0].conditions; return; }
+      const action = event.target.closest('[data-action]');
+      if (action?.dataset.action === 'new-rule') { location.href = 'rule-maintenance.html?mode=new'; return; }
+      if (action?.dataset.action === 'edit-rule') { location.href = `rule-maintenance.html?rule=${$('.rule-card.active')?.dataset.rule || '0'}`; return; }
+      if (action) openModal(action.dataset.action);
+    });
+    $('#modal-close').addEventListener('click', closeModal);
+    $('#modal-confirm').addEventListener('click', closeModal);
+    $('#modal-wrap').addEventListener('click', event => { if (event.target.id === 'modal-wrap') closeModal(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
+    const initialView = location.hash.slice(1);
+    if (viewNames[initialView]) showView(initialView);
+  </script>
+</body>
+</html>

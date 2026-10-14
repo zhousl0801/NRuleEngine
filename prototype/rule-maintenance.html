@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>NRuleEngine · 规则维护流程</title>
+  <link rel="stylesheet" href="rule-maintenance.css">
+  <script defer src="rule-maintenance.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="page-head">
+      <div><a class="back" href="index.html#models">← 返回规则集</a><h1>维护规则</h1><p>编辑草稿中的规则条件与赋值。</p></div>
+      <div class="head-side"><label class="version-label" for="revision-mode">查看修订</label><select id="revision-mode"><option value="draft">草稿 R04 · 可编辑</option><option value="published">线上 R03 · 只读</option></select><span class="stamp" id="revision-stamp">修订标识 #42</span></div>
+    </div>
+    <div class="layout">
+      <aside class="rule-sidebar panel" aria-label="草稿规则列表">
+        <div class="rail-head"><h2>当前规则</h2><button class="icon-button" id="add-rule" title="新建规则" aria-label="新建规则">＋</button></div>
+        <div id="rule-menu" class="rule-menu"></div>
+        <div class="rail-foot"><strong>草稿与线上隔离</strong><p>列表展示当前修订。选择线上修订后仅可查看，不能直接修改。</p></div>
+      </aside>
+      <main class="work-area">
+        <div class="flow-tabs" role="tablist" aria-label="规则维护步骤">
+          <button class="flow-tab active" data-stage="definition" role="tab" aria-selected="true"><span>01</span> 规则与条件</button>
+          <button class="flow-tab" data-stage="assignments" role="tab" aria-selected="false"><span>02</span> 赋值动作</button>
+          <button class="flow-tab" data-stage="review" role="tab" aria-selected="false"><span>03</span> 校验与试算</button>
+        </div>
+        <section class="stage active panel" id="stage-definition" role="tabpanel">
+          <div class="section-head"><div><h2>规则与命中条件</h2><p>设置规则信息与命中条件。</p></div><span class="state-badge" id="rule-state">已保存</span></div>
+          <div class="field-grid">
+            <label class="field span-2">规则名称<input id="rule-name" maxlength="256" autocomplete="off" placeholder="例如：标准规格计算"></label>
+            <label class="field">优先级<input id="rule-priority" type="number" step="1" placeholder="100"><small>数值越大越先评估</small></label>
+            <label class="field">同级顺序<input id="rule-order" type="number" step="1" placeholder="1"><small>同优先级下不可重复</small></label>
+          </div>
+          <label class="switch-line"><input id="rule-enabled" type="checkbox"><span>启用规则</span><small>停用后不参与试算和发布后的执行</small></label>
+          <div class="divider"></div>
+          <div class="section-head compact"><div><h3>命中条件</h3><p>添加条件或条件组，逐层设置“且”或“或”。</p></div></div>
+          <div id="condition-rows" class="condition-rows"></div>
+          <div class="preview-block"><div class="preview-head"><strong>条件预览</strong><button class="text-button" id="toggle-ast" type="button">查看条件结构</button></div><p id="condition-preview"></p><pre id="ast-preview" hidden></pre></div>
+          <div class="message" id="definition-message" role="status" hidden></div>
+          <div class="stage-actions"><button class="btn quiet" id="delete-rule">查看删除影响</button><button class="btn primary" id="save-rule">保存规则与条件</button></div>
+        </section>
+        <section class="stage panel" id="stage-assignments" role="tabpanel">
+          <div class="section-head"><div><h2>赋值动作</h2><p>为中间变量或出口变量设置计算结果。</p></div><button class="btn subtle" id="add-assignment">＋ 添加赋值</button></div>
+          <div class="notice"><strong>保存顺序</strong><span>先保存规则，再逐条保存赋值。</span></div>
+          <div id="assignment-list" class="assignment-list"></div>
+          <div class="message" id="assignment-message" role="status" hidden></div>
+          <div class="stage-actions"><button class="btn quiet" data-go="definition">← 规则与条件</button><button class="btn primary" data-go="review">下一步：校验与试算 →</button></div>
+        </section>
+        <section class="stage panel" id="stage-review" role="tabpanel">
+          <div class="section-head"><div><h2>校验与试算</h2><p>校验当前草稿，并用场景输入检查计算结果。</p></div></div>
+          <div class="review-grid"><div class="review-card"><h3>完整校验</h3><p>检查规则、变量依赖、写入冲突与场景绑定，问题定位到对象路径。</p><button class="btn subtle" id="run-validation">查看校验结果</button></div><div class="review-card"><h3>草稿试算</h3><p>对指定输入查看绑定、命中规则、赋值和最终出口，不影响线上版本。</p><button class="btn subtle" id="run-simulation">运行试算</button></div></div>
+          <div id="validation-result" class="result-box" hidden></div>
+          <div class="simulation-inputs"><h3>试算输入</h3><div class="field-grid"><label class="field">产品类别 · 场景上下文<input id="sim-kind" value="A"></label><label class="field">工艺路线 · 场景上下文<input id="sim-route" value="通用"></label><label class="field">入口宽度 · 入口变量<input id="sim-width" type="number" value="120"></label></div></div>
+          <div id="simulation-result" class="result-box" hidden></div>
+          <div class="stage-actions"><button class="btn quiet" data-go="assignments">← 赋值动作</button><a class="btn primary" href="index.html#models">返回规则集，准备门禁与发布 →</a></div>
+        </section>
+      </main>
+      <aside class="inspector panel" aria-label="维护状态与帮助">
+        <div class="inspector-block"><h2>维护状态</h2><div id="save-summary" class="summary-list"></div><div id="conflict-alert" class="conflict-alert" role="alert" hidden><strong id="conflict-title"></strong><p id="conflict-detail"></p><button class="btn full" id="refresh-draft">刷新草稿</button></div><button class="text-button demo-trigger" id="trigger-conflict">模拟冲突</button></div>
+        <div class="inspector-block"><h3>场景变量</h3><div class="variable-row"><span>入口宽度</span><code>数值 · 入口</code></div><div class="variable-row"><span>产品类别</span><code>文本 · 入口</code></div><div class="variable-row"><span>展开系数</span><code>数值 · 中间</code></div><div class="variable-row"><span>展开宽度</span><code>数值 · 出口</code></div><div class="variable-row"><span>计算状态</span><code>文本 · 出口</code></div><p class="side-note">入口与必需出口的方向和类型由场景契约锁定。</p></div>
+      </aside>
+    </div>
+  </div>
+  <div class="dialog-backdrop" id="dialog-backdrop" hidden><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><span class="eyebrow" id="dialog-kicker">删除影响</span><h2 id="dialog-title"></h2><div id="dialog-body"></div><div class="dialog-actions"><button class="btn quiet" id="dialog-cancel">取消</button><button class="btn danger" id="dialog-confirm">确认删除</button></div></div></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
