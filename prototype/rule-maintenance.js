@@ -12,44 +12,62 @@
   };
   const opLabels = { eq: '=', ne: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤' };
   const arithmeticLabels = { add: '+', sub: '−', mul: '×', div: '÷' };
-  let nextId = 7;
+  let nextId = Date.now();
   const condition = (field, op, value) => ({ kind: 'condition', id: `c${nextId++}`, field, op, value });
   const group = (op, children = []) => ({ kind: 'group', id: `g${nextId++}`, op, children });
   const variable = name => ({ kind: 'variable', variable: name });
   const binary = (op, left, right) => ({ kind: 'binary', op, left, right });
   const defaultExpression = () => binary('mul', variable('inputWidth'), variable('factor'));
-  const rules = [
-    { id: 'r1', name: '标准规格计算', priority: 100, order: 1, enabled: true, conditionTree: group('and', [condition('inputWidth', 'gte', '120'), condition('productKind', 'eq', 'A')]), assignments: [
-      { id: 'a1', target: 'outputWidth', kind: 'expression', expression: defaultExpression(), round: '2', constant: '', saved: true, dirty: false },
-      { id: 'a2', target: 'calcStatus', kind: 'constant', constant: '已计算', expression: defaultExpression(), round: '', saved: true, dirty: false }
-    ], saved: true, dirty: false },
-    { id: 'r2', name: '特殊规格修正', priority: 60, order: 2, enabled: true, conditionTree: group('and', [condition('productKind', 'eq', 'B'), condition('inputWidth', 'gt', '160')]), assignments: [
-      { id: 'a3', target: 'outputWidth', kind: 'expression', expression: binary('add', defaultExpression(), variable('offset')), round: '2', constant: '', saved: true, dirty: false },
-      { id: 'a5', target: 'calcStatus', kind: 'constant', constant: '已修正', expression: defaultExpression(), round: '', saved: true, dirty: false }
-    ], saved: true, dirty: false },
-    { id: 'r3', name: '默认值处理', priority: 10, order: 3, enabled: true, conditionTree: group('and'), assignments: [
-      { id: 'a4', target: 'outputWidth', kind: 'constant', constant: '0', expression: defaultExpression(), round: '', saved: true, dirty: false },
-      { id: 'a6', target: 'calcStatus', kind: 'constant', constant: '使用默认值', expression: defaultExpression(), round: '', saved: true, dirty: false }
-    ], saved: true, dirty: false }
-  ];
-  rules.forEach((rule, index) => {
-    rule.assignments.push(
-      { id: 'range-' + index, target: 'widthRange', parts: [{ source: 'expression', value: '入口宽度' }, { source: 'expression', value: '入口宽度 × 展开系数' }], saved: true, dirty: false },
-      { id: 'widths-' + index, target: 'candidateWidths', parts: [{ source: 'expression', value: '入口宽度' }, { source: 'expression', value: '入口宽度 + 10' }], saved: true, dirty: false },
-      { id: 'codes-' + index, target: 'candidateCodes', parts: [{ source: 'constant', value: 'A' }, { source: 'constant', value: 'B' }], saved: true, dirty: false }
-    );
-  });
   const params = new URLSearchParams(location.search);
-  const initialIndex = Math.max(0, Math.min(2, Number(params.get('rule')) || 0));
-  const state = { rules, selectedId: rules[initialIndex].id, stage: 'definition', revision: 'draft', stamp: 42, conflict: false, pendingDelete: null, toastTimer: null };
+  const collectionStore = window.CollectionStore;
+  let collection;
+  try {
+    collection = collectionStore.get(params.get('collection') || 'expansion');
+    if (collection.kind !== 'rule') throw new Error('请选择规则集。');
+  } catch {
+    document.querySelector('.page').innerHTML = '<h1>找不到这个规则集</h1><p><a href="index.html#model-list">返回规则集列表</a></p>';
+    return;
+  }
+  const requestedMode = params.get('revision');
+  const initialMode = ['draft', 'published'].includes(requestedMode) && collection[requestedMode] ? requestedMode : collection.draft ? 'draft' : 'published';
+  const rules = collectionStore.clone(collection[initialMode].rules);
+  const initialIndex = Math.max(0, Math.min(rules.length - 1, Number(params.get('rule')) || 0));
+  const state = { rules, selectedId: rules.find(rule => rule.id === params.get('ruleId'))?.id || rules[initialIndex]?.id || null, stage: 'definition', revision: initialMode, stamp: 42, conflict: false, pendingDelete: null, toastTimer: null };
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const selected = () => state.rules.find(rule => rule.id === state.selectedId);
-  const editable = () => state.revision === 'draft';
+  const editable = () => state.revision === 'draft' && !collection.archived;
   const html = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
+  function revisionLabel() { return `${state.revision === 'draft' ? '草稿' : collection.archived ? '已发布' : '线上'} R${String(collection[state.revision].no).padStart(2, '0')}`; }
+  function updateContext() {
+    document.title = `${collection.name} · 规则维护`;
+    $('.page-head h1').textContent = `${collection.name} · 维护规则`;
+    $('.page-head > div > p').textContent = `${collection.code} · ${revisionLabel()}${collection.archived ? ' · 已归档，只读' : ''}`;
+    $('.back').href = `index.html#models?${new URLSearchParams({ set:collection.id, revision:state.revision, listScene:params.get('listScene') || 'all' })}`;
+    $('#revision-mode').innerHTML = ['draft','published'].filter(mode => collection[mode]).map(mode => `<option value="${mode}">${mode === 'draft' ? '草稿' : '线上'} R${String(collection[mode].no).padStart(2,'0')} · ${mode === 'draft' && !collection.archived ? '可编辑' : '只读'}</option>`).join('');
+    $('#revision-mode').value = state.revision;
+  }
+  function persistChange(kind, rule, assignment) {
+    if (!editable()) return;
+    const saved = collectionStore.clone(collectionStore.get(collection.id).draft.rules);
+    const index = saved.findIndex(item => item.id === rule.id);
+    if (kind === 'rule') {
+      const definition = { ...collectionStore.clone(rule), assignments:index >= 0 ? saved[index].assignments : [] };
+      if (index >= 0) saved[index] = definition; else saved.push(definition);
+    }
+    if (kind === 'assignment' && index >= 0) {
+      const position = saved[index].assignments.findIndex(item => item.id === assignment.id);
+      if (position >= 0) saved[index].assignments[position] = collectionStore.clone(assignment);
+      else saved[index].assignments.push(collectionStore.clone(assignment));
+    }
+    if (kind === 'delete-rule' && index >= 0) saved.splice(index,1);
+    if (kind === 'delete-assignment' && index >= 0) saved[index].assignments = saved[index].assignments.filter(item => item.id !== assignment.id);
+    collectionStore.saveDraft(collection.id,{ rules:saved });
+    collection = collectionStore.get(collection.id);
+  }
   function newRule() {
-    return { id: `r${nextId++}`, name: '', priority: 50, order: nextId, enabled: true, conditionTree: group('and', [condition('inputWidth', 'gte', '')]), assignments: [], saved: false, dirty: true };
+    return { id: `r${nextId++}`, name: '', priority: 50, order: Math.max(0, ...state.rules.map(rule => Number(rule.order) || 0)) + 1, enabled: true, conditionTree: group('and', [condition('inputWidth', 'gte', '')]), assignments: [], saved: false, dirty: true };
   }
   function newAssignment() {
     const used = new Set(selected()?.assignments.map(item => item.target));
@@ -323,8 +341,8 @@
     $('#rule-order').value = rule?.order ?? '';
     $('#rule-enabled').checked = rule?.enabled || false;
     const badge = $('#rule-state');
-    badge.textContent = state.revision === 'published' ? '线上只读' : !rule ? '无规则' : rule.dirty ? '未保存修改' : '已保存';
-    badge.className = `state-badge${state.revision === 'published' ? ' readonly' : rule?.dirty ? ' dirty' : ''}`;
+    badge.textContent = !editable() ? '只读' : !rule ? '无规则' : rule.dirty ? '未保存修改' : '已保存';
+    badge.className = `state-badge${!editable() ? ' readonly' : rule?.dirty ? ' dirty' : ''}`;
     renderConditionRows();
     renderConditionPreview();
     applyReadOnly();
@@ -366,7 +384,7 @@
     const rule = selected();
     const assignmentsSaved = !!rule && rule.assignments.length > 0 && rule.assignments.every(item => item.saved && !item.dirty);
     const items = [
-      { level: 'ok', text: state.revision === 'draft' ? '当前为可编辑草稿 R04' : '线上修订 R03 · 只读' },
+      { level: 'ok', text: editable() ? `当前为可编辑草稿 ${revisionLabel()}` : `${revisionLabel()} · 只读` },
       { level: rule?.saved && !rule?.dirty ? 'ok' : 'wait', text: rule ? (rule.dirty ? '规则信息或条件待保存' : '规则信息与条件已保存') : '请选择规则' },
       { level: assignmentsSaved ? 'ok' : 'wait', text: rule ? `${rule.assignments.length} 项赋值 · ${assignmentsSaved ? '已保存' : '待保存'}` : '未选择赋值' }
     ];
@@ -380,14 +398,14 @@
     $('#trigger-conflict').hidden = state.conflict;
   }
   function applyReadOnly() {
-    const disabled = state.revision === 'published' || !selected();
+    const disabled = !editable() || !selected();
     $$('.stage input,.stage select,.stage textarea').forEach(node => node.disabled = disabled);
     ['add-assignment','save-rule','delete-rule'].forEach(id => $(`#${id}`).disabled = disabled);
     $$('#condition-rows button,#assignment-list button').forEach(node => node.disabled = disabled || node.hasAttribute('data-limit-disabled'));
-    $('#add-rule').disabled = state.revision === 'published';
-    $('#trigger-conflict').disabled = state.revision === 'published';
-    $('#run-validation').disabled = state.revision === 'published';
-    $('#run-simulation').disabled = state.revision === 'published';
+    $('#add-rule').disabled = !editable();
+    $('#trigger-conflict').disabled = !editable();
+    $('#run-validation').disabled = !editable();
+    $('#run-simulation').disabled = !editable();
   }
   function render() { renderMenu(); renderDefinition(); renderAssignments(); renderSummary(); }
   function showStage(stage) {
@@ -396,7 +414,7 @@
     $$('.stage').forEach(section => section.classList.toggle('active', section.id === `stage-${stage}`));
   }
   function requireWrite(messageId) {
-    if (state.revision === 'published') { showMessage(messageId, '线上修订只读。请切回草稿或从线上创建新草稿。', 'error'); return false; }
+    if (!editable()) { showMessage(messageId, '线上修订只读。请切回草稿或从线上创建新草稿。', 'error'); return false; }
     if (state.conflict) { showMessage(messageId, '草稿已被他人更新，请先刷新草稿。', 'error'); return false; }
     return true;
   }
@@ -414,7 +432,7 @@
     const invalidCondition = conditionError(rule.conditionTree, true);
     if (invalidCondition) { showMessage('definition-message', invalidCondition, 'error'); return; }
     const payload = rulePayload(rule);
-    rule.saved = true; rule.dirty = false; state.stamp += 1;
+    rule.saved = true; rule.dirty = false; state.stamp += 1; persistChange('rule', rule);
     showMessage('definition-message', `规则与条件已保存在当前页面，请继续逐条保存赋值。`, 'success');
     renderMenu(); renderDefinition(); renderSummary(); toast('规则与条件已保存');
   }
@@ -427,7 +445,7 @@
     if (target.shape) {
       try { assignmentPayload(assignment); }
       catch (error) { showMessage('assignment-message', error.message, 'error'); return; }
-      assignment.saved = true; assignment.dirty = false; state.stamp += 1;
+      assignment.saved = true; assignment.dirty = false; state.stamp += 1; persistChange('assignment', rule, assignment);
       showMessage('assignment-message', '赋值已保存在当前页面。', 'success');
       renderMenu(); renderAssignments(); renderSummary(); toast('赋值已保存');
       return;
@@ -451,7 +469,7 @@
     if (assignment.kind === 'expression' && !expressionValid(assignment.expression)) { showMessage('assignment-message', '表达式中的数字常量不能为空，引用变量必须是数值类型。', 'error'); return; }
     if (assignment.kind === 'constant' && (assignment.constant === '' || (target.kind === 'Decimal' && !Number.isFinite(Number(assignment.constant))))) { showMessage('assignment-message', '填写与目标类型相符的常量值。', 'error'); return; }
     assignmentPayload(assignment);
-    assignment.saved = true; assignment.dirty = false; state.stamp += 1;
+    assignment.saved = true; assignment.dirty = false; state.stamp += 1; persistChange('assignment', rule, assignment);
     showMessage('assignment-message', '赋值已保存在当前页面。', 'success');
     renderMenu(); renderAssignments(); renderSummary(); toast('赋值已保存');
   }
@@ -462,8 +480,8 @@
     state.pendingDelete = { kind, id };
     $('#dialog-title').textContent = kind === 'rule' ? `删除「${rule.name || '未命名规则'}」？` : `删除「${variableCatalog[assignment.target].name}」赋值？`;
     $('#dialog-body').innerHTML = kind === 'rule'
-      ? `<p>${rule.saved ? '服务端会先返回这条规则的删除影响与当前并发戳。影响只提示，不自动阻止规则删除。' : '这条规则尚未保存，只需丢弃本地编辑内容。'}删除规则时，其 ${rule.assignments.length} 项赋值会一起移除。</p><ul><li>规则路径：草稿 R04 / ${html(rule.name || '未命名规则')}</li><li>相关门禁用例：标准尺寸、特殊规格</li><li>删除后应重新进行完整校验与试算</li></ul>`
-      : `<p>${assignment.saved ? '服务端会先返回赋值的直接引用及下游影响。影响只提示，不自动阻止赋值删除。' : '这条赋值尚未保存，只需丢弃本地编辑内容。'}</p><ul><li>赋值路径：草稿 R04 / ${html(rule.name)} / ${html(variableCatalog[assignment.target].name)}</li><li>删除后可能缺少必需出口，请重新校验</li></ul>`;
+      ? `<p>${rule.saved ? '服务端会先返回这条规则的删除影响与当前并发戳。影响只提示，不自动阻止规则删除。' : '这条规则尚未保存，只需丢弃本地编辑内容。'}删除规则时，其 ${rule.assignments.length} 项赋值会一起移除。</p><ul><li>规则路径：${revisionLabel()} / ${html(rule.name || '未命名规则')}</li><li>相关门禁用例：本规则集的回归用例（需重新验证）</li><li>删除后应重新进行完整校验与试算</li></ul>`
+      : `<p>${assignment.saved ? '服务端会先返回赋值的直接引用及下游影响。影响只提示，不自动阻止赋值删除。' : '这条赋值尚未保存，只需丢弃本地编辑内容。'}</p><ul><li>赋值路径：${revisionLabel()} / ${html(rule.name)} / ${html(variableCatalog[assignment.target].name)}</li><li>删除后可能缺少必需出口，请重新校验</li></ul>`;
     $('#dialog-backdrop').hidden = false;
     $('#dialog-cancel').focus();
   }
@@ -481,6 +499,7 @@
       if (item) { rule.assignments.splice(index, 1); if (item.saved) state.stamp += 1; }
     }
     if (pending.kind === 'rule' && rule.saved) state.stamp += 1;
+    persistChange(pending.kind === 'rule' ? 'delete-rule' : 'delete-assignment', rule, { id: pending.id });
     closeDialog(); render(); toast('已删除，请重新校验');
   }
   function runValidation() {
@@ -514,7 +533,7 @@
   function runSimulation() {
     const box = $('#simulation-result'); box.hidden = false;
     const rule = selected();
-    if (state.revision === 'published') { box.className = 'result-box error'; box.innerHTML = '<strong>选择草稿再试算</strong><p>草稿试算需要指定草稿修订；线上版本在此只读展示。</p>'; return; }
+    if (!editable()) { box.className = 'result-box error'; box.innerHTML = '<strong>选择草稿再试算</strong><p>草稿试算需要指定草稿修订；线上版本在此只读展示。</p>'; return; }
     if (!rule || allDirty() || state.conflict) { box.className = 'result-box error'; box.innerHTML = '<strong>不能试算当前本地修改</strong><p>先保存草稿中的规则与赋值，并解决并发冲突。服务端试算只读取已保存的指定草稿修订。</p>'; return; }
     if (!rule.enabled) { box.className = 'result-box'; box.innerHTML = '<strong>当前规则已停用</strong><p>停用规则不参与草稿试算。请切换到其他启用规则。</p>'; return; }
     const width = Number($('#sim-width').value);
@@ -559,7 +578,7 @@
     const go = event.target.closest('[data-go]'); if (go) { showStage(go.dataset.go); return; }
     const ruleButton = event.target.closest('[data-select-rule]');
     if (ruleButton) { if (allDirty()) { toast('先保存当前修改，再切换规则'); return; } state.selectedId = ruleButton.dataset.selectRule; showMessage('definition-message', ''); showMessage('assignment-message', ''); render(); return; }
-    if (event.target.closest('#add-rule')) { if (state.revision === 'published') return; if (allDirty()) { toast('先保存当前修改，再新建规则'); return; } const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; showStage('definition'); render(); $('#rule-name').focus(); return; }
+    if (event.target.closest('#add-rule')) { if (!editable()) return; if (allDirty()) { toast('先保存当前修改，再新建规则'); return; } const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; showStage('definition'); render(); $('#rule-name').focus(); return; }
     const addCondition = event.target.closest('[data-add-condition]'); if (addCondition) { const rule = selected(); if (!rule || !editable()) return; const parent = findConditionNode(rule.conditionTree, addCondition.dataset.addCondition)?.node; parent.children.push(condition('inputWidth', 'gte', '')); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); return; }
     const addGroup = event.target.closest('[data-add-group]'); if (addGroup) { const rule = selected(); if (!rule || !editable()) return; const parent = findConditionNode(rule.conditionTree, addGroup.dataset.addGroup)?.node; parent.children.push(group('or', [condition('inputWidth', 'gte', '')])); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); return; }
     const removeCondition = event.target.closest('[data-remove-condition]'); if (removeCondition) { const rule = selected(); if (!rule || !editable()) return; const found = findConditionNode(rule.conditionTree, removeCondition.dataset.removeCondition); if (!found?.parent) return; found.parent.children.splice(found.parent.children.indexOf(found.node), 1); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); return; }
@@ -608,7 +627,7 @@
     if (event.target.closest('#dialog-confirm')) { confirmDelete(); }
   });
   document.addEventListener('input', event => {
-    const rule = selected(); if (!rule || state.revision === 'published') return;
+    const rule = selected(); if (!rule || !editable()) return;
     const ids = { 'rule-name': 'name', 'rule-priority': 'priority', 'rule-order': 'order' };
     if (ids[event.target.id]) { rule[ids[event.target.id]] = event.target.value; markDirty(rule); return; }
     const row = event.target.closest('[data-condition-id]');
@@ -637,8 +656,16 @@
   });
   document.addEventListener('change', event => {
     const rule = selected();
-    if (event.target.id === 'revision-mode') { if (allDirty()) { event.target.value = state.revision; toast('先保存当前修改，再切换修订'); return; } state.revision = event.target.value; render(); showMessage('definition-message', state.revision === 'published' ? '线上 R03 为只读展示；需要修改时应从线上创建新草稿。' : '', state.revision === 'published' ? 'success' : ''); return; }
-    if (!rule || state.revision === 'published') return;
+    if (event.target.id === 'revision-mode') {
+      if (allDirty()) { event.target.value = state.revision; toast('先保存当前修改，再切换修订'); return; }
+      state.revision = event.target.value;
+      state.rules = collectionStore.clone(collectionStore.get(collection.id)[state.revision].rules);
+      state.selectedId = state.rules.find(rule => rule.id === state.selectedId)?.id || state.rules[0]?.id || null;
+      updateContext(); render();
+      showMessage('definition-message', !editable() ? '当前修订为只读展示；需要修改时请返回规则集创建或选择草稿。' : '', !editable() ? 'success' : '');
+      return;
+    }
+    if (!rule || !editable()) return;
     if (event.target.id === 'rule-enabled') { rule.enabled = event.target.checked; markDirty(rule); return; }
     if (event.target.dataset.groupOp) { findConditionNode(rule.conditionTree, event.target.dataset.groupOp).node.op = event.target.value; markDirty(rule); renderConditionPreview(); return; }
     const row = event.target.closest('[data-condition-id]');
@@ -670,6 +697,8 @@
     renderFormulaStatus(card, assignment);
   });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#dialog-backdrop').hidden) closeDialog(); });
-  if (params.get('mode') === 'new') { const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; }
+  if (params.get('mode') === 'new' && editable()) { const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; }
+  updateContext();
+  window.addEventListener('beforeunload', event => { if (allDirty()) { event.preventDefault(); event.returnValue = ''; } });
   render();
 })();
