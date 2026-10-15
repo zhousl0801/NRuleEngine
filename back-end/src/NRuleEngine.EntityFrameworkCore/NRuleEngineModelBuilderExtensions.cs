@@ -118,6 +118,7 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.Direction).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.Origin).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.ValueKind).HasConversion<string>().HasMaxLength(32);
+            entity.Property(x => x.Shape).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.EnumCode).HasMaxLength(128);
             entity.Property(x => x.DefaultValueJson).HasMaxLength(4096);
             entity.Property(x => x.Unit).HasMaxLength(64);

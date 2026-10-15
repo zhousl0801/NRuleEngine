@@ -14,7 +14,7 @@ public sealed class RuleExpressionException : ArgumentException
         string message,
         int? start,
         int? length,
-        Exception innerException) : base(message, innerException)
+        Exception? innerException = null) : base(message, innerException)
     {
         Start = start;
         Length = length;

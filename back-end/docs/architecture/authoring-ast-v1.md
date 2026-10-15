@@ -29,10 +29,13 @@
 | `add`、`sub`、`mul`、`div` | 2 | Decimal |
 | `isNull` | 1 | Boolean |
 | `in` | 值 + 至少一个同类型候选 | Boolean |
+| `range`、`list`（仅赋值根节点） | 两个 Decimal 端点、1–100 个同类型单值 | 数值区间、候选列表；见[输出值契约](output-values.md) |
 | `function` | 由 `function` 指定 | 白名单见下文 |
 
 函数白名单：`Abs(decimal)`、`Min(decimal, decimal)`、`Max(decimal, decimal)`、`Round(decimal, decimal位数)`、`Coalesce(同类型, 同类型)`。节点不执行任意方法、反射、网络、文件或数据库操作。
 
 赋值使用 `ValueSourceKind` 选择 `Constant` 或 `Expression`：常量提供 `ConstantValueJson`，表达式提供 `ExpressionAstJson`。绑定的 `TypedValueJson` 对 `Equals` 等单值操作符是 JSON 标量，对 `In` 是非空 JSON 数组；同一绑定中的维度条件按 AND 组合。试算请求的 `ContextJson` 和 `InputsJson` 是编码到 JSON 值文本的字典，例如 `"inputWidth": "120"`、`"productKind": "\"A\""`。
+
+复合赋值仅由出口契约启用；端点和列表元素复用单值 AST，详细常量格式、数量和运行约束见[区间与候选列表输出](output-values.md)。
 
 整份校验覆盖必需输出、同级顺序、循环依赖、重复写入和同修订内可判定的绑定歧义。发布和回滚会结合其他活动修订检查跨模型绑定冲突。试算只针对指定草稿，返回绑定、规则命中、实际赋值和出口，不持久化 Trace。当前已实现发布、回滚和活动修订执行的组件逻辑及 HTTP API；宿主数据库迁移、鉴权和 HTTP 联调尚未执行。

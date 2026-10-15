@@ -35,3 +35,7 @@
 - 不展示持久化的生产执行 Trace；当前组件只返回简化试算结果，未提供完整 Trace 存储。
 
 依据：[产品设计草案](../back-end/docs/product/NRuleEngine-产品设计草案.md)、[ADR-0011：同场景多模型选择](../back-end/docs/adr/0011-multiple-model-priority-selection.md)、[后端 API 总览](../back-end/README.md)、[条件集设计](../back-end/docs/architecture/ConditionSet-条件集设计与使用.md)。
+
+## 区间与候选列表
+
+规则维护页增加宽度范围、候选宽度和候选编码出口。端点和候选项独立选择常量、数值公式或同类型变量；列表可添加、删除及上下移动。包含两端的范围要求最小值不大于最大值，列表保留顺序并限制为 1–100 个非空、不重复候选。页面按目标契约生成常量 JSON 或 range/list AST，正式行为见[输出值契约](../back-end/docs/architecture/output-values.md)。浏览器计算只供交互预览，数值精度与正式结果以服务端为准。

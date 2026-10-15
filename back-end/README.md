@@ -13,8 +13,9 @@ NRuleEngine 是供 ODS 等 ABP 应用引用的通用规则编制与运行组件�
 | 架构 `docs/architecture/` | [系统设计草案](docs/architecture/NRuleEngine-系统设计草案.md) | ABP 结构、扩展契约、领域模型、接口和技术验收 | v0.9 |
 | 架构 `docs/architecture/` | [运行错误与异常模型](docs/architecture/runtime-error-model.md) | 执行状态、稳定错误码、异常数据和 ODS 映射 | v0.3 |
 | 架构 `docs/architecture/` | [编制 AST v1](docs/architecture/authoring-ast-v1.md) | 草稿表达式 JSON 格式与当前 API 范围 | v0.1 |
+| 架构 `docs/architecture/` | [区间与候选列表输出](docs/architecture/output-values.md) | 出口形状、赋值格式、运行约束及验证 | 2026-10-14 |
 | 架构 `docs/architecture/` | [条件集设计与使用](docs/architecture/ConditionSet-条件集设计与使用.md) | 无赋值布尔条件的领域边界、API 与候选匹配语义 | 2026-09-29 |
-| 决策 `docs/adr/` | [架构决策记录](docs/adr/README.md) | 已确认决策、替代方案和后果 | ADR-0001–0019 |
+| 决策 `docs/adr/` | [架构决策记录](docs/adr/README.md) | 已确认决策、替代方案和后果 | ADR-0001–0020 |
 
 ## 已确认的首版边界
 
@@ -47,7 +48,7 @@ DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false dotnet run --project src/NRuleEng
 
 默认监听 `http://127.0.0.1:5088`，数据库文件为当前工作目录下的 `nrule-engine-dev.sqlite`。首次启动会按当前 EF 模型建表，重启保留数据；这是联调库，不使用数据库迁移。模型结构改变后需要自行删除该本地库再启动。Host 默认允许 `localhost` / `127.0.0.1` 的 5173、3000 端口跨域；可在 `src/NRuleEngine.Host/appsettings.json` 的 `Cors:Origins` 修改来源。
 
-联调 Host 自动授予开发身份和规则权限，**仅在本机使用，不要对外网开放**。可先请求 `GET http://127.0.0.1:5088/api/nrule-engine/catalog/apps`，再查询 `GET .../catalog/apps/DEMO/scenarios` 或 `GET .../catalog/apps/DEMO/condition-scenarios`。示例应用编码 `DEMO`；赋值场景为 `size-expansion`（输入 `inputWidth`，输出 `targetWidth`，绑定维度 `productKind`），条件场景为 `thickness-eligibility`（输入 `thickness`），契约版本均为 `1.0`。
+联调 Host 自动授予开发身份和规则权限，**仅在本机使用，不要对外网开放**。可先请求 `GET http://127.0.0.1:5088/api/nrule-engine/catalog/apps`，再查询 `GET .../catalog/apps/DEMO/scenarios` 或 `GET .../catalog/apps/DEMO/condition-scenarios`。示例应用编码 `DEMO`；赋值场景为 `size-expansion`（输入 `inputWidth`，输出 `targetWidth`，绑定维度 `productKind`），条件场景为 `thickness-eligibility`（输入 `thickness`），契约版本均为 `1.0`。另有 `size-candidates` 场景，输入 `inputWidth`，输出 `widthRange`（数值区间）、`candidateWidths`（数值列表）、`candidateCodes`（文本列表），绑定维度 `productKind`。
 
 ## 当前 API
 
@@ -86,6 +87,8 @@ HTTP 控制器由接入宿主装配；本地联调可使用上述 Host。
 缺少入口或读取前尚未赋值的中间变量使用该修订已配置的默认值；没有默认值时仍返回原有错误。显式 JSON `null` 按变量可空性处理，默认值不计入规则赋值次数。影响查询返回当前并发戳；删除中间变量时服务端再次检查引用和并发戳。模型复制在事务内创建新模型与首个草稿，源模型的活动发布状态不变。
 
 发布与回滚新增 `NreReleaseGateCases`、`NreReleaseRecords`、`NreReleaseScopes` 表及模型的 `NextReleaseNo` 字段。条件集另有 `NreConditionSets`、`NreConditionSetRevisions`、`NreConditionInputDefinitions` 和 `NreConditionSetReleaseRecords`。宿主须生成并执行相应迁移后再启用接口。发布服务在独立数据库事务中先写入场景协调行，再查询其他活动模型；并发首次创建同一协调行时，数据库唯一约束会使其中一个请求失败，调用方应刷新并重试。执行服务每次从数据库批量读取活动修订并核对内容哈希；当前组件不缓存运行时快照。
+
+出口支持单值、数值区间及同类型候选列表，格式和约束见[输出值契约](docs/architecture/output-values.md)。`NreVariableDefinitions.Shape` 保存出口形状。项目处于开发阶段，尚无系统集成，结构修改无需历史数据兼容；已有联调库需明确重建，或使用新临时库验证。
 
 ## 代码职责与 C# 引用
 

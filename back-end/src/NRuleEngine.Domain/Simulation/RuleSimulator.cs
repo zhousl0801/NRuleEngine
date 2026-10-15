@@ -138,9 +138,8 @@ public static class RuleSimulator
                 try
                 {
                     var value = assignment.ValueSourceKind == RuleValueSourceKind.Constant
-                        ? RuleExpressionEngine.ReadValue(target.ValueKind, assignment.ConstantValueJson!)
-                        : RuleExpressionEngine.Evaluate(assignment.ExpressionAstJson!, values, cancellationToken);
-                    RuleExpressionEngine.CheckValue(target, value);
+                        ? RuleValueEngine.ReadValue(target, assignment.ConstantValueJson!)
+                        : RuleValueEngine.EvaluateExpression(target, assignment.ExpressionAstJson!, values, cancellationToken);
                     values[target.StableKey] = value;
                     written.Add(target.StableKey);
                     assignments.Add(new RuleAssignmentOutcome(rule.Id, assignment.Id, target.StableKey, JsonSerializer.Serialize(value)));

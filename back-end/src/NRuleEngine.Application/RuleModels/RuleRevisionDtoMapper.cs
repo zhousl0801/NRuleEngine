@@ -17,7 +17,7 @@ internal static class RuleRevisionDtoMapper
         var dto = new RuleRevisionDto(revision.Id, revision.RuleModelId, revision.RevisionNo, revision.BasedOnRevisionId,
             revision.Status, revision.ScenarioCode, revision.ContractVersion, revision.ExecutionMode,
             revision.MultipleWritePolicy, revision.ConcurrencyStamp,
-            revision.Variables.Select(v => new RuleVariableDto(v.Id, v.StableKey, v.Code, v.Name, v.Direction, v.Origin, new RuleTypeDescriptor(v.ValueKind, v.IsNullable, v.Precision, v.Scale, v.EnumCode))
+            revision.Variables.Select(v => new RuleVariableDto(v.Id, v.StableKey, v.Code, v.Name, v.Direction, v.Origin, new RuleTypeDescriptor(v.ValueKind, v.IsNullable, v.Precision, v.Scale, v.EnumCode, v.Shape))
             {
                 DefaultValueJson = v.DefaultValueJson, Unit = v.Unit
             }).ToArray());

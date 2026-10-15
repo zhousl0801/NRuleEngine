@@ -86,7 +86,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
 
         foreach (var variable in variables)
         {
-            ValidateType(variable.Type);
+            ValidateType(variable.Type, variable.Direction == RuleVariableDirection.Output);
         }
 
         if (descriptor.BindingDimensions.Any(d => string.IsNullOrWhiteSpace(d.Code) ||
@@ -210,7 +210,7 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
 
     /// <summary>检查首版变量类型、Decimal 精度和 Enum 编码。</summary>
     /// <remarks>核心逻辑：校验值类型、精度和枚举编码组合；调用时机：注册场景的变量契约时。</remarks>
-    internal static void ValidateType(RuleTypeDescriptor type)
+    internal static void ValidateType(RuleTypeDescriptor type, bool allowComposite = false)
     {
         if (type is null)
         {
@@ -220,6 +220,19 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         if (!Enum.IsDefined(type.Kind))
         {
             throw new ArgumentException("不支持的变量值类型。");
+        }
+
+        if (!Enum.IsDefined(type.Shape) || !allowComposite && type.Shape != RuleValueShape.Scalar)
+        {
+            throw new ArgumentException("区间和候选列表仅允许用于场景契约出口。");
+        }
+        if (type.Shape == RuleValueShape.NumericRange && type.Kind != RuleValueKind.Decimal)
+        {
+            throw new ArgumentException("数值区间的端点必须使用 Decimal 类型。");
+        }
+        if (type.Shape != RuleValueShape.Scalar && type.IsNullable)
+        {
+            throw new ArgumentException("区间和候选列表出口不能声明为可空。");
         }
 
         if (type.Kind == RuleValueKind.Decimal)

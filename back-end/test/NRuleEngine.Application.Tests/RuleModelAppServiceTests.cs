@@ -172,7 +172,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var catalog = ServiceProvider.GetRequiredService<IRuleCatalogAppService>();
         Assert.Equal("TEST-ODS", Assert.Single(await catalog.GetAppsAsync()).AppCode);
-        Assert.Equal("size-expansion", Assert.Single(await catalog.GetScenariosAsync("TEST-ODS")).ScenarioCode);
+        Assert.Equal(new[] { "composite-output", "size-expansion" }, (await catalog.GetScenariosAsync("TEST-ODS")).Select(s => s.ScenarioCode));
 
         var model = await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "width", "Width", null));
         await uow.SaveChangesAsync();

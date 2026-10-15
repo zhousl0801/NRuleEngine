@@ -59,7 +59,7 @@ public sealed class RuleAssignment : Entity<Guid>
                 throw new ArgumentException("常量赋值只能提供常量值。");
             }
 
-            RuleExpressionEngine.CheckValue(target, RuleExpressionEngine.ReadValue(target.ValueKind, constantJson));
+            _ = RuleValueEngine.ReadValue(target, constantJson);
         }
         else if (sourceKind == RuleValueSourceKind.Expression)
         {
@@ -68,11 +68,7 @@ public sealed class RuleAssignment : Entity<Guid>
                 throw new ArgumentException("表达式赋值只能提供 AST。");
             }
 
-            var kind = RuleExpressionEngine.Validate(expressionAstJson, variables, out _);
-            if (kind != target.ValueKind && !(kind is null && target.IsNullable))
-            {
-                throw new ArgumentException("赋值表达式的类型与目标变量类型不一致。");
-            }
+            RuleValueEngine.ValidateExpression(target, expressionAstJson, variables, out _);
         }
         else
         {

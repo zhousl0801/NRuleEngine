@@ -32,6 +32,9 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
     /// <summary>Decimal、String、Boolean 或 Enum 值类型。</summary>
     public RuleValueKind ValueKind { get; private set; }
 
+    /// <summary>值结构；复合结构仅允许出现在契约出口。</summary>
+    public RuleValueShape Shape { get; private set; }
+
     /// <summary>输入与赋值是否接受 JSON null。</summary>
     public bool IsNullable { get; private set; }
 
@@ -74,6 +77,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
         Direction = direction;
         Origin = origin;
         ValueKind = type.Kind;
+        Shape = type.Shape;
         IsNullable = type.IsNullable;
         Precision = type.Precision;
         Scale = type.Scale;
@@ -95,7 +99,7 @@ public sealed class VariableDefinition : Entity<Guid>, IExpressionVariable
     /// <summary>复制到新草稿，保留 StableKey 并重新分配实体标识。</summary>
     internal VariableDefinition CopyTo(Guid revisionId)
     {
-        return new VariableDefinition(Guid.NewGuid(), revisionId, StableKey, Code, Name, Direction, Origin, new RuleTypeDescriptor(ValueKind, IsNullable, Precision, Scale, EnumCode))
+        return new VariableDefinition(Guid.NewGuid(), revisionId, StableKey, Code, Name, Direction, Origin, new RuleTypeDescriptor(ValueKind, IsNullable, Precision, Scale, EnumCode, Shape))
         {
             DefaultValueJson = DefaultValueJson,
             Unit = Unit,

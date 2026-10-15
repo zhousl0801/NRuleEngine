@@ -22,7 +22,7 @@ public static class RuleRevisionContentHasher
             revision.MultipleWritePolicy,
             variables = revision.Variables.OrderBy(x => x.StableKey).Select(x => new
             {
-                x.StableKey, x.Code, x.Direction, x.Origin, x.ValueKind, x.IsNullable, x.Precision, x.Scale,
+                x.StableKey, x.Code, x.Direction, x.Origin, x.ValueKind, x.Shape, x.IsNullable, x.Precision, x.Scale,
                 x.EnumCode, defaultValue = Parse(x.DefaultValueJson), x.Unit
             }),
             rules = revision.Rules.OrderByDescending(x => x.Priority).ThenBy(x => x.SortOrder).Select(x => new

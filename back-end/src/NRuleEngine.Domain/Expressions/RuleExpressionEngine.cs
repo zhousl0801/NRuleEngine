@@ -12,8 +12,14 @@ public static class RuleExpressionEngine
     /// <remarks>核心逻辑：递归检查变量引用、函数参数和表达式静态类型；调用时机：保存条件或赋值 AST 时。</remarks>
     public static RuleValueKind? Validate(string json, IReadOnlyCollection<IExpressionVariable> variables, out IReadOnlySet<Guid> references)
     {
+        return ValidateScalarNode(RuleExpression.Parse(json).Root, variables, out references);
+    }
+
+    /// <summary>检查复合赋值中的单值子表达式，并收集稳定键引用。</summary>
+    internal static RuleValueKind? ValidateScalarNode(RuleExpressionNode node, IReadOnlyCollection<IExpressionVariable> variables, out IReadOnlySet<Guid> references)
+    {
         var keys = new HashSet<Guid>();
-        var result = TypeOf(RuleExpression.Parse(json).Root, variables.ToDictionary(v => v.StableKey), keys, 0);
+        var result = TypeOf(node, variables.ToDictionary(v => v.StableKey), keys, 0);
         references = keys;
         return result;
     }
@@ -24,6 +30,13 @@ public static class RuleExpressionEngine
     {
         cancellationToken.ThrowIfCancellationRequested();
         return EvaluateNode(RuleExpression.Parse(json).Root, values, 0, cancellationToken);
+    }
+
+    /// <summary>复用单值求值语义计算区间端点或候选项。</summary>
+    internal static object? EvaluateScalarNode(RuleExpressionNode node, IReadOnlyDictionary<Guid, object?> values, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return EvaluateNode(node, values, 0, cancellationToken);
     }
 
     /// <summary>为最深层失败节点保留源码位置，再交给上层报告。</summary>
@@ -60,6 +73,11 @@ public static class RuleExpressionEngine
             if (node.StableKey is null || !variables.TryGetValue(node.StableKey.Value, out var variable))
             {
                 throw new ArgumentException("表达式引用了未知变量。");
+            }
+
+            if (variable.Shape != RuleValueShape.Scalar)
+            {
+                throw new ArgumentException("单值表达式不能引用区间或候选列表变量。");
             }
 
             references.Add(variable.StableKey);

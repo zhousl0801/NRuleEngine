@@ -14,6 +14,12 @@ public interface IExpressionVariable
     /// <summary>变量的基础值类型。</summary>
     RuleValueKind ValueKind { get; }
 
+    /// <summary>值结构；条件场景输入始终为单值。</summary>
+    RuleValueShape Shape
+    {
+        get { return RuleValueShape.Scalar; }
+    }
+
     /// <summary>是否接受空值。</summary>
     bool IsNullable { get; }
 

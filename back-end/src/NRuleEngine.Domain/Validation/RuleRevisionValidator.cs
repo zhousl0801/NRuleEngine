@@ -70,11 +70,7 @@ public static class RuleRevisionValidator
                 {
                     try
                     {
-                        var kind = RuleExpressionEngine.Validate(assignment.ExpressionAstJson!, revision.Variables, out var references);
-                        if (kind != target.ValueKind && !(kind is null && target.IsNullable))
-                        {
-                            throw new ArgumentException("赋值类型与目标变量类型不一致。");
-                        }
+                        RuleValueEngine.ValidateExpression(target, assignment.ExpressionAstJson!, revision.Variables, out var references);
 
                         graph.TryAdd(target.StableKey, []);
                         graph[target.StableKey].UnionWith(references.Where(k => revision.Variables.Any(v => v.StableKey == k && v.Direction != RuleVariableDirection.Input)));
@@ -89,7 +85,7 @@ public static class RuleRevisionValidator
                 {
                     try
                     {
-                        RuleExpressionEngine.CheckValue(target, RuleExpressionEngine.ReadValue(target.ValueKind, assignment.ConstantValueJson!));
+                        _ = RuleValueEngine.ReadValue(target, assignment.ConstantValueJson!);
                     }
                     catch (Exception ex) when (ex is ArgumentException or JsonException)
                     {

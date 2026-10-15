@@ -5,6 +5,9 @@
     factor: { name: '展开系数', kind: 'Decimal', key: '33333333-3333-3333-3333-333333333333' },
     offset: { name: '偏移量', kind: 'Decimal', key: '44444444-4444-4444-4444-444444444444' },
     outputWidth: { name: '展开宽度', kind: 'Decimal', key: '55555555-5555-5555-5555-555555555555', output: true },
+    widthRange: { name: '宽度范围', kind: 'Decimal', shape: 'NumericRange', key: '77777777-7777-7777-7777-777777777777', output: true },
+    candidateWidths: { name: '候选宽度', kind: 'Decimal', shape: 'List', key: '88888888-8888-8888-8888-888888888888', output: true },
+    candidateCodes: { name: '候选编码', kind: 'String', shape: 'List', key: '99999999-9999-9999-9999-999999999999', output: true },
     calcStatus: { name: '计算状态', kind: 'String', key: '66666666-6666-6666-6666-666666666666', output: true }
   };
   const opLabels = { eq: '=', ne: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤' };
@@ -29,6 +32,13 @@
       { id: 'a6', target: 'calcStatus', kind: 'constant', constant: '使用默认值', expression: defaultExpression(), round: '', saved: true, dirty: false }
     ], saved: true, dirty: false }
   ];
+  rules.forEach((rule, index) => {
+    rule.assignments.push(
+      { id: 'range-' + index, target: 'widthRange', parts: [{ source: 'expression', value: '入口宽度' }, { source: 'expression', value: '入口宽度 × 展开系数' }], saved: true, dirty: false },
+      { id: 'widths-' + index, target: 'candidateWidths', parts: [{ source: 'expression', value: '入口宽度' }, { source: 'expression', value: '入口宽度 + 10' }], saved: true, dirty: false },
+      { id: 'codes-' + index, target: 'candidateCodes', parts: [{ source: 'constant', value: 'A' }, { source: 'constant', value: 'B' }], saved: true, dirty: false }
+    );
+  });
   const params = new URLSearchParams(location.search);
   const initialIndex = Math.max(0, Math.min(2, Number(params.get('rule')) || 0));
   const state = { rules, selectedId: rules[initialIndex].id, stage: 'definition', revision: 'draft', stamp: 42, conflict: false, pendingDelete: null, toastTimer: null };
@@ -43,7 +53,7 @@
   }
   function newAssignment() {
     const used = new Set(selected()?.assignments.map(item => item.target));
-    const target = ['outputWidth', 'calcStatus', 'factor', 'offset'].find(item => !used.has(item)) || 'outputWidth';
+    const target = ['outputWidth', 'calcStatus', 'widthRange', 'candidateWidths', 'candidateCodes', 'factor', 'offset'].find(item => !used.has(item)) || 'outputWidth';
     return { id: `a${nextId++}`, target, kind: 'constant', constant: '', expression: defaultExpression(), round: '', saved: false, dirty: true };
   }
   function currentDirty() {
@@ -116,7 +126,7 @@
     if (!source.trim()) throw new Error('请输入计算公式。');
     if (source.length > 500) throw new Error('公式最多 500 个字符，请拆分为多条赋值。');
     const names = Object.entries(variableCatalog)
-      .filter(([, meta]) => meta.kind === 'Decimal')
+      .filter(([, meta]) => meta.kind === 'Decimal' && !meta.shape)
       .sort((left, right) => right[1].name.length - left[1].name.length);
     const tokens = [];
     for (let index = 0; index < source.length;) {
@@ -181,7 +191,82 @@
       assignment.formulaError = error.message;
     }
   }
+
+  function resultParts(assignment) {
+    if (!assignment.parts) assignment.parts = Array.from({ length: variableCatalog[assignment.target].shape === 'NumericRange' ? 2 : 1 }, () => ({ source: 'constant', value: '' }));
+    return assignment.parts;
+  }
+  function scalarResult(part, target) {
+    if (part.source !== 'constant') throw new Error('此结果需要计算。');
+    if (!part.value.trim()) throw new Error('结果值不能为空。');
+    if (target.kind === 'Decimal') {
+      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(part.value.trim()) || !Number.isFinite(Number(part.value))) throw new Error('请输入有效数值。');
+      return Number(part.value);
+    }
+    return part.value;
+  }
+  function resultNode(part, target) {
+    if (part.source === 'constant') return { op: 'constant', kind: target.kind, value: scalarResult(part, target) };
+    if (part.source === 'variable') {
+      const meta = variableCatalog[part.value];
+      if (!meta || meta.kind !== target.kind || meta.shape) throw new Error('请选择同类型单值变量。');
+      return { op: 'variable', stableKey: meta.key };
+    }
+    if (target.kind !== 'Decimal') throw new Error('公式只能生成数值。');
+    return expressionNodeAst(parseFormula(part.value));
+  }
+  function resultAst(assignment) {
+    const target = variableCatalog[assignment.target], parts = resultParts(assignment);
+    if (target.shape === 'NumericRange' && parts.length !== 2) throw new Error('填写最小值和最大值。');
+    if (target.shape === 'List' && (parts.length < 1 || parts.length > 100)) throw new Error('候选列表需要 1–100 项。');
+    return { version: 1, root: { op: target.shape === 'NumericRange' ? 'range' : 'list', args: parts.map(part => resultNode(part, target)) } };
+  }
+  function validateResult(target, items) {
+    if (target.kind === 'Decimal' && items.some(value => !Number.isFinite(value))) throw new Error('结果包含无效数值。');
+    if (items.some(value => value == null || (typeof value === 'string' && !value.trim()))) throw new Error('结果项不能为空。');
+    if (target.shape === 'NumericRange') {
+      if (items[0] > items[1]) throw new Error('最小值不能大于最大值。');
+      return { min: items[0], max: items[1] };
+    }
+    if (items.length < 1 || items.length > 100) throw new Error('候选列表需要 1–100 项。');
+    if (new Set(items).size !== items.length) throw new Error('候选值重复，请修改或删除重复项。');
+    return items;
+  }
+  function constantResult(assignment) {
+    const target = variableCatalog[assignment.target];
+    return validateResult(target, resultParts(assignment).map(part => scalarResult(part, target)));
+  }
+  function evaluateResult(assignment, values) {
+    const target = variableCatalog[assignment.target];
+    const items = resultParts(assignment).map(part => part.source === 'constant' ? scalarResult(part, target)
+      : part.source === 'variable' ? values[part.value] : evaluateExpression(parseFormula(part.value), values));
+    return validateResult(target, items);
+  }
+  function resultPreview(assignment) {
+    const target = variableCatalog[assignment.target], parts = resultParts(assignment);
+    const values = parts.map(part => part.source === 'variable' ? variableCatalog[part.value]?.name || '选择变量' : part.value || '待填写');
+    return target.shape === 'NumericRange' ? `[${values[0]}, ${values[1]}]` : `[${values.join('，')}]`;
+  }
+  function resultShapeName(target) {
+    return target.shape === 'NumericRange' ? '数值区间' : target.shape === 'List' ? `${kindName(target.kind)}候选列表` : kindName(target.kind);
+  }
+  function renderResultEditor(assignment, target) {
+    const parts = resultParts(assignment), range = target.shape === 'NumericRange';
+    const hint = range ? '包含两端；最小值 ≤ 最大值。每个端点可独立设置常量或公式。'
+      : '按维护顺序返回 1–100 个同类型候选值，不允许空项或重复值。';
+    const rows = parts.map((part, index) => {
+      const label = range ? (index === 0 ? '最小值' : '最大值') : `候选 ${index + 1}`;
+      const sourceOptions = option('constant', '常量', part.source) + (target.kind === 'Decimal' ? option('expression', '公式', part.source) : option('variable', '变量', part.source));
+      const field = part.source === 'variable'
+        ? `<select data-part-field="value" aria-label="${label}变量">${option('', '选择变量', part.value)}${variableOptions(part.value, meta => meta.kind === target.kind && !meta.shape)}</select>`
+        : `<input data-part-field="value" aria-label="${label}${part.source === 'expression' ? '公式' : '常量'}" value="${html(part.value)}" placeholder="${part.source === 'expression' ? '例如：入口宽度 + 10' : '填写' + kindName(target.kind) + '值'}">`;
+      return `<div class="result-part" data-part-index="${index}"><strong>${label}</strong><select data-part-field="source" aria-label="${label}来源">${sourceOptions}</select>${field}${range ? '' : `<div class="candidate-actions"><button type="button" data-part-action="up" aria-label="上移候选 ${index + 1}" ${index === 0 ? 'disabled data-limit-disabled' : ''}>↑</button><button type="button" data-part-action="down" aria-label="下移候选 ${index + 1}" ${index === parts.length - 1 ? 'disabled data-limit-disabled' : ''}>↓</button><button type="button" data-part-action="remove" aria-label="删除候选 ${index + 1}" ${parts.length === 1 ? 'disabled data-limit-disabled' : ''}>×</button></div>`}</div>`;
+    }).join('');
+    return `<div class="result-editor"><p class="result-hint">${hint}</p><div class="result-parts">${rows}</div>${range ? '' : `<button type="button" class="btn subtle small" data-add-candidate ${parts.length >= 100 ? 'disabled data-limit-disabled' : ''}>＋ 添加候选值</button>`}<p class="formula-help">${target.kind === 'Decimal' ? '公式可引用入口宽度、展开系数、偏移量等单值变量；精度与最终结果以服务端校验为准。' : '变量候选可引用同类型单值；最终结果以服务端校验为准。'}</p></div>`;
+  }
   function assignmentSource(assignment) {
+    if (variableCatalog[assignment.target].shape) return `${variableCatalog[assignment.target].name} ← ${resultPreview(assignment)}`;
+
     if (assignment.kind === 'constant') return `${variableCatalog[assignment.target].name} ← ${JSON.stringify(assignment.constant)}`;
     if (assignment.formulaError) return `${variableCatalog[assignment.target].name} ← 公式尚未完成`;
     const formula = (assignment.formulaDraft ?? expressionNodeSource(assignment.expression)).trim();
@@ -193,6 +278,16 @@
   }
   function assignmentPayload(assignment) {
     const variable = variableCatalog[assignment.target];
+    if (variable.shape) {
+      const ast = resultAst(assignment), constant = resultParts(assignment).every(part => part.source === 'constant');
+      const constantJson = constant ? JSON.stringify(constantResult(assignment)) : null;
+      const expressionJson = constant ? null : JSON.stringify(ast);
+      if ((constantJson?.length || 0) > 4096 || (expressionJson?.length || 0) > 65536) throw new Error('结果定义过长，请减少候选项或简化公式。');
+      return { TargetVariableStableKey: variable.key, ValueSourceKind: constant ? 'Constant' : 'Expression',
+        ConstantValueJson: constantJson,
+        ExpressionSource: constant ? null : assignmentSource(assignment).split('← ')[1], ExpressionAstJson: expressionJson,
+        SortOrder: selected().assignments.indexOf(assignment) + 1, ExpectedRevisionConcurrencyStamp: `demo-${state.stamp}` };
+    }
     return { TargetVariableStableKey: variable.key, ValueSourceKind: assignment.kind === 'constant' ? 'Constant' : 'Expression',
       ConstantValueJson: assignment.kind === 'constant' ? JSON.stringify(variable.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant) : null,
       ExpressionSource: assignment.kind === 'expression' ? assignmentSource(assignment).split('← ')[1] : null,
@@ -205,7 +300,7 @@
   function renderConditionNode(node, root = false) {
     if (node.kind === 'condition') {
       const kind = variableCatalog[node.field].kind;
-      return `<div class="condition-row" data-condition-id="${node.id}"><select class="row-input" data-condition-field="field" aria-label="条件变量">${variableOptions(node.field, variable => variable.input || !variable.output)}</select><select class="row-input" data-condition-field="op" aria-label="比较操作符">${opOptions(node.op, kind)}</select><input class="row-input" data-condition-field="value" aria-label="比较值" value="${html(node.value)}" placeholder="比较值" ${kind === 'Decimal' ? 'inputmode="decimal"' : ''}><button class="mini-delete" data-remove-condition="${node.id}" aria-label="删除此条件" title="删除此条件">×</button></div>`;
+      return `<div class="condition-row" data-condition-id="${node.id}"><select class="row-input" data-condition-field="field" aria-label="条件变量">${variableOptions(node.field, variable => !variable.shape && (variable.input || !variable.output))}</select><select class="row-input" data-condition-field="op" aria-label="比较操作符">${opOptions(node.op, kind)}</select><input class="row-input" data-condition-field="value" aria-label="比较值" value="${html(node.value)}" placeholder="比较值" ${kind === 'Decimal' ? 'inputmode="decimal"' : ''}><button class="mini-delete" data-remove-condition="${node.id}" aria-label="删除此条件" title="删除此条件">×</button></div>`;
     }
     return `<div class="condition-group${root ? ' root' : ''}" data-group-id="${node.id}">
       <div class="condition-group-head"><strong>${root ? '主条件组' : '子条件组'}</strong><label>组内关系<select data-group-op="${node.id}" aria-label="条件组关系">${option('and', '全部满足 AND', node.op)}${option('or', '任一满足 OR', node.op)}</select></label><div class="group-actions"><button class="btn quiet" data-add-condition="${node.id}">＋ 条件</button><button class="btn quiet" data-add-group="${node.id}">＋ 子组</button>${root ? '' : `<button class="mini-delete" data-remove-condition="${node.id}" aria-label="删除此条件组" title="删除此条件组">×</button>`}</div></div>
@@ -251,13 +346,13 @@
       const target = variableCatalog[assignment.target];
       const expression = assignment.kind === 'expression';
       return `<article class="assignment-card" data-assignment-id="${assignment.id}">
-        <div class="assignment-head"><strong>赋值 ${String(index + 1).padStart(2, '0')}</strong><div class="assignment-head-end"><span>${assignment.dirty ? '未保存' : '已保存'} · ${kindName(target.kind)}</span><button class="mini-delete" data-remove-assignment="${assignment.id}" aria-label="删除赋值 ${String(index + 1).padStart(2, '0')}，先查看影响" title="删除赋值 · 查看影响">×</button></div></div>
-        <div class="assignment-grid"><label class="field">目标变量<select data-assignment-field="target">${variableOptions(assignment.target, variable => !variable.input)}</select></label><label class="field">值来源<select data-assignment-field="kind">${option('constant', '常量', assignment.kind)}${option('expression', '表达式', assignment.kind)}</select></label></div>
-        <div class="assignment-detail">${expression ? `
+        <div class="assignment-head"><strong>赋值 ${String(index + 1).padStart(2, '0')}</strong><div class="assignment-head-end"><span>${assignment.dirty ? '未保存' : '已保存'} · ${resultShapeName(target)}</span><button class="mini-delete" data-remove-assignment="${assignment.id}" aria-label="删除赋值 ${String(index + 1).padStart(2, '0')}，先查看影响" title="删除赋值 · 查看影响">×</button></div></div>
+        <div class="assignment-grid"><label class="field">目标变量<select data-assignment-field="target">${variableOptions(assignment.target, variable => !variable.input)}</select></label><label class="field">值来源${target.shape ? '<span class="result-source-label">逐项设置</span>' : `<select data-assignment-field="kind">${option('constant', '常量', assignment.kind)}${option('expression', '表达式', assignment.kind)}</select>`}</label></div>
+        <div class="assignment-detail">${target.shape ? renderResultEditor(assignment, target) : expression ? `
           <label class="formula-label" for="formula-${assignment.id}">计算公式</label>
           <textarea class="formula-input" id="formula-${assignment.id}" data-formula-edit rows="2" spellcheck="false" aria-describedby="formula-help-${assignment.id} formula-status-${assignment.id}" aria-invalid="${!!assignment.formulaError}" placeholder="例如：入口宽度 × 展开系数 + 偏移量">${html(assignment.formulaDraft ?? expressionNodeSource(assignment.expression))}</textarea>
           <p class="formula-help" id="formula-help-${assignment.id}">直接输入，或点击下方变量和符号插入光标处；用括号调整计算顺序。</p>
-          <div class="formula-palette" role="group" aria-label="插入变量"><span>插入变量</span>${Object.entries(variableCatalog).filter(([, item]) => item.kind === 'Decimal').map(([, item]) => `<button class="formula-token variable-token" data-formula-token="${html(item.name)}" type="button">${html(item.name)}</button>`).join('')}</div>
+          <div class="formula-palette" role="group" aria-label="插入变量"><span>插入变量</span>${Object.entries(variableCatalog).filter(([, item]) => item.kind === 'Decimal' && !item.shape).map(([, item]) => `<button class="formula-token variable-token" data-formula-token="${html(item.name)}" type="button">${html(item.name)}</button>`).join('')}</div>
           <div class="formula-palette" role="group" aria-label="插入运算符"><span>插入符号</span>${['+', '−', '×', '÷', '(', ')'].map(symbol => `<button class="formula-token" data-formula-token="${symbol}" type="button">${symbol}</button>`).join('')}</div>
           <p class="formula-status${assignment.formulaError ? ' error' : ''}" id="formula-status-${assignment.id}" role="status">${html(assignment.formulaError || '公式语法正确 · 按先乘除、后加减计算；括号可调整顺序')}</p>
           <label class="field round-field">保留小数位（可空）<input data-assignment-field="round" type="number" min="0" max="28" step="1" value="${html(assignment.round)}" placeholder="不舍入"></label>`
@@ -288,7 +383,7 @@
     const disabled = state.revision === 'published' || !selected();
     $$('.stage input,.stage select,.stage textarea').forEach(node => node.disabled = disabled);
     ['add-assignment','save-rule','delete-rule'].forEach(id => $(`#${id}`).disabled = disabled);
-    $$('#condition-rows button,#assignment-list button').forEach(node => node.disabled = disabled);
+    $$('#condition-rows button,#assignment-list button').forEach(node => node.disabled = disabled || node.hasAttribute('data-limit-disabled'));
     $('#add-rule').disabled = state.revision === 'published';
     $('#trigger-conflict').disabled = state.revision === 'published';
     $('#run-validation').disabled = state.revision === 'published';
@@ -329,6 +424,14 @@
     if (!rule.saved || rule.dirty) { showMessage('assignment-message', '先保存规则与条件，再保存赋值。', 'error'); return; }
     if (rule.assignments.some(item => item.id !== id && item.target === assignment.target)) { showMessage('assignment-message', '同一规则内不能重复写入同一个目标变量。', 'error'); return; }
     const target = variableCatalog[assignment.target];
+    if (target.shape) {
+      try { assignmentPayload(assignment); }
+      catch (error) { showMessage('assignment-message', error.message, 'error'); return; }
+      assignment.saved = true; assignment.dirty = false; state.stamp += 1;
+      showMessage('assignment-message', '赋值已保存在当前页面。', 'success');
+      renderMenu(); renderAssignments(); renderSummary(); toast('赋值已保存');
+      return;
+    }
     if (assignment.kind === 'expression' && target.kind !== 'Decimal') { showMessage('assignment-message', '当前表达式产生数值，目标变量也必须是数值类型。', 'error'); return; }
     if (assignment.kind === 'expression') {
       updateFormula(assignment, assignment.formulaDraft ?? expressionNodeSource(assignment.expression));
@@ -386,7 +489,7 @@
     if (!rule) { box.className = 'result-box error'; box.innerHTML = '<strong>校验问题</strong><p>草稿中没有可查看的规则。</p>'; return; }
     const issues = [];
     if (allDirty()) issues.push('草稿中有未保存修改；服务端只能校验已保存的修订。');
-    const missingOutputs = ['outputWidth', 'calcStatus'].filter(key => !rule.assignments.some(item => item.target === key));
+    const missingOutputs = Object.keys(variableCatalog).filter(key => variableCatalog[key].output).filter(key => !rule.assignments.some(item => item.target === key));
     if (missingOutputs.length) issues.push(`Rules/${rule.id}/Assignments：所选规则缺少 ${missingOutputs.map(key => variableCatalog[key].name).join('、')} 的赋值；请核对完整执行路径。`);
     if (state.conflict) issues.push('Revision/ConcurrencyStamp：草稿版本需要刷新。');
     box.className = `result-box${issues.length ? ' error' : ''}`;
@@ -423,17 +526,20 @@
       for (const assignment of rule.assignments) {
         const target = variableCatalog[assignment.target];
         let value;
-        if (assignment.kind === 'constant') value = target.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant;
+        if (target.shape) {
+          try { value = evaluateResult(assignment, values); }
+          catch (error) { box.className = 'result-box error'; box.innerHTML = '<strong>结果校验失败</strong><p>' + html(target.name + '：' + error.message) + '</p>'; return; }
+        } else if (assignment.kind === 'constant') value = target.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant;
         else {
           value = evaluateExpression(assignment.expression, values);
           if (assignment.round !== '') value = Number(value.toFixed(Number(assignment.round)));
         }
-        if (!Number.isFinite(value) && target.kind === 'Decimal') { box.className = 'result-box error'; box.innerHTML = '<strong>计算失败</strong><p>算术结果不是有效数值。正式错误位置与错误码以服务端试算响应为准。</p>'; return; }
+        if (!target.shape && !Number.isFinite(value) && target.kind === 'Decimal') { box.className = 'result-box error'; box.innerHTML = '<strong>计算失败</strong><p>算术结果不是有效数值。正式错误位置与错误码以服务端试算响应为准。</p>'; return; }
         values[assignment.target] = value;
-        applied.push(`${target.name} ← ${target.kind === 'Decimal' ? Number(value).toFixed(2) : value}`);
+        applied.push(`${target.name} ← ${target.shape ? JSON.stringify(value) : target.kind === 'Decimal' ? Number(value).toFixed(2) : value}`);
       }
     }
-    const outputs = ['outputWidth', 'calcStatus'].filter(key => key in values).map(key => `${variableCatalog[key].name}：${variableCatalog[key].kind === 'Decimal' ? Number(values[key]).toFixed(2) : values[key]}`);
+    const outputs = Object.keys(variableCatalog).filter(key => variableCatalog[key].output && key in values).map(key => `${variableCatalog[key].name}：${variableCatalog[key].shape ? JSON.stringify(values[key]) : variableCatalog[key].kind === 'Decimal' ? Number(values[key]).toFixed(2) : values[key]}`);
     box.className = 'result-box';
     box.innerHTML = `<strong>当前规则试算预览 · ${hit ? '当前规则命中' : '当前规则未命中'}</strong>
       <p>场景上下文：产品 ${html(values.productKind)} / ${html($('#sim-route').value.trim())}。条件结果：<code>${hit ? '满足' : '不满足'}</code>。</p>
@@ -461,6 +567,22 @@
     if (event.target.closest('#save-rule')) { saveRule(); return; }
     if (event.target.closest('#delete-rule')) { openDelete('rule', state.selectedId); return; }
     if (event.target.closest('#add-assignment')) { const rule = selected(); if (!rule || !editable()) return; if (!rule.saved || rule.dirty) { showMessage('assignment-message', '先保存规则与条件，再添加赋值。', 'error'); return; } rule.assignments.push(newAssignment()); markDirty(rule, rule.assignments.at(-1)); renderAssignments(); return; }
+    const candidateAction = event.target.closest('[data-part-action],[data-add-candidate]');
+    if (candidateAction) {
+      const rule = selected(); if (!rule || !editable()) return;
+      const card = candidateAction.closest('[data-assignment-id]');
+      const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId);
+      const parts = resultParts(assignment);
+      if (candidateAction.hasAttribute('data-add-candidate')) { if (parts.length >= 100) return; parts.push({ source: 'constant', value: '' }); }
+      else {
+        const index = Number(candidateAction.closest('[data-part-index]').dataset.partIndex);
+        const action = candidateAction.dataset.partAction;
+        if (action === 'remove') { if (parts.length === 1) return; parts.splice(index, 1); }
+        else { const next = index + (action === 'up' ? -1 : 1); if (next < 0 || next >= parts.length) return; [parts[index], parts[next]] = [parts[next], parts[index]]; }
+      }
+      markDirty(rule, assignment); renderAssignments();
+      return;
+    }
     const formulaToken = event.target.closest('[data-formula-token]'); if (formulaToken) {
       const rule = selected(); if (!rule || !editable()) return;
       const card = formulaToken.closest('[data-assignment-id]');
@@ -492,6 +614,12 @@
     const row = event.target.closest('[data-condition-id]');
     if (row && event.target.dataset.conditionField === 'value') { findConditionNode(rule.conditionTree, row.dataset.conditionId).node.value = event.target.value; markDirty(rule); renderConditionPreview(); return; }
     const card = event.target.closest('[data-assignment-id]');
+    if (card && event.target.dataset.partField === 'value' && !event.target.matches('select')) {
+      const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId);
+      resultParts(assignment)[Number(event.target.closest('[data-part-index]').dataset.partIndex)].value = event.target.value;
+      markDirty(rule, assignment); card.querySelector('.assignment-source').textContent = assignmentSource(assignment);
+      return;
+    }
     if (card && ['constant','round'].includes(event.target.dataset.assignmentField)) { const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId); assignment[event.target.dataset.assignmentField] = event.target.value; markDirty(rule, assignment); card.querySelector('.assignment-source').textContent = assignmentSource(assignment); card.querySelector('.assignment-head span').textContent = `未保存 · ${kindName(variableCatalog[assignment.target].kind)}`; }
     if (card && event.target.matches('[data-formula-edit]')) {
       const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId);
@@ -516,7 +644,14 @@
     const row = event.target.closest('[data-condition-id]');
     if (row && event.target.dataset.conditionField) { const item = findConditionNode(rule.conditionTree, row.dataset.conditionId).node; item[event.target.dataset.conditionField] = event.target.value; if (event.target.dataset.conditionField === 'field') { const kind = variableCatalog[item.field].kind; if (kind === 'String' && !['eq','ne'].includes(item.op)) item.op = 'eq'; item.value = ''; renderConditionRows(); applyReadOnly(); } markDirty(rule); renderConditionPreview(); return; }
     const card = event.target.closest('[data-assignment-id]');
-    if (card && event.target.dataset.assignmentField) { const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId); assignment[event.target.dataset.assignmentField] = event.target.value; markDirty(rule, assignment); renderAssignments(); }
+    if (card && event.target.matches('select') && event.target.dataset.partField) {
+      const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId);
+      const part = resultParts(assignment)[Number(event.target.closest('[data-part-index]').dataset.partIndex)];
+      part[event.target.dataset.partField] = event.target.value;
+      if (event.target.dataset.partField === 'source') part.value = '';
+      markDirty(rule, assignment); renderAssignments(); return;
+    }
+    if (card && event.target.matches('select') && event.target.dataset.assignmentField) { const assignment = rule.assignments.find(item => item.id === card.dataset.assignmentId); if (event.target.dataset.assignmentField === 'target') { delete assignment.parts; assignment.kind = 'constant'; assignment.constant = ''; assignment.round = ''; assignment.expression = defaultExpression(); delete assignment.formulaDraft; delete assignment.formulaError; } assignment[event.target.dataset.assignmentField] = event.target.value; markDirty(rule, assignment); renderAssignments(); }
   });
   document.addEventListener('focusin', event => {
     if (event.target.matches('[data-formula-edit]')) event.target.dataset.cursorReady = 'true';
