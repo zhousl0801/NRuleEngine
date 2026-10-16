@@ -20,6 +20,7 @@
   const defaultExpression = () => binary('mul', variable('inputWidth'), variable('factor'));
   const params = new URLSearchParams(location.search);
   const collectionStore = window.CollectionStore;
+  const execution = window.RuleExecution;
   let collection;
   try {
     collection = collectionStore.get(params.get('collection') || 'expansion');
@@ -42,12 +43,13 @@
   function revisionLabel() { return `${state.revision === 'draft' ? '草稿' : collection.archived ? '已发布' : '线上'} R${String(collection[state.revision].no).padStart(2, '0')}`; }
   function updateContext() {
     document.title = `${collection.name} · 规则维护`;
-    $('#execution-summary').textContent = collectionStore.getScene(collection.scene)?.resultCardinality === 'Many'
-      ? '全部命中分别计算：每条规则使用相同输入，独立产生完整结果行。'
-      : '首条命中：按优先级和顺序计算，成功时返回一行结果。';
+    const semantics = collection[state.revision];
+    $('#execution-summary').textContent = execution.modes[semantics.executionMode].name + '：' + execution.modes[semantics.executionMode].description + (semantics.executionMode === 'Sequential' ? ` 重复赋值：${execution.policies[semantics.multipleWritePolicy].name}。` : '');
+    $('#execution-settings-link').href = `index.html#models?${new URLSearchParams({ set:collection.id, revision:state.revision, listScene:params.get('listScene') || 'all', tab:'execution' })}`;
     $('.page-head h1').textContent = `${collection.name} · 维护规则`;
     $('.page-head > div > p').textContent = `${collection.code} · ${revisionLabel()}${collection.archived ? ' · 已归档，只读' : ''}`;
     $('.back').href = `index.html#models?${new URLSearchParams({ set:collection.id, revision:state.revision, listScene:params.get('listScene') || 'all' })}`;
+    $$('.collection-return').forEach(link => { link.href = $('.back').href; });
     $('#revision-mode').innerHTML = ['draft','published'].filter(mode => collection[mode]).map(mode => `<option value="${mode}">${mode === 'draft' ? '草稿' : '线上'} R${String(collection[mode].no).padStart(2,'0')} · ${mode === 'draft' && !collection.archived ? '可编辑' : '只读'}</option>`).join('');
     $('#revision-mode').value = state.revision;
   }
@@ -321,7 +323,7 @@
   function renderConditionNode(node, root = false) {
     if (node.kind === 'condition') {
       const kind = variableCatalog[node.field].kind;
-      return `<div class="condition-row" data-condition-id="${node.id}"><select class="row-input" data-condition-field="field" aria-label="条件变量">${variableOptions(node.field, variable => !variable.shape && (variable.input || !variable.output))}</select><select class="row-input" data-condition-field="op" aria-label="比较操作符">${opOptions(node.op, kind)}</select><input class="row-input" data-condition-field="value" aria-label="比较值" value="${html(node.value)}" placeholder="比较值" ${kind === 'Decimal' ? 'inputmode="decimal"' : ''}><button class="mini-delete" data-remove-condition="${node.id}" aria-label="删除此条件" title="删除此条件">×</button></div>`;
+      return `<div class="condition-row" data-condition-id="${node.id}"><select class="row-input" data-condition-field="field" aria-label="条件变量">${variableOptions(node.field, (variable, code) => !variable.shape && (collection[state.revision].executionMode === 'Sequential' || variable.input || !variable.output || code === node.field))}</select><select class="row-input" data-condition-field="op" aria-label="比较操作符">${opOptions(node.op, kind)}</select><input class="row-input" data-condition-field="value" aria-label="比较值" value="${html(node.value)}" placeholder="比较值" ${kind === 'Decimal' ? 'inputmode="decimal"' : ''}><button class="mini-delete" data-remove-condition="${node.id}" aria-label="删除此条件" title="删除此条件">×</button></div>`;
     }
     return `<div class="condition-group${root ? ' root' : ''}" data-group-id="${node.id}">
       <div class="condition-group-head"><strong>${root ? '主条件组' : '子条件组'}</strong><label>组内关系<select data-group-op="${node.id}" aria-label="条件组关系">${option('and', '全部满足 AND', node.op)}${option('or', '任一满足 OR', node.op)}</select></label><div class="group-actions"><button class="btn quiet" data-add-condition="${node.id}">＋ 条件</button><button class="btn quiet" data-add-group="${node.id}">＋ 子组</button>${root ? '' : `<button class="mini-delete" data-remove-condition="${node.id}" aria-label="删除此条件组" title="删除此条件组">×</button>`}</div></div>
@@ -410,7 +412,7 @@
     $('#run-validation').disabled = !editable();
     $('#run-simulation').disabled = !editable();
   }
-  function render() { renderMenu(); renderDefinition(); renderAssignments(); renderSummary(); }
+  function render() { $('#validation-result').hidden = true; $('#simulation-result').hidden = true; renderMenu(); renderDefinition(); renderAssignments(); renderSummary(); }
   function showStage(stage) {
     state.stage = stage;
     $$('.flow-tab').forEach(tab => { const active = tab.dataset.stage === stage; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); });
@@ -507,19 +509,18 @@
   }
   function runValidation() {
     const box = $('#validation-result'); box.hidden = false;
-    const rule = selected();
-    if (!rule) { box.className = 'result-box error'; box.innerHTML = '<strong>校验问题</strong><p>草稿中没有可查看的规则。</p>'; return; }
-    const issues = [];
-    if (allDirty()) issues.push('草稿中有未保存修改；服务端只能校验已保存的修订。');
-    const missingOutputs = Object.keys(variableCatalog).filter(key => variableCatalog[key].output).filter(key => !rule.assignments.some(item => item.target === key));
-    if (missingOutputs.length) issues.push(`Rules/${rule.id}/Assignments：所选规则缺少 ${missingOutputs.map(key => variableCatalog[key].name).join('、')} 的赋值；请核对完整执行路径。`);
-    if (state.conflict) issues.push('Revision/ConcurrencyStamp：草稿版本需要刷新。');
+    const revision = { ...collection[state.revision], rules:state.rules };
+    const issues = execution.validate(revision, variableCatalog);
+    try { execution.checkSettings(collectionStore.getScene(collection.scene), revision); } catch (error) { issues.push(error.message); }
+    if (allDirty()) issues.push('草稿中有未保存修改；先保存后再验证。');
+    if (state.conflict) issues.push('草稿版本需要刷新。');
     box.className = `result-box${issues.length ? ' error' : ''}`;
-    box.innerHTML = issues.length ? `<strong>校验预览：${issues.length} 项待处理</strong>${issues.map(issue => `<p>${html(issue)}</p>`).join('')}` : `<strong>校验预览：当前规则未发现问题</strong><p>完整校验还需检查依赖环、重复写入、必需出口及绑定歧义。</p>`;
+    box.innerHTML = issues.length ? `<strong>校验预览：${issues.length} 项待处理</strong>${issues.map(issue => `<p>${html(issue)}</p>`).join('')}` : `<strong>校验预览：执行设置、重复赋值与结果覆盖未发现问题</strong><p>正式发布前仍需服务端检查完整类型、依赖环、绑定歧义与回归样本。</p>`;
   }
   function conditionMatches(rule, values) {
     function evaluate(node) {
       if (node.kind === 'condition') {
+        if (values[node.field] === undefined || values[node.field] === null) throw new Error(`${variableCatalog[node.field].name} 尚未赋值，不能用于条件判断。`);
         const lhs = values[node.field]; const rhs = variableCatalog[node.field].kind === 'Decimal' ? Number(node.value) : node.value;
         return ({ eq: lhs === rhs, ne: lhs !== rhs, gt: lhs > rhs, gte: lhs >= rhs, lt: lhs < rhs, lte: lhs <= rhs })[node.op];
       }
@@ -528,56 +529,43 @@
     return evaluate(rule.conditionTree);
   }
   function evaluateExpression(node, values) {
-    if (node.kind === 'variable') return Number(values[node.variable]);
+    if (node.kind === 'variable') {
+      if (values[node.variable] === undefined || values[node.variable] === null) throw new Error(`${variableCatalog[node.variable]?.name || node.variable} 尚未赋值。`);
+      const value = Number(values[node.variable]);
+      if (!Number.isFinite(value)) throw new Error('公式读取了无效数值。');
+      return value;
+    }
     if (node.kind === 'constant') return Number(node.value);
     const left = evaluateExpression(node.left, values), right = evaluateExpression(node.right, values);
+    if (node.op === 'div' && right === 0) throw new Error('除数不能为零。');
     return ({ add: left + right, sub: left - right, mul: left * right, div: left / right })[node.op];
+  }
+  function evaluateAssignment(assignment, values) {
+    const target = variableCatalog[assignment.target];
+    if (target.shape) return evaluateResult(assignment, values);
+    if (assignment.kind === 'constant') return target.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant;
+    let value = evaluateExpression(assignment.expression, values);
+    if (assignment.round !== '') value = Number(value.toFixed(Number(assignment.round)));
+    return value;
+  }
+  function executionTrace(trace) {
+    if (!trace.length) return '';
+    return `<details class="simulation-trace" open><summary>执行过程 · ${execution.modes[collection[state.revision].executionMode].name}</summary><ol>${trace.map(step => `<li><div class="trace-rule"><strong>${html(step.name)}</strong><span>${html(step.status)} · 优先级 ${html(step.priority)} · 顺序 ${html(step.order)}</span></div>${step.assignments.length ? `<ul>${step.assignments.map(write => `<li><span>${html(variableCatalog[write.target].name)} · ${write.action}</span><code>${write.previous !== undefined ? html(JSON.stringify(write.previous)) + ' → ' : ''}${html(JSON.stringify(write.value))}</code></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></details>`;
   }
   function runSimulation() {
     const box = $('#simulation-result'); box.hidden = false;
-    const rule = selected();
     if (!editable()) { box.className = 'result-box error'; box.innerHTML = '<strong>选择草稿再试算</strong><p>草稿试算需要指定草稿修订；线上版本在此只读展示。</p>'; return; }
-    if (!rule || allDirty() || state.conflict) { box.className = 'result-box error'; box.innerHTML = '<strong>不能试算当前本地修改</strong><p>先保存草稿中的规则与赋值，并解决并发冲突。服务端试算只读取已保存的指定草稿修订。</p>'; return; }
+    if (allDirty() || state.conflict) { box.className = 'result-box error'; box.innerHTML = '<strong>不能试算当前本地修改</strong><p>先保存草稿中的规则与赋值，并解决并发冲突。试算只读取已保存的草稿修订。</p>'; return; }
     const width = Number($('#sim-width').value);
-    if (!Number.isFinite(width) || !$('#sim-kind').value.trim() || !$('#sim-route').value.trim()) {
+    if (!$('#sim-width').value.trim() || !Number.isFinite(width) || !$('#sim-kind').value.trim() || !$('#sim-route').value.trim()) {
       box.className = 'result-box error'; box.textContent = '填写场景上下文与有效入口宽度。'; return;
     }
     const initial = { inputWidth: width, productKind: $('#sim-kind').value.trim(), factor: 1.05, offset: .5 };
-    const many = collectionStore.getScene(collection.scene)?.resultCardinality === 'Many';
-    const results = [];
-    try {
-      for (const candidate of state.rules.filter(item => item.enabled).sort((a,b) => b.priority - a.priority || a.order - b.order)) {
-        const values = { ...initial };
-        if (!conditionMatches(candidate, values)) continue;
-        for (const assignment of candidate.assignments) {
-          const target = variableCatalog[assignment.target];
-          let value;
-          if (target.shape) value = evaluateResult(assignment, values);
-          else if (assignment.kind === 'constant') value = target.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant;
-          else {
-            value = evaluateExpression(assignment.expression, values);
-            if (assignment.round !== '') value = Number(value.toFixed(Number(assignment.round)));
-          }
-          if (!target.shape && target.kind === 'Decimal' && !Number.isFinite(value)) throw new Error('规则计算未得到有效数值。');
-          values[assignment.target] = value;
-        }
-        const outputs = {};
-        for (const [code, target] of Object.entries(variableCatalog).filter(([, target]) => target.output)) {
-          if (!(code in values) || values[code] === null) throw new Error(candidate.name + '缺少完整出口：' + target.name);
-          outputs[code] = values[code];
-        }
-        results.push({ sourceRuleIds: [candidate.id], outputs });
-        if (results.length > 100 || new TextEncoder().encode(JSON.stringify(results)).length > 65536) throw new Error('结果超过 100 行或 65536 字节限制。');
-        if (!many) break;
-      }
-      box.className = 'result-box';
-      box.innerHTML = `<strong>草稿规则预览 · ${results.length ? results.length + ' 行结果' : '没有规则命中'}</strong>
-        <pre>${html(JSON.stringify({ results }, null, 2))}</pre>
-        <p>此预览计算已保存的草稿规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
-    } catch (error) {
-      box.className = 'result-box error';
-      box.innerHTML = '<strong>计算失败</strong><p>' + html(error.message) + '</p><p>本次不返回部分结果行。</p>';
-    }
+    const revision = collectionStore.get(collection.id).draft;
+    const result = execution.execute({ revision, scene:collectionStore.getScene(collection.scene), variables:variableCatalog, initial, match:conditionMatches, evaluate:evaluateAssignment });
+    box.className = `result-box${result.error ? ' error' : ''}`;
+    box.innerHTML = result.error ? `<strong>试算未通过</strong><p class="simulation-error">${html(result.error)}</p><p>本次不返回部分结果行。</p>${executionTrace(result.trace)}`
+      : `<strong>草稿规则预览 · ${result.results.length ? result.results.length + ' 行结果' : '没有规则命中'}</strong><p>${execution.modes[revision.executionMode].name}${revision.executionMode === 'Sequential' ? ' · ' + execution.policies[revision.multipleWritePolicy].name : ''}</p><pre>${html(JSON.stringify({ results:result.results }, null, 2))}</pre>${executionTrace(result.trace)}<p>此预览使用已保存的执行设置与规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
   }
   function markDirty(rule, assignment) {
     if (assignment) assignment.dirty = true; else rule.dirty = true;
@@ -712,6 +700,7 @@
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#dialog-backdrop').hidden) closeDialog(); });
   if (params.get('mode') === 'new' && editable()) { const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; }
   updateContext();
+  if (['definition','assignments','review'].includes(params.get('stage'))) showStage(params.get('stage'));
   window.addEventListener('beforeunload', event => { if (allDirty()) { event.preventDefault(); event.returnValue = ''; } });
   render();
 })();

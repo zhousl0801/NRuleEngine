@@ -29,7 +29,7 @@
       ] };
   }
   function model(id, code, name, description, no, rules, bindings, hasDraft, scene = 'size-expansion') {
-    const published = { no, rules, bindings, gateStatus: 'passed' };
+    const published = { no, rules, bindings, ...window.RuleExecution.defaults(getScene(scene)), gateStatus: 'passed' };
     return { id, kind: 'rule', scene, code, name, description, archived: false,
       published, draft: hasDraft ? { ...clone(published), no: no + 1, gateStatus: 'pending' } : null, nextNo: no + (hasDraft ? 2 : 1) };
   }
@@ -45,7 +45,17 @@
     special.conditionTree.children[0].op = 'gt';
     special.assignments[0].expression = { kind: 'binary', op: 'add', left: formula(), right: variable('offset') };
     special.assignments[1].constant = '已修正';
-    return { records: [
+    const sequentialFirst = rule('sequential-base', '基础宽度与系数', 'A', 100, 100, 1);
+    sequentialFirst.assignments.unshift({ id: 'sequential-factor', target: 'factor', kind: 'constant', constant: '1.1', saved: true, dirty: false });
+    const sequentialNext = rule('sequential-correction', '读取前序系数并修正', 'A', 100, 80, 2);
+    sequentialNext.conditionTree.children.push({ kind: 'condition', id: 'sequential-dependency', field: 'factor', op: 'gt', value: '1.05' });
+    sequentialNext.assignments[0].expression = { kind: 'binary', op: 'add', left: formula(), right: variable('offset') };
+    sequentialNext.assignments[1].constant = '顺序修正完成';
+    const sequential = model('sequential-width', 'FINISH-SEQUENTIAL', '分步宽度计算', '先设置展开系数，再读取前序结果完成宽度修正', 1,
+      [sequentialFirst, sequentialNext], [{ name: '常规精整产品', product: 'A', processes: ['精整'], text: '产品类别 = A · 工艺路线 = 精整', priority: 60 }], true, 'finishing-width');
+    sequential.draft.executionMode = 'Sequential';
+    sequential.draft.multipleWritePolicy = 'LastWriteWins';
+    return { records: [sequential,
       model('matched-sizes', 'MATCHED-SIZES', '候选规格规则', '命中的规格按优先级分别返回，结果行保留对应关系', 1,
         [rule('matched-one', '常规候选', 'A', 100, 100, 1), rule('matched-two', '备选规格', 'A', 120, 80, 2)],
         [{ name: '常规产品', product: 'A', processes: ['通用'], text: '产品类别 = A · 工艺路线 = 通用', priority: 100 }], true, 'matched-results'),
@@ -73,6 +83,13 @@
   } catch { state = initialState(); }
   // 补入新增场景的样例，保留当前标签页已经保存的编辑和归档状态。
   for (const item of initialState().records) if (!state.records.some(saved => saved.id === item.id)) state.records.push(item);
+  for (const item of state.records.filter(item => item.kind === 'rule')) {
+    for (const revision of [item.draft, item.published].filter(Boolean)) {
+      const defaults = window.RuleExecution.defaults(getScene(item.scene));
+      revision.executionMode ??= defaults.executionMode;
+      revision.multipleWritePolicy ??= defaults.multipleWritePolicy;
+    }
+  }
   function persist() { try { sessionStorage.setItem(key, JSON.stringify(state)); } catch { /* 禁用存储时保留本页内的演示状态。 */ } }
   function get(id) {
     const item = state.records.find(record => record.id === id);
@@ -93,7 +110,7 @@
     const info = identity(kind, input);
     const item = { id: `set-${Date.now()}-${state.records.length}`, kind, scene: scene.code,
       ...info, archived: false, published: null, nextNo: 2,
-      draft: kind === 'rule' ? { no: 1, rules: [], bindings: [], gateStatus: 'pending' }
+      draft: kind === 'rule' ? { no: 1, rules: [], bindings: [], ...window.RuleExecution.defaults(scene), gateStatus: 'pending' }
         : { no: 1, product: '', threshold: '', operator: 'gte', priority: 100, gateStatus: 'pending' } };
     state.records.push(item); persist(); return item;
   }
@@ -119,7 +136,8 @@
   function saveDraft(id, changes) {
     const item = get(id);
     if (item.archived || !item.draft) throw new Error('当前集合没有可编辑的草稿。');
-    const allowed = item.kind === 'rule' ? ['rules', 'bindings'] : ['product', 'threshold', 'operator', 'priority'];
+    const allowed = item.kind === 'rule' ? ['rules', 'bindings', 'executionMode', 'multipleWritePolicy'] : ['product', 'threshold', 'operator', 'priority'];
+    if (item.kind === 'rule') window.RuleExecution.checkSettings(getScene(item.scene), { ...item.draft, ...changes });
     for (const field of allowed) if (Object.hasOwn(changes, field)) item.draft[field] = clone(changes[field]);
     item.draft.gateStatus = 'pending'; persist();
   }

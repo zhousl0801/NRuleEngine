@@ -136,3 +136,23 @@ select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
   .dialog-field-grid { grid-template-columns: 1fr; gap: 0; }
   .revision-toolbar { padding: 12px; }
 }
+
+.execution-cardinality { padding: 15px 17px; border: 1px solid var(--line); border-radius: 9px; background: #202b45; }
+.execution-cardinality > span { display: block; color: var(--faint); font-size: 11px; }
+.execution-cardinality > strong { display: block; margin: 5px 0; font-size: 15px; }
+.execution-cardinality > p, .execution-help { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.execution-fields { min-width: 0; padding: 10px 0 0; margin: 0; border: 0; }
+.execution-fields .field { max-width: 350px; }
+.execution-fields select:disabled { opacity: .75; cursor: default; }
+.execution-help { max-width: 680px; margin: -3px 0 19px; }
+.execution-consequence { margin: 20px 0; padding: 12px 15px; border-left: 2px solid var(--accent); background: #202a41; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.execution-order h3 { margin-bottom: 5px; }
+.execution-order ol { padding-left: 20px; }
+.execution-order li { padding: 9px 0 9px 5px; color: var(--muted); font-size: 12px; }
+.execution-order li > span { display: block; margin-top: 3px; color: var(--faint); font-size: 11px; }
+.execution-save-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.execution-save-bar p { color: var(--muted); font-size: 12px; }
+.tabs { overflow-x: auto; }
+.tab { flex: none; }
+
+.execution-actions { display: flex; flex-wrap: wrap; gap: 9px; }

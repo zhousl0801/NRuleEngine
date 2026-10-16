@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark">
   <title>NRuleEngine · 规则维护流程</title>
   <link rel="stylesheet" href="rule-maintenance.css">
+  <script defer src="rule-execution.js"></script>
   <script defer src="collection-store.js"></script>
   <script defer src="rule-maintenance.js"></script>
 </head>
@@ -52,11 +53,11 @@
         <section class="stage panel" id="stage-review" role="tabpanel">
           <div class="section-head"><div><h2>校验与试算</h2><p>校验当前草稿，并用场景输入检查计算结果。</p></div></div>
           <div class="review-grid"><div class="review-card"><h3>完整校验</h3><p>检查规则、变量依赖、写入冲突与场景绑定，问题定位到对象路径。</p><button class="btn subtle" id="run-validation">查看校验结果</button></div><div class="review-card"><h3>草稿试算</h3><p>对指定输入查看绑定、命中规则、赋值和最终出口，不影响线上版本。</p><button class="btn subtle" id="run-simulation">运行试算</button></div></div>
-          <p id="execution-summary" class="side-note"></p>
+          <div class="execution-context"><p id="execution-summary" class="side-note"></p><a class="back" id="execution-settings-link" href="index.html#models">查看执行设置 →</a></div>
           <div id="validation-result" class="result-box" hidden></div>
           <div class="simulation-inputs"><h3>试算输入</h3><div class="field-grid"><label class="field">产品类别 · 场景上下文<input id="sim-kind" value="A"></label><label class="field">工艺路线 · 场景上下文<input id="sim-route" value="通用"></label><label class="field">入口宽度 · 入口变量<input id="sim-width" type="number" value="120"></label></div></div>
           <div id="simulation-result" class="result-box" hidden></div>
-          <div class="stage-actions"><button class="btn quiet" data-go="assignments">← 赋值动作</button><a class="btn primary" href="index.html#models">返回规则集，准备门禁与发布 →</a></div>
+          <div class="stage-actions"><button class="btn quiet" data-go="assignments">← 赋值动作</button><a class="btn primary collection-return" href="index.html#models">返回规则集，准备门禁与发布 →</a></div>
         </section>
       </main>
       <aside class="inspector panel" aria-label="维护状态与帮助">
