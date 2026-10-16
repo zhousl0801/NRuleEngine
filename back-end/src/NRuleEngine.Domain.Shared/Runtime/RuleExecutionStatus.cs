@@ -5,7 +5,7 @@ public enum RuleExecutionStatus
 {
     /// <summary>选中唯一发布修订并产出全部必需出口。</summary>
     Succeeded,
-    /// <summary>有活动发布模型，但上下文未命中任何绑定。</summary>
+    /// <summary>有活动发布模型，但没有绑定命中，或选定模型内没有规则命中。</summary>
     NotMatched,
     /// <summary>请求、契约或发布配置不满足执行前提。</summary>
     Rejected,

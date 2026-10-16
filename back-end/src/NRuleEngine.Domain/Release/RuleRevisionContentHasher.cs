@@ -18,6 +18,7 @@ public static class RuleRevisionContentHasher
             appCode,
             revision.ScenarioCode,
             revision.ContractVersion,
+            revision.ResultCardinality,
             revision.ExecutionMode,
             revision.MultipleWritePolicy,
             variables = revision.Variables.OrderBy(x => x.StableKey).Select(x => new
@@ -45,7 +46,7 @@ public static class RuleRevisionContentHasher
             gateCases = revision.GateCases.OrderBy(x => x.Name, StringComparer.Ordinal).Select(x => new
             {
                 x.Name, context = Parse(x.ContextJson), inputs = Parse(x.InputsJson),
-                expectedOutputs = Parse(x.ExpectedOutputsJson)
+                x.ExpectedStatus, expectedResults = Parse(x.ExpectedResultsJson)
             })
         });
         cancellationToken.ThrowIfCancellationRequested();

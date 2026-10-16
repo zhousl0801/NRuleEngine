@@ -1,4 +1,3 @@
-using System.Text.Json;
 using NRuleEngine.Domain.Shared.Runtime;
 
 namespace NRuleEngine.Application.Contracts.Runtime;
@@ -17,8 +16,8 @@ public class RuleExecutionResultDto
     public Guid? RevisionId { get; set; }
     /// <summary>最终命中的场景绑定标识。</summary>
     public Guid? BindingId { get; set; }
-    /// <summary>全部必需出口的原生 JSON 值；失败时为空。</summary>
-    public Dictionary<string, JsonElement> Outputs { get; set; } = [];
+    /// <summary>有序完整结果行；非成功状态为空。</summary>
+    public IReadOnlyList<RuleResultRowDto> Results { get; set; } = [];
     /// <summary>非成功状态下的稳定错误和安全定位字段。</summary>
     public RuleExecutionErrorDto? Error { get; set; }
 }

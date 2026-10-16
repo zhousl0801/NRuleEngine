@@ -45,7 +45,7 @@
   }
   function sceneDefinition(scene) {
     const table = (title, rows, binding = false) => `<div><h4>${title}</h4><div class="scenario-table-wrap" role="region" aria-label="${html(scene.name)}的${title}" tabindex="0"><table class="scenario-table"><thead><tr><th scope="col">名称</th><th scope="col">编码</th><th scope="col">类型</th><th scope="col">${binding ? '比较方式' : '取值要求'}</th></tr></thead><tbody>${rows.map(([name,code,type]) => `<tr><td>${name}</td><td><code>${code}</code></td><td>${type}</td><td>${binding ? '等于、属于' : '不可为空'}</td></tr>`).join('')}</tbody></table></div></div>`;
-    return `<details class="scenario-details"><summary>查看场景说明</summary><div class="scenario-definition"><div class="scenario-code"><span>场景编码</span><code>${html(scene.code)}</code></div>
+    return `<details class="scenario-details"><summary>查看场景说明</summary><div class="scenario-definition"><div class="scenario-code"><span>场景编码</span><code>${html(scene.code)}</code></div>${scene.kind === 'rule' ? `<p class="hint">${scene.resultCardinality === 'Many' ? '全部命中分别计算，每条规则返回一行完整结果。' : '成功时返回一行结果。'}</p>` : ''}
       ${table('输入数据', [['入口宽度','inputWidth','数值'],['产品类别','productKind','文本']])}
       ${scene.kind === 'rule' ? table('必须产出的结果', [['展开宽度','outputWidth','数值'],['计算状态','calcStatus','文本'],['宽度范围','widthRange','数值区间'],['候选宽度','candidateWidths','数值列表'],['候选编码','candidateCodes','文本列表']]) + table('可设置的适用范围', [['产品类别','productKind','文本'],['工艺路线','processRoute','文本']], true) : '<p class="hint">对调用方指定的候选返回满足条件或不满足条件。</p>'}
       </div></details>`;

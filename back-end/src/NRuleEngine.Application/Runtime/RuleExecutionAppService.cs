@@ -216,7 +216,7 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
                 ExecutionId = executionId, Status = RuleExecutionStatus.Succeeded,
                 RuleModelId = selected.Model.Id, RevisionId = selected.Revision.Id,
                 BindingId = outcome.BindingId,
-                Outputs = outcome.Outputs.ToDictionary(x => x.Key, x => ParseValue(x.Value), StringComparer.Ordinal)
+                Results = RuleResultRowDtoMapper.Map(outcome.Results)
             };
         }
 
@@ -229,6 +229,8 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
     {
         var (status, code, message) = outcome.ErrorCode switch
         {
+            "NoMatchingRule" => (RuleExecutionStatus.NotMatched, NRuleEngineErrorCodes.NoMatchingRule, "当前模型没有规则命中。"),
+            "ResultLimitExceeded" => (RuleExecutionStatus.Failed, NRuleEngineErrorCodes.ResultLimitExceeded, "结果行数或大小超过限制。"),
             "NoMatchingBinding" => (RuleExecutionStatus.NotMatched, NRuleEngineErrorCodes.NoMatchingBinding,
                 "没有活动绑定匹配给定场景上下文。"),
             "AmbiguousBinding" => (RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.AmbiguousBinding,
@@ -272,14 +274,6 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
         }
 
         return Error(executionId, status, code, message, modelId, revisionId, outcome.BindingId, data);
-    }
-
-    /// <summary>把内部 JSON 输出转换为可由响应独立持有的值。</summary>
-    /// <remarks>核心逻辑：复制文档根节点以避免释放文档后失效；调用时机：执行成功并组装输出时。</remarks>
-    private static JsonElement ParseValue(string json)
-    {
-        using var document = JsonDocument.Parse(json);
-        return document.RootElement.Clone();
     }
 
     /// <summary>生成带稳定错误码及定位数据的执行结果。</summary>

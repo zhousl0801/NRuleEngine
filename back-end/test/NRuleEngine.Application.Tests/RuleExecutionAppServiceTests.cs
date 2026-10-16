@@ -40,7 +40,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         Assert.NotEqual(Guid.Empty, success.ExecutionId);
         Assert.Equal(modelId, success.RuleModelId);
         Assert.Equal(revision.Id, success.RevisionId);
-        Assert.Equal(125, success.Outputs["targetWidth"].GetDecimal());
+        Assert.Equal(125, success.Results.Single().Outputs["targetWidth"].GetDecimal());
 
         var noMatch = await execution.ExecuteAsync(Request("B"));
         Assert.Equal(RuleExecutionStatus.NotMatched, noMatch.Status);
@@ -81,7 +81,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         var winner = await execution.ExecuteAsync(Request("A"));
         Assert.Equal(RuleExecutionStatus.Succeeded, winner.Status);
         Assert.Equal(secondModelId, winner.RuleModelId);
-        Assert.Equal(130, winner.Outputs["targetWidth"].GetDecimal());
+        Assert.Equal(130, winner.Results.Single().Outputs["targetWidth"].GetDecimal());
 
         var updated = await models.CreateDraftAsync(secondModelId, new CreateDraftDto(second.Id, (await models.GetAsync(secondModelId)).ConcurrencyStamp));
         updated = await rules.UpdateAssignmentAsync(updated.Id, updated.Rules[0].Id,
@@ -95,18 +95,18 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         updated = await release.AddGateCaseAsync(updated.Id, new AddReleaseGateCaseDto
         {
             Name = "runtime gate", ContextJson = "{\"productKind\":\"A\"}",
-            InputsJson = "{\"inputWidth\":120}", ExpectedOutputsJson = "{\"targetWidth\":140}",
+            InputsJson = "{\"inputWidth\":120}", ExpectedResultsJson = "[{\"targetWidth\":140}]",
             ExpectedRevisionConcurrencyStamp = updated.ConcurrencyStamp
         });
         await PublishAsync(secondModelId, updated);
-        Assert.Equal(140, (await execution.ExecuteAsync(Request("A"))).Outputs["targetWidth"].GetDecimal());
+        Assert.Equal(140, (await execution.ExecuteAsync(Request("A"))).Results.Single().Outputs["targetWidth"].GetDecimal());
         await release.RollbackAsync(secondModelId, new RollbackRuleDto
         {
             TargetRevisionId = second.Id, ExpectedActiveRevisionId = updated.Id,
             ExpectedModelConcurrencyStamp = (await models.GetAsync(secondModelId)).ConcurrencyStamp,
             ExpectedTargetRevisionConcurrencyStamp = (await models.GetRevisionAsync(second.Id)).ConcurrencyStamp
         });
-        Assert.Equal(130, (await execution.ExecuteAsync(Request("A"))).Outputs["targetWidth"].GetDecimal());
+        Assert.Equal(130, (await execution.ExecuteAsync(Request("A"))).Results.Single().Outputs["targetWidth"].GetDecimal());
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(Request("A"));
         Assert.Equal(RuleExecutionStatus.Rejected, result.Status);
         Assert.Equal(NRuleEngineErrorCodes.AmbiguousBinding, result.Error!.Code);
-        Assert.Empty(result.Outputs);
+        Assert.Empty(result.Results);
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         revision = await release.AddGateCaseAsync(revision.Id, new AddReleaseGateCaseDto
         {
             Name = "nonzero width", ContextJson = "{\"productKind\":\"A\"}",
-            InputsJson = "{\"inputWidth\":120}", ExpectedOutputsJson = "{\"targetWidth\":1}",
+            InputsJson = "{\"inputWidth\":120}", ExpectedResultsJson = "[{\"targetWidth\":1}]",
             ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp
         });
         await PublishAsync(modelId, revision);
@@ -195,7 +195,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         Assert.Equal(RuleExecutionStatus.Failed, result.Status);
         Assert.Equal(NRuleEngineErrorCodes.ExpressionEvaluationFailed, result.Error!.Code);
         Assert.Equal(modelId, result.RuleModelId);
-        Assert.Empty(result.Outputs);
+        Assert.Empty(result.Results);
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         {
             Name = "runtime gate", ContextJson = JsonSerializer.Serialize(new { productKind }),
             InputsJson = "{\"inputWidth\":120}",
-            ExpectedOutputsJson = JsonSerializer.Serialize(new { targetWidth = outputWidth }),
+            ExpectedResultsJson = JsonSerializer.Serialize(new[] { new { targetWidth = outputWidth } }),
             ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp
         });
         await uow.CompleteAsync();

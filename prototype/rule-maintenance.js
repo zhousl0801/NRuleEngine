@@ -42,6 +42,9 @@
   function revisionLabel() { return `${state.revision === 'draft' ? '草稿' : collection.archived ? '已发布' : '线上'} R${String(collection[state.revision].no).padStart(2, '0')}`; }
   function updateContext() {
     document.title = `${collection.name} · 规则维护`;
+    $('#execution-summary').textContent = collectionStore.getScene(collection.scene)?.resultCardinality === 'Many'
+      ? '全部命中分别计算：每条规则使用相同输入，独立产生完整结果行。'
+      : '首条命中：按优先级和顺序计算，成功时返回一行结果。';
     $('.page-head h1').textContent = `${collection.name} · 维护规则`;
     $('.page-head > div > p').textContent = `${collection.code} · ${revisionLabel()}${collection.archived ? ' · 已归档，只读' : ''}`;
     $('.back').href = `index.html#models?${new URLSearchParams({ set:collection.id, revision:state.revision, listScene:params.get('listScene') || 'all' })}`;
@@ -535,36 +538,46 @@
     const rule = selected();
     if (!editable()) { box.className = 'result-box error'; box.innerHTML = '<strong>选择草稿再试算</strong><p>草稿试算需要指定草稿修订；线上版本在此只读展示。</p>'; return; }
     if (!rule || allDirty() || state.conflict) { box.className = 'result-box error'; box.innerHTML = '<strong>不能试算当前本地修改</strong><p>先保存草稿中的规则与赋值，并解决并发冲突。服务端试算只读取已保存的指定草稿修订。</p>'; return; }
-    if (!rule.enabled) { box.className = 'result-box'; box.innerHTML = '<strong>当前规则已停用</strong><p>停用规则不参与草稿试算。请切换到其他启用规则。</p>'; return; }
     const width = Number($('#sim-width').value);
-    if (!Number.isFinite(width) || $('#sim-kind').value.trim() === '' || $('#sim-route').value.trim() === '') { box.className = 'result-box error'; box.innerHTML = '<strong>输入不完整</strong><p>填写场景上下文与有效入口宽度。</p>'; return; }
-    const values = { inputWidth: width, productKind: $('#sim-kind').value.trim(), factor: 1.05, offset: .5 };
-    const hit = conditionMatches(rule, values);
-    const applied = [];
-    if (hit) {
-      for (const assignment of rule.assignments) {
-        const target = variableCatalog[assignment.target];
-        let value;
-        if (target.shape) {
-          try { value = evaluateResult(assignment, values); }
-          catch (error) { box.className = 'result-box error'; box.innerHTML = '<strong>结果校验失败</strong><p>' + html(target.name + '：' + error.message) + '</p>'; return; }
-        } else if (assignment.kind === 'constant') value = target.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant;
-        else {
-          value = evaluateExpression(assignment.expression, values);
-          if (assignment.round !== '') value = Number(value.toFixed(Number(assignment.round)));
-        }
-        if (!target.shape && !Number.isFinite(value) && target.kind === 'Decimal') { box.className = 'result-box error'; box.innerHTML = '<strong>计算失败</strong><p>算术结果不是有效数值。正式错误位置与错误码以服务端试算响应为准。</p>'; return; }
-        values[assignment.target] = value;
-        applied.push(`${target.name} ← ${target.shape ? JSON.stringify(value) : target.kind === 'Decimal' ? Number(value).toFixed(2) : value}`);
-      }
+    if (!Number.isFinite(width) || !$('#sim-kind').value.trim() || !$('#sim-route').value.trim()) {
+      box.className = 'result-box error'; box.textContent = '填写场景上下文与有效入口宽度。'; return;
     }
-    const outputs = Object.keys(variableCatalog).filter(key => variableCatalog[key].output && key in values).map(key => `${variableCatalog[key].name}：${variableCatalog[key].shape ? JSON.stringify(values[key]) : variableCatalog[key].kind === 'Decimal' ? Number(values[key]).toFixed(2) : values[key]}`);
-    box.className = 'result-box';
-    box.innerHTML = `<strong>当前规则试算预览 · ${hit ? '当前规则命中' : '当前规则未命中'}</strong>
-      <p>场景上下文：产品 ${html(values.productKind)} / ${html($('#sim-route').value.trim())}。条件结果：<code>${hit ? '满足' : '不满足'}</code>。</p>
-      <p>实际赋值：${html(applied.join('；') || '无')}。</p>
-      <p>出口：${html(outputs.join('；') || '当前规则未产生出口')}。</p>
-      <p>完整试算还需结合场景绑定和整份草稿。</p>`;
+    const initial = { inputWidth: width, productKind: $('#sim-kind').value.trim(), factor: 1.05, offset: .5 };
+    const many = collectionStore.getScene(collection.scene)?.resultCardinality === 'Many';
+    const results = [];
+    try {
+      for (const candidate of state.rules.filter(item => item.enabled).sort((a,b) => b.priority - a.priority || a.order - b.order)) {
+        const values = { ...initial };
+        if (!conditionMatches(candidate, values)) continue;
+        for (const assignment of candidate.assignments) {
+          const target = variableCatalog[assignment.target];
+          let value;
+          if (target.shape) value = evaluateResult(assignment, values);
+          else if (assignment.kind === 'constant') value = target.kind === 'Decimal' ? Number(assignment.constant) : assignment.constant;
+          else {
+            value = evaluateExpression(assignment.expression, values);
+            if (assignment.round !== '') value = Number(value.toFixed(Number(assignment.round)));
+          }
+          if (!target.shape && target.kind === 'Decimal' && !Number.isFinite(value)) throw new Error('规则计算未得到有效数值。');
+          values[assignment.target] = value;
+        }
+        const outputs = {};
+        for (const [code, target] of Object.entries(variableCatalog).filter(([, target]) => target.output)) {
+          if (!(code in values) || values[code] === null) throw new Error(candidate.name + '缺少完整出口：' + target.name);
+          outputs[code] = values[code];
+        }
+        results.push({ sourceRuleIds: [candidate.id], outputs });
+        if (results.length > 100 || new TextEncoder().encode(JSON.stringify(results)).length > 65536) throw new Error('结果超过 100 行或 65536 字节限制。');
+        if (!many) break;
+      }
+      box.className = 'result-box';
+      box.innerHTML = `<strong>草稿规则预览 · ${results.length ? results.length + ' 行结果' : '没有规则命中'}</strong>
+        <pre>${html(JSON.stringify({ results }, null, 2))}</pre>
+        <p>此预览计算已保存的草稿规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
+    } catch (error) {
+      box.className = 'result-box error';
+      box.innerHTML = '<strong>计算失败</strong><p>' + html(error.message) + '</p><p>本次不返回部分结果行。</p>';
+    }
   }
   function markDirty(rule, assignment) {
     if (assignment) assignment.dirty = true; else rule.dirty = true;

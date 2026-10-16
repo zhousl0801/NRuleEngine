@@ -68,21 +68,24 @@ new VariableContract("candidateCodes", "候选编码", RuleVariableDirection.Out
 
 ## 保存、发布和运行
 
-常量保存时检查完整结果；表达式保存时检查根结构、子表达式类型及引用。运行时再次检查实际端点顺序、数值精度、空值、重复候选和数量；依赖输入的问题通过试算和发布门禁验证。每条 FirstMatch 规则仍需生成全部必需出口。
+常量保存时检查完整结果；表达式保存时检查根结构、子表达式类型及引用。运行时再次检查实际端点顺序、数值精度、空值、重复候选和数量；依赖输入的问题通过试算和发布门禁验证。每条 FirstMatch 或 CollectMatches 规则均需生成全部必需出口。
 
-发布门禁保存完整预期 JSON，要求值和结构一致、列表顺序一致。出口形状参与内容哈希，修订复制保留形状与 StableKey。运行结果返回原生 JSON；草稿试算的 OutputsJson 仍是编码到 JSON 文本的字典：
+发布门禁保存完整预期 JSON，要求值和结构一致、列表顺序一致。出口形状参与内容哈希，修订复制保留形状与 StableKey。运行结果返回原生 JSON；草稿试算使用相同 Results 行结构：
 
 ```json
 {
-  "outputs": {
-    "widthRange": {"min": 120, "max": 130},
-    "candidateWidths": [130, 120],
-    "candidateCodes": ["B", "A"]
-  }
+  "results": [{
+    "sourceRuleIds": ["11111111-1111-1111-1111-111111111111"],
+    "outputs": {
+      "widthRange": {"min": 120, "max": 130},
+      "candidateWidths": [130, 120],
+      "candidateCodes": ["B", "A"]
+    }
+  }]
 }
 ```
 
-执行方式仍为 FirstMatch 和 Sequential；列表类型不引入 AllMatches、追加或聚合语义。输出校验失败沿用 AssignmentFailed → ExpressionEvaluationFailed，响应包含赋值路径及可用的源码位置。
+执行方式增加 CollectMatches，各条命中的完整出口形成独立结果行；列表类型本身不引入追加或聚合语义。多行执行与门禁 ExpectedResultsJson 格式见[执行结果契约](execution-results.md)。输出校验失败沿用 AssignmentFailed → ExpressionEvaluationFailed，响应包含赋值路径及可用的源码位置。
 
 ## 本地接入和验证
 

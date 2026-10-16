@@ -1,5 +1,6 @@
 using NRuleEngine.Application.Contracts.Simulation;
 using NRuleEngine.Domain.Simulation;
+using NRuleEngine.Application.Runtime;
 using NRuleEngine.Application.Contracts.RuleModels;
 using NRuleEngine.Domain.RuleModels;
 using NRuleEngine.Domain.Shared.Rules;
@@ -36,6 +37,7 @@ public class RuleSimulationAppService : ApplicationService, IRuleSimulationAppSe
             RevisionId = result.RevisionId,
             BindingId = result.BindingId,
             Success = result.Success,
+            Status = result.Status,
             ErrorCode = result.ErrorCode,
             ErrorMessage = result.ErrorMessage,
             ErrorPath = result.ErrorPath,
@@ -51,7 +53,7 @@ public class RuleSimulationAppService : ApplicationService, IRuleSimulationAppSe
                 RuleId = a.RuleId, AssignmentId = a.AssignmentId,
                 TargetVariableStableKey = a.TargetVariableStableKey, ValueJson = a.ValueJson
             }).ToArray(),
-            OutputsJson = result.Outputs
+            Results = RuleResultRowDtoMapper.Map(result.Results)
         };
     }
 }

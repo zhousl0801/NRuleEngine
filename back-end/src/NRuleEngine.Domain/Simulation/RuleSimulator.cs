@@ -20,7 +20,7 @@ public static class RuleSimulator
 
         RuleSimulationOutcome Failure(string code, string message, Guid? bindingId = null, string? path = null, int? start = null, int? length = null, string? variableCode = null)
         {
-            return new RuleSimulationOutcome(revision.Id, bindingId, false, code, message, conditions, new Dictionary<string, string>())
+            return new RuleSimulationOutcome(revision.Id, bindingId, false, code, message, conditions, [])
             {
                 ErrorPath = path, Start = start, Length = length, Assignments = assignments,
                 ErrorVariableCode = variableCode
@@ -96,11 +96,40 @@ public static class RuleSimulator
             values.Add(variable.StableKey, RuleExpressionEngine.ReadValue(variable.ValueKind, variable.DefaultValueJson!));
         }
 
-        // Sequential 会把赋值写回上下文，供后续规则读取；FirstMatch 命中后立即停止。
+        var initialValues = new Dictionary<Guid, object?>(values);
+        var results = new List<RuleResultRow>();
+        var sourceRuleIds = new List<Guid>();
+
+        RuleSimulationOutcome? AppendResult(IReadOnlyList<Guid> sources)
+        {
+            var outputs = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var variable in revision.Variables.Where(v => v.Direction == RuleVariableDirection.Output))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!values.TryGetValue(variable.StableKey, out var value) || value is null)
+                {
+                    return Failure("MissingOutput", $"必需的输出变量 {variable.Code} 没有值。", bindingId, variableCode: variable.Code);
+                }
+                outputs.Add(variable.Code, JsonSerializer.Serialize(value));
+            }
+            results.Add(new RuleResultRow(sources.ToArray(), outputs));
+            if (RuleResultRows.Serialize(results).Length > RuleResultRows.MaxJsonBytes)
+            {
+                return Failure("ResultLimitExceeded", "结果 JSON 超过 65536 字节限制。", bindingId);
+            }
+            return null;
+        }
+
+        // 收集模式每条规则使用同一份初始值；顺序模式才允许跨规则读取赋值。
         var written = new HashSet<Guid>();
         foreach (var rule in revision.Rules.Where(r => r.IsEnabled).OrderByDescending(r => r.Priority).ThenBy(r => r.SortOrder))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (revision.ExecutionMode == RuleExecutionMode.CollectMatches)
+            {
+                values = new Dictionary<Guid, object?>(initialValues);
+                written.Clear();
+            }
             bool matched;
             try
             {
@@ -118,6 +147,11 @@ public static class RuleSimulator
                 continue;
             }
 
+            if (revision.ExecutionMode == RuleExecutionMode.CollectMatches && results.Count >= RuleResultRows.MaxRows)
+            {
+                return Failure("ResultLimitExceeded", "命中结果超过 100 行限制。", bindingId);
+            }
+            sourceRuleIds.Add(rule.Id);
             foreach (var assignment in rule.Assignments.OrderBy(a => a.SortOrder))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -151,25 +185,33 @@ public static class RuleSimulator
                 }
             }
 
+            if (revision.ExecutionMode == RuleExecutionMode.CollectMatches)
+            {
+                var failure = AppendResult([rule.Id]);
+                if (failure is not null)
+                {
+                    return failure;
+                }
+            }
             if (revision.ExecutionMode == RuleExecutionMode.FirstMatch)
             {
                 break;
             }
         }
 
-        var outputs = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var variable in revision.Variables.Where(v => v.Direction == RuleVariableDirection.Output))
+        if (sourceRuleIds.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!values.TryGetValue(variable.StableKey, out var value) || value is null)
-            {
-                return Failure("MissingOutput", $"必需的输出变量 {variable.Code} 没有值。", bindingId, variableCode: variable.Code);
-            }
-
-            outputs.Add(variable.Code, JsonSerializer.Serialize(value));
+            return Failure("NoMatchingRule", "当前模型没有规则命中。", bindingId);
         }
-
-        return new RuleSimulationOutcome(revision.Id, bindingId, true, null, null, conditions, outputs)
+        if (revision.ExecutionMode != RuleExecutionMode.CollectMatches)
+        {
+            var failure = AppendResult(sourceRuleIds);
+            if (failure is not null)
+            {
+                return failure;
+            }
+        }
+        return new RuleSimulationOutcome(revision.Id, bindingId, true, null, null, conditions, results.ToArray())
         {
             Assignments = assignments
         };

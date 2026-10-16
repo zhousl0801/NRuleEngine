@@ -31,6 +31,9 @@
 | 17 | 首版变量稳定键、表达式类型和规则顺序固定 | 已接受 | [ADR-0017](../adr/0017-first-version-expression-scope.md) |
 | 18 | 首版绑定不包含生效期 | 已接受 | [ADR-0018](../adr/0018-no-binding-effective-period-v1.md) |
 | 19 | 无赋值的布尔条件按独立 ConditionSet 管理，运行时仅判定明确候选 | 已接受 | [ADR-0019](../adr/0019-standalone-condition-set.md) |
+| 20 | 区间与同类型候选列表作为契约出口值形状 | 已接受 | [ADR-0020](../adr/0020-composite-output-values.md) |
+| 21 | 独立多命中求值与统一结果行 | 已接受 | [ADR-0021](../adr/0021-collect-matches-result-rows.md) |
+| 22 | 统一到 .NET 8 / ABP 8.0.4 | 已接受 | [ADR-0022](../adr/0022-net8-abp8-baseline.md) |
 
 ADR 的写法、状态约定和新增流程见 [ADR 索引](../adr/README.md)。
 
@@ -71,7 +74,7 @@ App 注册信息是代码契约：
 
 ```text
 back-end/
-├── NRuleEngine.slnx
+├── NRuleEngine.sln
 ├── global.json
 ├── Directory.Build.props
 ├── Directory.Packages.props
@@ -97,11 +100,10 @@ back-end/
 
 ### 3.1 .NET 技术基线
 
-- NRuleEngine 首版统一采用最新的 **.NET 10**，所有项目的目标框架统一为 `net10.0`。
-- 所有已建项目及后续拆出的 Runtime、Expressions 和测试项目不得使用不同的 Target Framework；首版不提供 .NET 8 等旧框架的多目标编译包。
-- 首批模块使用 ABP 10.6.0，并通过 `Directory.Packages.props` 集中管理。EF Core、Npgsql、测试框架等后续实际引入时，选择与 .NET 10 兼容的稳定版本并集中管理。
-- 直接引用 NRuleEngine 的宿主应用也必须能够运行在 .NET 10 上。ODS 接入前需要先确认或完成宿主目标框架升级，不能由 NRuleEngine 在运行时兼容较低版本宿主。
-- C# 语言版本跟随 .NET 10 SDK 的稳定默认版本；除非有明确收益和专项验证，不启用 Preview 语言特性。
+- 所有模块、本地 Host 和测试统一采用 **.NET 8 / ABP 8.0.4**，目标框架为 net8.0，EF Core SQLite 使用 8.0.4。
+- SDK 基线为 8.0.400，允许同主版本最新功能带；解决方案使用 SDK 8 可读取的 NRuleEngine.sln。Docker 和 CI 使用同一框架基线。
+- C# 跟随 SDK 的稳定默认版本。完整兼容调整、JSON 比较及聚合并发适配见[框架兼容说明](framework-compatibility.md)和 ADR-0022。
+- 接入方负责实际模块装配和迁移。本次不实现 ODS 接入，也不要求宿主为引用组件升级到 .NET 10。
 
 ## 4. ABP 模块依赖
 
@@ -172,7 +174,8 @@ public sealed record RuleScenarioDescriptor(
     string ContractVersion,
     IReadOnlyList<VariableContract> Inputs,
     IReadOnlyList<VariableContract> RequiredOutputs,
-    IReadOnlyList<BindingDimensionContract> BindingDimensions);
+    IReadOnlyList<BindingDimensionContract> BindingDimensions,
+    RuleResultCardinality ResultCardinality = RuleResultCardinality.Single);
 ```
 
 入口和必需出口属于场景契约：
@@ -306,7 +309,8 @@ erDiagram
 | BasedOnRevisionId | 创建当前草稿时复制的来源修订；用于版本谱系和差异比较，不表示运行时继承 |
 | Status | `Draft`、`Published`、`Abandoned`；决定可编辑性和生命周期，不代替发布记录 |
 | ScenarioCode、ContractVersion | 锁定该修订编制和执行所依据的场景契约；发布后不可修改 |
-| ExecutionMode | 规则命中和上下文推进方式；首版支持 `FirstMatch`、`Sequential` |
+| ResultCardinality | 场景固定的 Single/Many 结果基数，修订保存快照 |
+| ExecutionMode | Single 支持 FirstMatch、Sequential；Many 使用 CollectMatches |
 | MultipleWritePolicy | 一次执行中同一目标变量发生多次写入时的裁决策略；属于整个修订的确定性执行语义 |
 | ContentHash | 发布时基于规范化语义快照计算的内容哈希；用于完整性检查、缓存识别和同内容比对 |
 | ConcurrencyStamp | 草稿编辑和发布请求的乐观并发戳；每次成功写入后更新，防止静默覆盖 |
@@ -447,6 +451,7 @@ NRuleEngine 不采用软删除，实体不实现 `ISoftDelete`。
 - `ExpressionReference` 是由编译器生成的查询投影，用于影响分析和依赖图。
 - 类型检查在保存时局部执行，在发布时对完整修订执行。
 - Sequential 模式把赋值写回执行上下文；依赖图必须无环。
+- CollectMatches 从相同输入和默认值独立求值，每条命中生成一行全部必需出口。运行及试算使用统一 Results；结果基数、资源边界和门禁格式见[执行结果契约](execution-results.md)。
 - 禁止反射、文件、网络、数据库访问和任意代码执行。
 
 ## 9. 关键接口
@@ -566,3 +571,5 @@ public interface IRuleExecutionAppService
 2. 草稿操作日志是否首版实现，还是只依赖审计和版本对比。
 
 > 这些问题的去向：定了之后从本节移除，写成新的 ADR，或并入已有 ADR 的「未决」一节（例如第 3 条 `StableKey` 形式已挂进 [ADR-0007](../adr/0007-ast-with-stable-keys.md)）。当前挂在 ADR 里的待决清单见 [ADR 索引](../adr/README.md)。
+
+2026-10-16：结果基数、独立多命中与统一结果行见 [ADR-0021](../adr/0021-collect-matches-result-rows.md)，框架兼容基线见 [ADR-0022](../adr/0022-net8-abp8-baseline.md)。此前关于 .NET 10 的版本决策已被取代，场景定义升级计划仍独立待实施。

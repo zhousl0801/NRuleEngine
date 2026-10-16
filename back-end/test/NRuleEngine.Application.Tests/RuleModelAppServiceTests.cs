@@ -78,7 +78,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         };
         var result = await simulation.SimulateAsync(request);
         Assert.True(result.Success, result.ErrorMessage);
-        Assert.Equal("125", result.OutputsJson["targetWidth"]);
+        Assert.Equal("125", result.Results.Single().Outputs["targetWidth"].GetRawText());
 
         var currentModel = await service.GetAsync(model.Id);
         var copy = await service.CreateDraftAsync(model.Id, new CreateDraftDto(revision.Id, currentModel.ConcurrencyStamp));
@@ -120,7 +120,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         request.ContextJson["productKind"] = "\"B\"";
         var copiedResult = await simulation.SimulateAsync(request);
         Assert.True(copiedResult.Success, copiedResult.ErrorMessage);
-        Assert.Equal("130", copiedResult.OutputsJson["targetWidth"]);
+        Assert.Equal("130", copiedResult.Results.Single().Outputs["targetWidth"].GetRawText());
         copy = await rules.RemoveAssignmentAsync(copy.Id, copy.Rules[0].Id,
             copy.Rules[0].Assignments[0].Id, new DeleteDraftItemDto
             {
@@ -172,7 +172,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var catalog = ServiceProvider.GetRequiredService<IRuleCatalogAppService>();
         Assert.Equal("TEST-ODS", Assert.Single(await catalog.GetAppsAsync()).AppCode);
-        Assert.Equal(new[] { "composite-output", "size-expansion" }, (await catalog.GetScenariosAsync("TEST-ODS")).Select(s => s.ScenarioCode));
+        Assert.Equal(new[] { "composite-output", "matched-results", "size-expansion" }, (await catalog.GetScenariosAsync("TEST-ODS")).Select(s => s.ScenarioCode));
 
         var model = await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "width", "Width", null));
         await uow.SaveChangesAsync();
@@ -273,7 +273,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
             source = await release.AddGateCaseAsync(source.Id, new AddReleaseGateCaseDto
             {
                 Name = "defaults", ContextJson = "{\"productKind\":\"A\"}", InputsJson = "{}",
-                ExpectedOutputsJson = "{\"targetWidth\":125}",
+                ExpectedResultsJson = "[{\"targetWidth\":125}]",
                 ExpectedRevisionConcurrencyStamp = source.ConcurrencyStamp
             });
             await uow.CompleteAsync();
@@ -317,7 +317,7 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
             Context = new() { ["productKind"] = JsonSerializer.SerializeToElement("A") }
         });
         Assert.Equal(RuleExecutionStatus.Succeeded, result.Status);
-        Assert.Equal(125, result.Outputs["targetWidth"].GetDecimal());
+        Assert.Equal(125, result.Results.Single().Outputs["targetWidth"].GetDecimal());
         Assert.Contains((await service.GetArchiveImpactAsync(copyModel.Id)).References, x => x.Kind == "ActiveRevision");
         Assert.Contains((await service.GetArchiveImpactAsync(copyModel.Id)).References, x => x.Kind == "RuntimeSelection");
         Assert.Null((await service.GetAsync(sourceModel.Id)).ActiveRevisionId);

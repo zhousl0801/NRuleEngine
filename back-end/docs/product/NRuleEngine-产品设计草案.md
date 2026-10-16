@@ -206,9 +206,10 @@ flowchart LR
 | 模式 | 语义 | 跨规则读取前序结果 |
 |---|---|---|
 | FirstMatch | 第一条命中规则赋值后停止 | 否 |
-| Sequential | 按顺序执行并把赋值写回共享上下文 | 是 |
+| Sequential | 按顺序执行并把赋值写回共享上下文，合并为一行 | 是 |
+| CollectMatches | 每条命中独立生成一行完整出口 | 否 |
 
-首版只实现 `FirstMatch` 和 `Sequential`。同一变量多次写入的候选策略为 `ErrorOnMultipleWrite`、`FirstWriteWins` 和 `LastWriteWins`，建议默认 `ErrorOnMultipleWrite`。
+场景锁定结果基数：Single 使用 FirstMatch/Sequential，Many 使用 CollectMatches。全部模式返回统一 Results 行集合。同一变量多次写入的候选策略为 `ErrorOnMultipleWrite`、`FirstWriteWins` 和 `LastWriteWins`，建议默认 `ErrorOnMultipleWrite`；CollectMatches 只接受此配置，不在多行之间裁决覆盖。
 
 ### 8.2 运行失败语义
 
@@ -258,3 +259,5 @@ flowchart LR
 2. 场景契约升级后的旧修订按其锁定的契约版本运行；宿主须保留被引用的旧契约。见 [ADR-0015](../adr/0015-pinned-scenario-contract-version.md)。
 3. 首版绑定不包含生效期。见 [ADR-0018](../adr/0018-no-binding-effective-period-v1.md)。
 4. 前端设计启动时采用哪种技术栈，以及以宿主页面还是可嵌入 UI 包交付？
+
+执行与试算以完整结果行为交付单位。多行保留顺序与字段对应关系，无命中与错误分开，失败不返回部分行。门禁支持成功或未匹配预期，比较完整有序结果数组。边界与格式见[执行结果契约](../architecture/execution-results.md)。

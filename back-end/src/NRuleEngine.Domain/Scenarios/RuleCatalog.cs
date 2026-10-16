@@ -74,6 +74,11 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
             throw new InvalidOperationException($"场景 {descriptor.ScenarioCode} 引用了未注册的应用编码 {descriptor.AppCode}。");
         }
 
+        if (!Enum.IsDefined(descriptor.ResultCardinality))
+        {
+            throw new ArgumentException("场景结果基数无效。");
+        }
+
         var variables = descriptor.Inputs.Concat(descriptor.RequiredOutputs).ToArray();
         if (variables.Any(v => string.IsNullOrWhiteSpace(v.Code) || string.IsNullOrWhiteSpace(v.Name)) ||
             variables.Select(v => v.Code).Distinct(StringComparer.Ordinal).Count() != variables.Length ||

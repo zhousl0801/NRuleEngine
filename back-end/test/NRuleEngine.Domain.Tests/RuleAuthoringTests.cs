@@ -38,11 +38,11 @@ public sealed class RuleAuthoringTests
         Assert.Empty(RuleRevisionValidator.Validate(revision, contract));
         var high = RuleSimulator.Simulate(revision, contract, new Dictionary<string, string> { ["productKind"] = "\"A\"" }, new Dictionary<string, string> { ["inputWidth"] = "120", ["productKind"] = "\"A\"" });
         Assert.True(high.Success);
-        Assert.Equal("125", high.Outputs["targetWidth"]);
+        Assert.Equal("125", high.Results.Single().Outputs["targetWidth"]);
         Assert.Single(high.Conditions);
         var low = RuleSimulator.Simulate(revision, contract, new Dictionary<string, string> { ["productKind"] = "\"A\"" }, new Dictionary<string, string> { ["inputWidth"] = "80", ["productKind"] = "\"A\"" });
         Assert.True(low.Success);
-        Assert.Equal("100", low.Outputs["targetWidth"]);
+        Assert.Equal("100", low.Results.Single().Outputs["targetWidth"]);
         Assert.Equal([false, true], low.Conditions.Select(c => c.Matched));
 
         var copy = RuleModelRevision.CopyDraft(Guid.NewGuid(), revision.RuleModelId, 2, revision);
@@ -165,13 +165,13 @@ public sealed class RuleAuthoringTests
         var rule = revision.AddRule(Guid.NewGuid(), "width", 1, 1, true, null, Ast(new { op = "constant", kind = RuleValueKind.Boolean, value = true }));
         revision.AddAssignment(rule.Id, Guid.NewGuid(), output.StableKey, RuleValueSourceKind.Constant, "125", null, null, 1);
         revision.AddBinding(Guid.NewGuid(), contract, 1, [("productKind", RuleBindingOperator.Equals, "\"A\"")]);
-        revision.AddGateCase(Guid.NewGuid(), "default", "{\"productKind\":\"A\"}", "{\"inputWidth\":120,\"productKind\":\"A\"}", "{\"targetWidth\":125}");
+        revision.AddGateCase(Guid.NewGuid(), "default", "{\"productKind\":\"A\"}", "{\"inputWidth\":120,\"productKind\":\"A\"}", "[{\"targetWidth\":125}]");
         Assert.Empty(ReleaseGateEvaluator.Evaluate(revision, contract));
         var hash = RuleRevisionContentHasher.Compute(contract.AppCode, revision);
         var copy = RuleModelRevision.CopyDraft(Guid.NewGuid(), revision.RuleModelId, 2, revision);
         Assert.NotEqual(revision.GateCases.Single().Id, copy.GateCases.Single().Id);
         copy.RemoveGateCase(copy.GateCases.Single().Id);
-        copy.AddGateCase(Guid.NewGuid(), "default", "{\"productKind\":\"A\"}", "{\"productKind\":\"A\",\"inputWidth\":120}", "{\"targetWidth\":125}");
+        copy.AddGateCase(Guid.NewGuid(), "default", "{\"productKind\":\"A\"}", "{\"productKind\":\"A\",\"inputWidth\":120}", "[{\"targetWidth\":125}]");
         Assert.Equal(hash, RuleRevisionContentHasher.Compute(contract.AppCode, copy));
     }
 

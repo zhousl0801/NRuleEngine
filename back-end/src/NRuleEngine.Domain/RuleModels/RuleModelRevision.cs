@@ -4,6 +4,7 @@ using NRuleEngine.Domain.Rules;
 using NRuleEngine.Domain.Scenarios;
 using NRuleEngine.Domain.Shared;
 using NRuleEngine.Domain.Shared.Rules;
+using NRuleEngine.Domain.Shared.Runtime;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
@@ -32,7 +33,10 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     /// <summary>修订锁定的场景契约版本。</summary>
     public string ContractVersion { get; private set; } = null!;
 
-    /// <summary>FirstMatch 或 Sequential 规则执行方式。</summary>
+    /// <summary>创建草稿时锁定的场景结果基数。</summary>
+    public RuleResultCardinality ResultCardinality { get; private set; }
+
+    /// <summary>与结果基数相容的规则执行方式。</summary>
     public RuleExecutionMode ExecutionMode { get; private set; }
 
     /// <summary>Sequential 模式下同一变量被多次写入的裁决策略。</summary>
@@ -86,7 +90,8 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         Status = RuleRevisionStatus.Draft;
         ScenarioCode = contract.ScenarioCode;
         ContractVersion = contract.ContractVersion;
-        ExecutionMode = RuleExecutionMode.FirstMatch;
+        ResultCardinality = contract.ResultCardinality;
+        ExecutionMode = ResultCardinality == RuleResultCardinality.Many ? RuleExecutionMode.CollectMatches : RuleExecutionMode.FirstMatch;
         MultipleWritePolicy = MultipleWritePolicy.ErrorOnMultipleWrite;
         foreach (var variable in contract.Inputs.Concat(contract.RequiredOutputs))
         {
@@ -108,6 +113,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
             Status = RuleRevisionStatus.Draft,
             ScenarioCode = source.ScenarioCode,
             ContractVersion = source.ContractVersion,
+            ResultCardinality = source.ResultCardinality,
             ExecutionMode = source.ExecutionMode,
             MultipleWritePolicy = source.MultipleWritePolicy,
             _variables = source.Variables.Select(v => v.CopyTo(id)).ToList()
@@ -140,6 +146,12 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         if (!Enum.IsDefined(mode) || !Enum.IsDefined(writePolicy))
         {
             throw new ArgumentException("不支持的执行语义。");
+        }
+
+        if ((ResultCardinality == RuleResultCardinality.Many) != (mode == RuleExecutionMode.CollectMatches) ||
+            mode == RuleExecutionMode.CollectMatches && writePolicy != MultipleWritePolicy.ErrorOnMultipleWrite)
+        {
+            throw new ArgumentException("执行方式必须与场景结果基数一致，多行模式不使用跨规则写入策略。");
         }
 
         ExecutionMode = mode;
@@ -327,7 +339,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     }
 
     /// <summary>增加以场景上下文、输入和预期输出组成的发布门禁用例。</summary>
-    public ReleaseGateCase AddGateCase(Guid id, string name, string contextJson, string inputsJson, string expectedOutputsJson)
+    public ReleaseGateCase AddGateCase(Guid id, string name, string contextJson, string inputsJson, string expectedResultsJson, RuleExecutionStatus expectedStatus = RuleExecutionStatus.Succeeded)
     {
         EnsureDraft();
         if (_gateCases.Any(c => c.Name == name?.Trim()))
@@ -335,7 +347,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
             throw new ArgumentException("同一修订内的门禁用例名称不能重复。");
         }
 
-        var gateCase = new ReleaseGateCase(id, Id, name, contextJson, inputsJson, expectedOutputsJson);
+        var gateCase = new ReleaseGateCase(id, Id, name, contextJson, inputsJson, expectedResultsJson, expectedStatus);
         _gateCases.Add(gateCase);
         return gateCase;
     }

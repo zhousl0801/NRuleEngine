@@ -49,6 +49,8 @@ ADR 就是给"为什么"腾出的位置。
 | [0018](0018-no-binding-effective-period-v1.md) | 首版绑定不包含生效期 | 已接受 |
 | [0019](0019-standalone-condition-set.md) | 独立条件集与明确候选判定 | 已接受 |
 | [0020](0020-composite-output-values.md) | 区间与同类型候选列表出口 | 已接受 |
+| [0021](0021-collect-matches-result-rows.md) | 独立多命中求值与统一结果行 | 已接受 |
+| [0022](0022-net8-abp8-baseline.md) | 统一到 .NET 8 / ABP 8.0.4 | 已接受 |
 
 ## 新增一条
 

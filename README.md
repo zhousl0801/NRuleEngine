@@ -16,9 +16,9 @@ docker compose up --build -d
 
 ```bash
 cd back-end
-dotnet restore NRuleEngine.slnx
-dotnet build NRuleEngine.slnx --no-restore
-dotnet test NRuleEngine.slnx --no-build --no-restore
+dotnet restore NRuleEngine.sln
+dotnet build NRuleEngine.sln --no-restore
+dotnet test NRuleEngine.sln --no-build --no-restore
 ```
 
 本仓库不包含具体业务系统的生产规则配置、生产数据快照或内部盘点文档。

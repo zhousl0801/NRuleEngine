@@ -41,7 +41,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
     {
         var revision = await GetRevisionAsync(revisionId);
         CheckStamp(revision.ConcurrencyStamp, input.ExpectedRevisionConcurrencyStamp);
-        revision.AddGateCase(GuidGenerator.Create(), input.Name, input.ContextJson, input.InputsJson, input.ExpectedOutputsJson);
+        revision.AddGateCase(GuidGenerator.Create(), input.Name, input.ContextJson, input.InputsJson, input.ExpectedResultsJson, input.ExpectedStatus);
         await _revisions.UpdateAsync(revision, autoSave: true);
         return RuleRevisionDtoMapper.ToDto(revision);
     }

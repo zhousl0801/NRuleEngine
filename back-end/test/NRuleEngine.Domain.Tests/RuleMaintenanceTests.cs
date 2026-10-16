@@ -34,7 +34,7 @@ public sealed class RuleMaintenanceTests
         revision.SetInputDefault(input.StableKey, "120");
         Assert.Equal("AssignmentFailed", RuleSimulator.Simulate(revision, contract, context, supplied).ErrorCode);
         revision.UpdateIntermediateProperties(middle.StableKey, "5", "mm", 28);
-        Assert.Equal("125", RuleSimulator.Simulate(revision, contract, context, supplied).Outputs["targetWidth"]);
+        Assert.Equal("125", RuleSimulator.Simulate(revision, contract, context, supplied).Results.Single().Outputs["targetWidth"]);
         supplied["inputWidth"] = "null";
         Assert.Equal("InputConstraintViolated", RuleSimulator.Simulate(revision, contract, context, supplied).ErrorCode);
         Assert.Throws<ArgumentException>(() => revision.UpdateIntermediateProperties(input.StableKey, "1", null, 28));
@@ -61,7 +61,7 @@ public sealed class RuleMaintenanceTests
                 new { op = "constant", kind = RuleValueKind.Decimal, value = 0 }
             } }));
         revision.AddAssignment(rule.Id, Guid.NewGuid(), output.StableKey, RuleValueSourceKind.Constant, "125", null, null, 1);
-        revision.AddGateCase(Guid.NewGuid(), "check", "{}", "{}", "{\"targetWidth\":125}");
+        revision.AddGateCase(Guid.NewGuid(), "check", "{}", "{}", "[{\"targetWidth\":125}]");
 
         var references = RuleRevisionImpactAnalyzer.GetVariableReferences(revision, middle.StableKey);
         Assert.Contains(references, x => x.Kind == "Condition" && x.BlocksVariableDeletion);

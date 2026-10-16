@@ -46,9 +46,10 @@ public class RuleRevisionDto
     /// </summary>
     public string ContractVersion { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 执行方式。
-    /// </summary>
+    /// <summary>场景锁定的结果行基数。</summary>
+    public RuleResultCardinality ResultCardinality { get; set; }
+
+    /// <summary>执行方式。</summary>
     public RuleExecutionMode ExecutionMode { get; set; }
 
     /// <summary>

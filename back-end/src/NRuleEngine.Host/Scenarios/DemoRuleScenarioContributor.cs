@@ -14,5 +14,10 @@ public sealed class DemoRuleScenarioContributor : IRuleScenarioContributor
                 new VariableContract("candidateWidths", "候选宽度", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal, Shape: RuleValueShape.List)),
                 new VariableContract("candidateCodes", "候选编码", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.String, Shape: RuleValueShape.List))],
             [new BindingDimensionContract("productKind", "产品类型", RuleValueKind.Enum, [RuleBindingOperator.Equals])]));
+        registry.Add(new RuleScenarioDescriptor("DEMO", "matched-results", "1.0",
+            [new VariableContract("width", "宽度", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Decimal))],
+            [new VariableContract("targetWidth", "目标宽度", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal)),
+                new VariableContract("tolerance", "公差", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal, Shape: RuleValueShape.NumericRange))],
+            [], RuleResultCardinality.Many));
     }
 }

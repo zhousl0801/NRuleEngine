@@ -61,6 +61,10 @@ public static class NRuleEngineErrorCodes
     public const string InputConstraintViolated = "NRuleEngine:Input:InputConstraintViolated";
     /// <summary>表达式或函数在运行中计算失败。</summary>
     public const string ExpressionEvaluationFailed = "NRuleEngine:Evaluation:ExpressionEvaluationFailed";
+    /// <summary>已选择模型，但没有规则命中。</summary>
+    public const string NoMatchingRule = "NRuleEngine:Evaluation:NoMatchingRule";
+    /// <summary>结果行数或序列化大小超过限制。</summary>
+    public const string ResultLimitExceeded = "NRuleEngine:Output:ResultLimitExceeded";
     /// <summary>不允许的重复变量赋值。</summary>
     public const string MultipleWriteConflict = "NRuleEngine:Evaluation:MultipleWriteConflict";
     /// <summary>必需出口未得到有效值。</summary>

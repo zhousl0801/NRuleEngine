@@ -42,10 +42,11 @@ internal static class RuleRevisionDtoMapper
                 DimensionCode = c.DimensionCode, Operator = c.Operator, TypedValueJson = c.TypedValueJson
             }).ToArray()
         }).ToArray();
+        dto.ResultCardinality = revision.ResultCardinality;
         dto.GateCases = revision.GateCases.OrderBy(c => c.Name, StringComparer.Ordinal).Select(c => new ReleaseGateCaseDto
             {
                 Id = c.Id, Name = c.Name, ContextJson = c.ContextJson,
-                InputsJson = c.InputsJson, ExpectedOutputsJson = c.ExpectedOutputsJson
+                InputsJson = c.InputsJson, ExpectedResultsJson = c.ExpectedResultsJson, ExpectedStatus = c.ExpectedStatus
             }).ToArray();
         return dto;
     }

@@ -8,6 +8,7 @@ namespace NRuleEngine.Domain.Shared.Rules;
 /// <param name="ContractVersion">契约版本，修订创建时将其锁定。</param>
 /// <param name="Inputs">调用方必须提供的入口变量契约。</param>
 /// <param name="RequiredOutputs">规则必须生成的出口变量契约。</param>
+/// <param name="ResultCardinality">成功结果为单行或多行，由宿主固定。</param>
 /// <param name="BindingDimensions">维护者可配置的场景绑定维度。</param>
 public sealed record RuleScenarioDescriptor(
     string AppCode,
@@ -15,4 +16,5 @@ public sealed record RuleScenarioDescriptor(
     string ContractVersion,
     IReadOnlyList<VariableContract> Inputs,
     IReadOnlyList<VariableContract> RequiredOutputs,
-    IReadOnlyList<BindingDimensionContract> BindingDimensions);
+    IReadOnlyList<BindingDimensionContract> BindingDimensions,
+    RuleResultCardinality ResultCardinality = RuleResultCardinality.Single);

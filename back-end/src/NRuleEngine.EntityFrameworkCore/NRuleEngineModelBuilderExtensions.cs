@@ -93,6 +93,7 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.ScenarioCode).IsRequired().HasMaxLength(128);
             entity.Property(x => x.ContractVersion).IsRequired().HasMaxLength(64);
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(x => x.ResultCardinality).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.ExecutionMode).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.MultipleWritePolicy).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.ContentHash).HasMaxLength(128);
@@ -177,7 +178,8 @@ public static class NRuleEngineModelBuilderExtensions
             entity.Property(x => x.Name).IsRequired().HasMaxLength(256);
             entity.Property(x => x.ContextJson).IsRequired();
             entity.Property(x => x.InputsJson).IsRequired();
-            entity.Property(x => x.ExpectedOutputsJson).IsRequired();
+            entity.Property(x => x.ExpectedResultsJson).IsRequired();
+            entity.Property(x => x.ExpectedStatus).HasConversion<string>().HasMaxLength(32);
             entity.HasIndex(x => new { x.RevisionId, x.Name }).IsUnique();
         });
 

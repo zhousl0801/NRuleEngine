@@ -25,6 +25,12 @@ public static class RuleRevisionValidator
             issues.Add(new RuleValidationIssue("NoBinding", "bindings", "至少需要一条场景绑定。"));
         }
 
+        if (revision.ResultCardinality != contract.ResultCardinality ||
+            (contract.ResultCardinality == RuleResultCardinality.Many) != (revision.ExecutionMode == RuleExecutionMode.CollectMatches))
+        {
+            issues.Add(new RuleValidationIssue("InvalidExecutionMode", "executionMode", "执行方式或结果基数与场景契约不一致。"));
+        }
+
         var requiredKeys = revision.Variables.Where(v => v.Direction == RuleVariableDirection.Output).Select(v => v.StableKey).ToHashSet();
         var graph = new Dictionary<Guid, HashSet<Guid>>();
         var enabled = revision.Rules.Where(r => r.IsEnabled).OrderByDescending(r => r.Priority).ThenBy(r => r.SortOrder).ToArray();
@@ -37,7 +43,9 @@ public static class RuleRevisionValidator
                 issues.Add(new RuleValidationIssue("NoAssignment", path, "规则没有赋值定义。"));
             }
 
-            if (revision.ExecutionMode == RuleExecutionMode.FirstMatch && rule.IsEnabled &&
+            var available = revision.Variables.Where(v => v.Direction == RuleVariableDirection.Input ||
+                v.Direction == RuleVariableDirection.Intermediate && v.DefaultValueJson is not null).Select(v => v.StableKey).ToHashSet();
+            if (revision.ExecutionMode != RuleExecutionMode.Sequential && rule.IsEnabled &&
                 !requiredKeys.IsSubsetOf(rule.Assignments.Select(a => a.TargetVariableStableKey)))
             {
                 issues.Add(new RuleValidationIssue("MissingOutput", path, "规则未对全部必需的输出变量赋值。"));
@@ -45,9 +53,13 @@ public static class RuleRevisionValidator
 
             try
             {
-                if (RuleExpressionEngine.Validate(rule.ConditionAstJson, revision.Variables, out _) != RuleValueKind.Boolean)
+                if (RuleExpressionEngine.Validate(rule.ConditionAstJson, revision.Variables, out var conditionReferences) != RuleValueKind.Boolean)
                 {
                     throw new ArgumentException("条件表达式必须返回布尔值。");
+                }
+                if (revision.ExecutionMode == RuleExecutionMode.CollectMatches && !conditionReferences.IsSubsetOf(available))
+                {
+                    issues.Add(new RuleValidationIssue("UninitializedVariable", $"{path}/condition", "收集模式的条件只能读取输入或有默认值的中间变量。"));
                 }
             }
             catch (Exception ex) when (ex is ArgumentException or JsonException)
@@ -55,7 +67,7 @@ public static class RuleRevisionValidator
                 var location = ex as RuleExpressionException;
                 issues.Add(new RuleValidationIssue("InvalidCondition", $"{path}/condition", RuleErrorText.Describe(ex), location?.Start, location?.Length));
             }
-            foreach (var assignment in rule.Assignments)
+            foreach (var assignment in rule.Assignments.OrderBy(x => x.SortOrder))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var target = revision.Variables.SingleOrDefault(v => v.StableKey == assignment.TargetVariableStableKey);
@@ -72,6 +84,10 @@ public static class RuleRevisionValidator
                     {
                         RuleValueEngine.ValidateExpression(target, assignment.ExpressionAstJson!, revision.Variables, out var references);
 
+                        if (revision.ExecutionMode == RuleExecutionMode.CollectMatches && !references.IsSubsetOf(available))
+                        {
+                            issues.Add(new RuleValidationIssue("UninitializedVariable", assignmentPath, "赋值读取了本行尚未赋值的变量；收集模式不能依赖其他规则。"));
+                        }
                         graph.TryAdd(target.StableKey, []);
                         graph[target.StableKey].UnionWith(references.Where(k => revision.Variables.Any(v => v.StableKey == k && v.Direction != RuleVariableDirection.Input)));
                     }
@@ -92,6 +108,7 @@ public static class RuleRevisionValidator
                         issues.Add(new RuleValidationIssue("InvalidConstant", assignmentPath, RuleErrorText.Describe(ex)));
                     }
                 }
+                available.Add(target.StableKey);
             }
         }
 

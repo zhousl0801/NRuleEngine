@@ -78,10 +78,10 @@ public sealed class CompositeOutputAppServiceTests : NRuleEngineTestBase<NRuleEn
         {
             Priority = 1, ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp
         });
-        const string expected = "{\"range\":{\"min\":120,\"max\":130},\"numbers\":[130,120],\"codes\":[\"B\",\"A\"]}";
+        const string expected = "[{\"range\":{\"min\":120,\"max\":130},\"numbers\":[130,120],\"codes\":[\"B\",\"A\"]}]";
         revision = await release.AddGateCaseAsync(revision.Id, new AddReleaseGateCaseDto
         {
-            Name = "完整结构", ContextJson = "{}", InputsJson = "{\"width\":120}", ExpectedOutputsJson = expected,
+            Name = "完整结构", ContextJson = "{}", InputsJson = "{\"width\":120}", ExpectedResultsJson = expected,
             ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp
         });
         var simulation = await ServiceProvider.GetRequiredService<IRuleSimulationAppService>().SimulateAsync(new SimulateRuleDto
@@ -89,7 +89,7 @@ public sealed class CompositeOutputAppServiceTests : NRuleEngineTestBase<NRuleEn
             RevisionId = revision.Id, InputsJson = new Dictionary<string, string> { ["width"] = "120" }
         });
         Assert.True(simulation.Success, simulation.ErrorMessage);
-        Assert.Equal("[130,120]", simulation.OutputsJson["numbers"]);
+        Assert.Equal("[130,120]", simulation.Results.Single().Outputs["numbers"].GetRawText());
         await release.PublishAsync(revision.Id, new PublishRuleDto
         {
             ExpectedModelConcurrencyStamp = (await models.GetAsync(model.Id)).ConcurrencyStamp,
@@ -101,12 +101,12 @@ public sealed class CompositeOutputAppServiceTests : NRuleEngineTestBase<NRuleEn
             Inputs = new Dictionary<string, JsonElement> { ["width"] = JsonSerializer.SerializeToElement(120m) }
         });
         Assert.Equal(RuleExecutionStatus.Succeeded, result.Status);
-        Assert.Equal(120, result.Outputs["range"].GetProperty("min").GetDecimal());
-        Assert.Equal(130, result.Outputs["range"].GetProperty("max").GetDecimal());
-        Assert.Equal(new[] { 130m, 120m }, result.Outputs["numbers"].EnumerateArray().Select(v => v.GetDecimal()).ToArray());
-        Assert.Equal(new[] { "B", "A" }, result.Outputs["codes"].EnumerateArray().Select(v => v.GetString()).ToArray());
+        Assert.Equal(120, result.Results.Single().Outputs["range"].GetProperty("min").GetDecimal());
+        Assert.Equal(130, result.Results.Single().Outputs["range"].GetProperty("max").GetDecimal());
+        Assert.Equal(new[] { 130m, 120m }, result.Results.Single().Outputs["numbers"].EnumerateArray().Select(v => v.GetDecimal()).ToArray());
+        Assert.Equal(new[] { "B", "A" }, result.Results.Single().Outputs["codes"].EnumerateArray().Select(v => v.GetString()).ToArray());
         var wireResult = JsonSerializer.SerializeToElement(result, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        Assert.Equal(JsonValueKind.Array, wireResult.GetProperty("outputs").GetProperty("numbers").ValueKind);
+        Assert.Equal(JsonValueKind.Array, wireResult.GetProperty("results")[0].GetProperty("outputs").GetProperty("numbers").ValueKind);
         var duplicate = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(new ExecuteRuleDto
         {
             AppCode = "TEST-ODS", ScenarioCode = "composite-output",
@@ -115,7 +115,7 @@ public sealed class CompositeOutputAppServiceTests : NRuleEngineTestBase<NRuleEn
         Assert.Equal(RuleExecutionStatus.Failed, duplicate.Status);
         Assert.Equal(NRuleEngine.Domain.Shared.NRuleEngineErrorCodes.ExpressionEvaluationFailed, duplicate.Error!.Code);
         Assert.Contains("assignments/", duplicate.Error.Data["ErrorPath"]!.ToString());
-        Assert.Empty(duplicate.Outputs);
+        Assert.Empty(duplicate.Results);
         var draft = await models.CreateDraftAsync(model.Id, new CreateDraftDto(revision.Id, (await models.GetAsync(model.Id)).ConcurrencyStamp));
         Assert.Equal(RuleValueShape.NumericRange, draft.Variables.Single(v => v.Code == "range").Type.Shape);
         Assert.Equal(revision.Variables.Select(v => v.StableKey).Order(), draft.Variables.Select(v => v.StableKey).Order());

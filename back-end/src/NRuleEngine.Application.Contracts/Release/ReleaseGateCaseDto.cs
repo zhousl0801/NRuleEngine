@@ -1,3 +1,5 @@
+using NRuleEngine.Domain.Shared.Runtime;
+
 namespace NRuleEngine.Application.Contracts.Release;
 
 /// <summary>发布门禁回归用例及其输入、预期输出。</summary>
@@ -12,6 +14,9 @@ public class ReleaseGateCaseDto
     public string ContextJson { get; set; } = "{}";
     /// <summary>入口值 JSON 对象。</summary>
     public string InputsJson { get; set; } = "{}";
-    /// <summary>预期出口 JSON 对象。</summary>
-    public string ExpectedOutputsJson { get; set; } = "{}";
+    /// <summary>有序的预期出口对象数组，不包含来源规则标识。</summary>
+    public string ExpectedResultsJson { get; set; } = "[]";
+
+    /// <summary>预期成功或正常未匹配；未匹配时预期结果必须为空数组。</summary>
+    public RuleExecutionStatus ExpectedStatus { get; set; } = RuleExecutionStatus.Succeeded;
 }

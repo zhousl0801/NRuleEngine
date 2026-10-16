@@ -3,6 +3,7 @@
   const key = 'nruleengine-prototype-collections-v1';
   const clone = value => JSON.parse(JSON.stringify(value));
   const sceneDefinitions = [
+    { code: 'matched-results', kind: 'rule', name: '候选规格计算', description: '分别计算全部命中规则，每行保留完整规格与公差。', resultCardinality: 'Many' },
     { code: 'size-expansion', kind: 'rule', name: '尺寸展开', description: '根据入口宽度和产品类别，计算展开宽度及可选规格。' },
     { code: 'finishing-width', kind: 'rule', name: '精整宽度修正', description: '按精整产品类别计算修正宽度，输出可选规格。' },
     { code: 'trial-expansion', kind: 'rule', name: '试验规格展开', description: '为试验产品单独编制宽度计算与规格选择规则。' },
@@ -45,6 +46,9 @@
     special.assignments[0].expression = { kind: 'binary', op: 'add', left: formula(), right: variable('offset') };
     special.assignments[1].constant = '已修正';
     return { records: [
+      model('matched-sizes', 'MATCHED-SIZES', '候选规格规则', '命中的规格按优先级分别返回，结果行保留对应关系', 1,
+        [rule('matched-one', '常规候选', 'A', 100, 100, 1), rule('matched-two', '备选规格', 'A', 120, 80, 2)],
+        [{ name: '常规产品', product: 'A', processes: ['通用'], text: '产品类别 = A · 工艺路线 = 通用', priority: 100 }], true, 'matched-results'),
       model('expansion', 'SIZE-EXP-01', '尺寸展开规则', '常规与特殊产品的规格计算', 3,
         [standard, special, rule('fallback', '默认值处理', '', 0, 10, 3)],
         [{ name: '常规产品', product: 'A', processes: ['通用','精整'], text: '产品类别 = A · 工艺路线属于通用、精整', priority: 100 }, { name: '特殊产品', product: 'B', processes: ['精整'], text: '产品类别 = B · 工艺路线 = 精整', priority: 80 }], true),

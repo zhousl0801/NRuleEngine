@@ -302,7 +302,7 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
             Name = "default case",
             ContextJson = JsonSerializer.Serialize(new { productKind }),
             InputsJson = "{\"inputWidth\":120}",
-            ExpectedOutputsJson = JsonSerializer.Serialize(new { targetWidth = expectedWidth }),
+            ExpectedResultsJson = JsonSerializer.Serialize(new[] { new { targetWidth = expectedWidth } }),
             ExpectedRevisionConcurrencyStamp = stamp
         };
     }

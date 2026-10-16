@@ -1,20 +1,20 @@
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Volo.Abp.Ddd.Domain.Shared" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.Ddd.Domain" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.Ddd.Application.Contracts" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.EntityFrameworkCore" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.AspNetCore.Mvc" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.TestBase" Version="10.6.0" />
+    <PackageVersion Include="Volo.Abp.Ddd.Domain.Shared" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.Ddd.Domain" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.Ddd.Application.Contracts" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.Ddd.Application" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.EntityFrameworkCore" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.AspNetCore.Mvc" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.TestBase" Version="8.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
-    <PackageVersion Include="Volo.Abp.EntityFrameworkCore.Sqlite" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.Autofac" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.Authorization" Version="10.6.0" />
-    <PackageVersion Include="Volo.Abp.AspNetCore" Version="10.6.0" />
+    <PackageVersion Include="Volo.Abp.EntityFrameworkCore.Sqlite" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.Autofac" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.Authorization" Version="8.0.4" />
+    <PackageVersion Include="Volo.Abp.AspNetCore" Version="8.0.4" />
   </ItemGroup>
 </Project>

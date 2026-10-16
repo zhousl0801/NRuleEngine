@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
@@ -14,7 +14,7 @@ RUN dotnet restore src/NRuleEngine.Host/NRuleEngine.Host.csproj
 COPY src/ src/
 RUN dotnet publish src/NRuleEngine.Host/NRuleEngine.Host.csproj -c Release --no-restore -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/publish ./
 RUN mkdir -p /app/data && chown app:app /app/data

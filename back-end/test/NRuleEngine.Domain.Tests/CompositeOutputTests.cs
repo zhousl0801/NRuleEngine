@@ -30,16 +30,16 @@ public sealed class CompositeOutputTests
         AddConstant(revision, rule.Id, "codes", "[\"B\",\"A\"]", 3);
         revision.AddBinding(Guid.NewGuid(), contract, 1, []);
         revision.AddGateCase(Guid.NewGuid(), "区间与顺序", "{}", "{\"width\":120}",
-            "{\"range\":{\"min\":120,\"max\":126},\"numbers\":[140,120,130],\"codes\":[\"B\",\"A\"]}");
+            "[{\"range\":{\"min\":120,\"max\":126},\"numbers\":[140,120,130],\"codes\":[\"B\",\"A\"]}]");
 
         Assert.Empty(RuleRevisionValidator.Validate(revision, contract));
         var result = RuleSimulator.Simulate(revision, contract, new Dictionary<string, string>(), new Dictionary<string, string> { ["width"] = "120" });
         Assert.True(result.Success, result.ErrorMessage);
-        using var range = JsonDocument.Parse(result.Outputs["range"]);
+        using var range = JsonDocument.Parse(result.Results.Single().Outputs["range"]);
         Assert.Equal(120, range.RootElement.GetProperty("min").GetDecimal());
         Assert.Equal(126, range.RootElement.GetProperty("max").GetDecimal());
-        Assert.Equal("[140,120,130]", result.Outputs["numbers"]);
-        Assert.Equal("[\"B\",\"A\"]", result.Outputs["codes"]);
+        Assert.Equal("[140,120,130]", result.Results.Single().Outputs["numbers"]);
+        Assert.Equal("[\"B\",\"A\"]", result.Results.Single().Outputs["codes"]);
         Assert.Empty(ReleaseGateEvaluator.Evaluate(revision, contract));
         Assert.Contains(RuleRevisionImpactAnalyzer.GetVariableReferences(revision, factor.StableKey), reference => reference.Kind == "AssignmentExpression");
         Assert.Throws<BusinessException>(() => revision.RemoveIntermediate(factor.StableKey));

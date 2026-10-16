@@ -35,7 +35,7 @@ public class RuleExecutionResultDto
     public Guid? RuleModelId { get; set; }
     public Guid? RevisionId { get; set; }
     public Guid? BindingId { get; set; }
-    public Dictionary<string, JsonElement> Outputs { get; set; } = [];
+    public IReadOnlyList<RuleResultRowDto> Results { get; set; } = [];
     public RuleExecutionErrorDto? Error { get; set; }
 }
 
@@ -283,3 +283,14 @@ ODS 转换异常时应保留：`EngineErrorCode`、`ExecutionId`、`RuleModelId`
 1. `NotMatched / Rejected / Failed` 属于引擎已处理的确定性结果，HTTP 统一返回 200。
 2. 场景契约未声明的额外 `Inputs` 返回 `NRuleEngine:Input:UnknownInput`，不静默忽略。
 3. NRuleEngine 同时响应内部执行时间预算和调用方 `CancellationToken`，并区分两种取消来源。
+
+## 2026-10-16 结果行补充
+
+运行及试算以统一 Results 数组交付完整结果，来源标识和原生出口结构见[执行结果契约](execution-results.md)。无匹配或失败均为空数组；试算可保留诊断轨迹，但不能把轨迹当作部分业务结果。
+
+| Code | Status | 含义 |
+| --- | --- | --- |
+| NRuleEngine:Evaluation:NoMatchingRule | NotMatched | 已选中模型，但没有规则命中 |
+| NRuleEngine:Output:ResultLimitExceeded | Failed | 命中超过 100 行，或结果数组超过 65536 UTF-8 字节 |
+
+NoMatchingRule 与 NoMatchingBinding 使用不同错误码；模型存在但规则未命中不再归入 RequiredOutputMissing。计算型出口缺项仍是 Failed，不视作正常无命中。

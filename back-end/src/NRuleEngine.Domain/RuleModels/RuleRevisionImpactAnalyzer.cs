@@ -71,7 +71,7 @@ public static class RuleRevisionImpactAnalyzer
                 }
 
                 if (affectedVariable.Direction == RuleVariableDirection.Output &&
-                    ContainsProperty(gateCase.ExpectedOutputsJson, affectedVariable.Code))
+                    ContainsResultProperty(gateCase.ExpectedResultsJson, affectedVariable.Code))
                 {
                     references.Add(new RuleImpactReference("GateCaseOutput", $"gate-cases/{gateCase.Id}/outputs", affectedVariable.StableKey == stableKey));
                 }
@@ -95,6 +95,12 @@ public static class RuleRevisionImpactAnalyzer
     {
         var rule = revision.Rules.Single(r => r.Id == ruleId);
         return rule.Assignments.SelectMany(a => GetAssignmentRemovalImpact(revision, ruleId, a.Id)).GroupBy(x => (x.Kind, x.Path, x.BlocksVariableDeletion)).Select(x => x.First()).OrderBy(x => x.Path, StringComparer.Ordinal).ToArray();
+    }
+
+    private static bool ContainsResultProperty(string json, string code)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.EnumerateArray().Any(row => row.TryGetProperty(code, out _));
     }
 
     private static HashSet<Guid> ReadKeys(string json, string path, List<RuleImpactReference> references)

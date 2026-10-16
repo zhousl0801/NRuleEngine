@@ -15,5 +15,10 @@ internal sealed class SimulatedSizeExpansionContributor : IRuleScenarioContribut
             [new VariableContract("range", "区间", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal, Shape: RuleValueShape.NumericRange)),
                 new VariableContract("numbers", "候选数值", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal, Shape: RuleValueShape.List)),
                 new VariableContract("codes", "候选编码", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Enum, EnumCode: "codes", Shape: RuleValueShape.List))], []));
+        registry.Add(new RuleScenarioDescriptor("TEST-ODS", "matched-results", "1.0",
+            [new VariableContract("width", "宽度", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Decimal))],
+            [new VariableContract("targetWidth", "目标宽度", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal)),
+                new VariableContract("tolerance", "公差", RuleVariableDirection.Output, new RuleTypeDescriptor(RuleValueKind.Decimal, Shape: RuleValueShape.NumericRange))],
+            [], RuleResultCardinality.Many));
     }
 }

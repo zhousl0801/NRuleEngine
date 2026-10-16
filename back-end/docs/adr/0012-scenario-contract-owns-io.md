@@ -29,3 +29,5 @@
 - 场景契约升级需要定义变量新增、删除和类型变更的兼容规则。
 - `VariableDefinition` 需要区分 `Origin=Contract/UserDefined`；`Origin` 只决定维护边界，变量身份仍由 `StableKey` 承担。
 - 不增加 `ContractVariableKey`，避免 `StableKey`、`Code` 和契约键形成三套身份；代价是契约变量重编码必须作为契约版本变更处理。
+
+2026-10-16 补充：场景还固定 ResultCardinality，修订保存其快照。Single/Many 与执行模式的约束见 [ADR-0021](0021-collect-matches-result-rows.md)。

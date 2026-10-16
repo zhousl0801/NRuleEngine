@@ -1,5 +1,7 @@
 using System.Text.Json;
 using NRuleEngine.Domain.RuleModels;
+using NRuleEngine.Domain.Expressions;
+using NRuleEngine.Domain.Shared.Runtime;
 using NRuleEngine.Domain.Shared.Rules;
 using NRuleEngine.Domain.Simulation;
 
@@ -13,9 +15,9 @@ public static class ReleaseGateEvaluator
     public static IReadOnlyList<string> Evaluate(RuleModelRevision revision, RuleScenarioDescriptor contract)
     {
         var failures = new List<string>();
-        if (revision.GateCases.Count == 0)
+        if (!revision.GateCases.Any(x => x.ExpectedStatus == RuleExecutionStatus.Succeeded))
         {
-            failures.Add("至少需要一条发布门禁用例。");
+            failures.Add("至少需要一条预期成功的发布门禁用例。");
             return failures;
         }
 
@@ -23,18 +25,18 @@ public static class ReleaseGateEvaluator
         {
             var context = ReadValues(gateCase.ContextJson);
             var inputs = ReadValues(gateCase.InputsJson);
-            var expected = ReadValues(gateCase.ExpectedOutputsJson);
             var outcome = RuleSimulator.Simulate(revision, contract, context, inputs);
-            if (!outcome.Success)
+            var status = outcome.Status;
+            if (status != gateCase.ExpectedStatus)
             {
-                failures.Add($"{gateCase.Name}: {outcome.ErrorCode}: {outcome.ErrorMessage}");
+                failures.Add($"{gateCase.Name}: 实际状态 {status} 与预期 {gateCase.ExpectedStatus} 不一致；{outcome.ErrorCode}: {outcome.ErrorMessage}");
                 continue;
             }
-
-            if (!expected.Keys.Order(StringComparer.Ordinal).SequenceEqual(outcome.Outputs.Keys.Order(StringComparer.Ordinal)) ||
-                expected.Any(item => !SameJson(item.Value, outcome.Outputs[item.Key])))
+            using var expected = JsonDocument.Parse(gateCase.ExpectedResultsJson);
+            using var actual = JsonDocument.Parse(RuleResultRows.Serialize(outcome.Results, includeSources: false));
+            if (!RuleJsonComparer.Equals(expected.RootElement, actual.RootElement))
             {
-                failures.Add($"{gateCase.Name}：输出值与预期不一致。");
+                failures.Add($"{gateCase.Name}：结果行数量、顺序或出口与预期不一致。");
             }
         }
         return failures;
@@ -46,10 +48,4 @@ public static class ReleaseGateEvaluator
         return document.RootElement.EnumerateObject().ToDictionary(x => x.Name, x => x.Value.GetRawText(), StringComparer.Ordinal);
     }
 
-    private static bool SameJson(string expected, string actual)
-    {
-        using var expectedDocument = JsonDocument.Parse(expected);
-        using var actualDocument = JsonDocument.Parse(actual);
-        return JsonElement.DeepEquals(expectedDocument.RootElement, actualDocument.RootElement);
-    }
 }

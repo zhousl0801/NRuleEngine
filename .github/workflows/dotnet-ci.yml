@@ -24,10 +24,10 @@ jobs:
           global-json-file: back-end/global.json
 
       - name: Restore
-        run: dotnet restore NRuleEngine.slnx
+        run: dotnet restore NRuleEngine.sln
 
       - name: Build
-        run: dotnet build NRuleEngine.slnx --no-restore
+        run: dotnet build NRuleEngine.sln --no-restore
 
       - name: Test
-        run: dotnet test NRuleEngine.slnx --no-build --no-restore
+        run: dotnet test NRuleEngine.sln --no-build --no-restore
