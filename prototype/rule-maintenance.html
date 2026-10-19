@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%239bc2ff%22/%3E%3Ctext%20x%3D%2216%22%20y%3D%2222%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20fill%3D%22%230e1930%22%3E%E8%A7%84%3C/text%3E%3C/svg%3E">
   <title>NRuleEngine · 规则维护流程</title>
   <link rel="stylesheet" href="rule-maintenance.css">
+  <link rel="stylesheet" href="design-system.css">
+  <script defer src="interface.js"></script>
   <script defer src="rule-execution.js"></script>
   <script defer src="collection-store.js"></script>
   <script defer src="rule-maintenance.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
   <div class="page">
     <div class="page-head">
       <div><a class="back" href="index.html#models">← 返回规则集</a><h1>维护规则</h1><p>编辑草稿中的规则条件与赋值。</p></div>
@@ -19,10 +23,10 @@
     <div class="layout">
       <aside class="rule-sidebar panel" aria-label="草稿规则列表">
         <div class="rail-head"><h2>当前规则</h2><button class="icon-button" id="add-rule" title="新建规则" aria-label="新建规则">＋</button></div>
-        <div id="rule-menu" class="rule-menu"></div>
+        <details class="rule-picker" id="rule-picker" open><summary id="rule-picker-label">选择规则</summary><div id="rule-menu" class="rule-menu"></div></details>
         <div class="rail-foot"><strong>草稿与线上隔离</strong><p>列表展示当前修订。选择线上修订后仅可查看，不能直接修改。</p></div>
       </aside>
-      <main class="work-area">
+      <main class="work-area" id="main-content" tabindex="-1">
         <div class="flow-tabs" role="tablist" aria-label="规则维护步骤">
           <button class="flow-tab active" data-stage="definition" role="tab" aria-selected="true"><span>01</span> 规则与条件</button>
           <button class="flow-tab" data-stage="assignments" role="tab" aria-selected="false"><span>02</span> 赋值动作</button>
@@ -39,9 +43,9 @@
           <div class="divider"></div>
           <div class="section-head compact"><div><h3>命中条件</h3><p>添加条件或条件组，逐层设置“且”或“或”。</p></div></div>
           <div id="condition-rows" class="condition-rows"></div>
-          <div class="preview-block"><div class="preview-head"><strong>条件预览</strong><button class="text-button" id="toggle-ast" type="button">查看条件结构</button></div><p id="condition-preview"></p><pre id="ast-preview" hidden></pre></div>
+          <div class="preview-block"><div class="preview-head"><strong>条件预览</strong><button class="text-button" id="toggle-ast" type="button" aria-controls="ast-preview" aria-expanded="false">查看条件结构</button></div><p id="condition-preview"></p><pre id="ast-preview" hidden></pre></div>
           <div class="message" id="definition-message" role="status" hidden></div>
-          <div class="stage-actions"><button class="btn quiet" id="delete-rule">查看删除影响</button><button class="btn primary" id="save-rule">保存规则与条件</button></div>
+          <div class="stage-actions"><button class="btn quiet" id="delete-rule">查看删除影响</button><div class="stage-primary-actions"><button class="btn primary" id="save-rule">保存规则与条件</button><button class="btn ghost" data-go="assignments">下一步：赋值动作 →</button></div></div>
         </section>
         <section class="stage panel" id="stage-assignments" role="tabpanel">
           <div class="section-head"><div><h2>赋值动作</h2><p>为中间变量或出口变量设置计算结果。</p></div><button class="btn subtle" id="add-assignment">＋ 添加赋值</button></div>
@@ -52,12 +56,13 @@
         </section>
         <section class="stage panel" id="stage-review" role="tabpanel">
           <div class="section-head"><div><h2>校验与试算</h2><p>校验当前草稿，并用场景输入检查计算结果。</p></div></div>
+          <div class="simulation-inputs"><h3>试算输入</h3><div class="field-grid"><label class="field">产品类别 · 场景上下文<input id="sim-kind" value="A"></label><label class="field">工艺路线 · 场景上下文<input id="sim-route" value="通用"></label><label class="field">入口宽度 · 入口变量<input id="sim-width" type="number" value="120"></label></div></div>
           <div class="review-grid"><div class="review-card"><h3>完整校验</h3><p>检查规则、变量依赖、写入冲突与场景绑定，问题定位到对象路径。</p><button class="btn subtle" id="run-validation">查看校验结果</button></div><div class="review-card"><h3>草稿试算</h3><p>对指定输入查看绑定、命中规则、赋值和最终出口，不影响线上版本。</p><button class="btn subtle" id="run-simulation">运行试算</button></div></div>
           <div class="execution-context"><p id="execution-summary" class="side-note"></p><a class="back" id="execution-settings-link" href="index.html#models">查看执行设置 →</a></div>
-          <div id="validation-result" class="result-box" hidden></div>
-          <div class="simulation-inputs"><h3>试算输入</h3><div class="field-grid"><label class="field">产品类别 · 场景上下文<input id="sim-kind" value="A"></label><label class="field">工艺路线 · 场景上下文<input id="sim-route" value="通用"></label><label class="field">入口宽度 · 入口变量<input id="sim-width" type="number" value="120"></label></div></div>
-          <div id="simulation-result" class="result-box" hidden></div>
-          <div class="stage-actions"><button class="btn quiet" data-go="assignments">← 赋值动作</button><a class="btn primary collection-return" href="index.html#models">返回规则集，准备门禁与发布 →</a></div>
+          <div id="validation-result" class="result-box" role="status" tabindex="-1" hidden></div>
+
+          <div id="simulation-result" class="result-box" role="status" tabindex="-1" hidden></div>
+          <div class="stage-actions"><button class="btn quiet" data-go="assignments">← 赋值动作</button><a class="btn primary collection-return" href="index.html#models">返回规则集，准备发布 →</a></div>
         </section>
       </main>
       <aside class="inspector panel" aria-label="维护状态与帮助">
@@ -66,7 +71,7 @@
       </aside>
     </div>
   </div>
-  <div class="dialog-backdrop" id="dialog-backdrop" hidden><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><span class="eyebrow" id="dialog-kicker">删除影响</span><h2 id="dialog-title"></h2><div id="dialog-body"></div><div class="dialog-actions"><button class="btn quiet" id="dialog-cancel">取消</button><button class="btn danger" id="dialog-confirm">确认删除</button></div></div></div>
+  <dialog class="dialog" id="dialog-backdrop" aria-labelledby="dialog-title" aria-describedby="dialog-body"><span class="eyebrow" id="dialog-kicker">删除影响</span><h2 id="dialog-title"></h2><div id="dialog-body"></div><div class="dialog-actions"><button class="btn quiet" id="dialog-cancel">取消</button><button class="btn danger" id="dialog-confirm">确认删除</button></div></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 </body>
 </html>

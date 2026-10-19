@@ -56,7 +56,7 @@ a{color:inherit;text-decoration:none}a:hover{color:var(--accent)}h1,h2,h3,p{marg
 .formula-token{background:#283d66;border-color:#5274ad;color:#dbe9ff}
 .formula-token.variable-token{background:#31558b;border-color:#6f9de7;color:#f2f7ff}
 .formula-token:hover{background:#4369a7;border-color:#91b9ff;color:#fff}
-.formula-token:focus-visible{outline:2px solid:#9dc4ff;outline-offset:2px}
+.formula-token:focus-visible{outline:2px solid #9dc4ff;outline-offset:2px}
 .summary-item.ok .bullet{background:#1d463e;color:#35c78a}
 .summary-item.error{padding:9px;border:1px solid #bf5b6a;border-radius:7px;background:#4a293c;color:#ffd7dc;font-weight:600}
 .summary-item.error .bullet{background:#b84d60;color:#fff;font-weight:700}

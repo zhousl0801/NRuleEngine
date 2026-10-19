@@ -18,7 +18,7 @@ select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
 .collection-filter select { height: 37px; min-width: 140px; font-size: 12px; }
 .collection-list-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 0 0 17px; color: var(--faint); font-size: 11px; }
 .collection-list-heading > span:first-child { color: var(--muted); }
-.collection-columns, .collection-row { display: grid; grid-template-columns: minmax(190px, 1.2fr) minmax(160px, 1fr) minmax(105px, .6fr) 138px; gap: 20px; align-items: center; }
+.collection-columns, .collection-row { display: grid; grid-template-columns: minmax(190px, 1.2fr) minmax(160px, 1fr) minmax(105px, .6fr) 180px; gap: 20px; align-items: center; }
 .collection-columns { padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--faint); font-size: 10px; }
 .collection-row { padding: 22px 0; border-bottom: 1px solid var(--line); }
 .collection-row:last-child { border-bottom: 0; }
@@ -32,11 +32,13 @@ select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
 .collection-revisions { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
 .revision-badge { border: 1px solid transparent; white-space: nowrap; }
 .revision-badge:hover { border-color: currentColor; }
-.collection-row-actions { display: flex; justify-content: end; align-items: center; gap: 6px; }
+.collection-row-actions { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: 6px; }
 .collection-menu { position: relative; }
-.collection-menu summary { list-style: none; padding: 6px 8px; border: 1px solid transparent; border-radius: 7px; color: var(--muted); font-size: 11px; cursor: pointer; }
+.collection-menu summary { display: inline-flex; align-items: center; gap: 8px; min-height: 35px; list-style: none; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: #202a41; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.collection-menu summary::after { content: ""; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
+.collection-menu[open] summary::after { margin-top: 3px; transform: rotate(225deg); }
 .collection-menu summary::-webkit-details-marker { display: none; }
-.collection-menu summary:hover, .collection-menu[open] summary { border-color: var(--line); background: #202a41; }
+.collection-menu summary:hover, .collection-menu[open] summary { border-color: #63789e; background: #2a3752; color: var(--text); }
 .collection-menu > div { position: absolute; z-index: 3; right: 0; top: calc(100% + 5px); display: grid; gap: 4px; min-width: 170px; padding: 7px; border: 1px solid var(--line); border-radius: 9px; background: #202a41; box-shadow: 0 12px 32px #0005; }
 .collection-menu .btn { justify-content: start; }
 .collection-empty { padding: 34px 18px; text-align: center; }
@@ -99,8 +101,7 @@ select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
 .catalog-search { flex: 0 1 260px; width: 100%; }
 .catalog-hint { margin-top: 16px; color: var(--faint); font-size: 11px; line-height: 1.8; }
 .catalog-no-results { padding: 24px 0; color: var(--faint); font-size: 12px; }
-.collection-scene-link { display: inline-block; margin-top: 8px; padding: 3px 0; border: 0; color: var(--accent); background: transparent; font-size: 11px; text-align: left; }
-.collection-scene-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.collection-scene { display: block; margin-top: 8px; color: var(--faint); font-size: 11px; line-height: 1.7; }
 .empty-actions { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; }
 #evaluation-candidates { display: grid; gap: 12px; }
 .field input[readonly] { color: var(--muted); background: #252e43; }
@@ -156,3 +157,10 @@ select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
 .tab { flex: none; }
 
 .execution-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+
+.collection-scope-help { padding: 0 0 14px; color: var(--muted); font-size: 11px; line-height: 1.8; }
+.collection-columns small { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; }
+.aside-block > .hint { margin-top: 10px; line-height: 1.8; }
+.publish-check-button { width: 100%; justify-content: space-between; margin-top: 15px; padding: 8px 12px; color: var(--muted); background: #202a41; font-size: 12px; font-weight: 500; }
+.publish-check-button:hover { color: var(--text); background: #2a3752; border-color: #63789e; }
+.release-validation-copy { margin-top: 10px; line-height: 1.8; }

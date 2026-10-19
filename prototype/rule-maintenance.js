@@ -33,7 +33,7 @@
   const initialMode = ['draft', 'published'].includes(requestedMode) && collection[requestedMode] ? requestedMode : collection.draft ? 'draft' : 'published';
   const rules = collectionStore.clone(collection[initialMode].rules);
   const initialIndex = Math.max(0, Math.min(rules.length - 1, Number(params.get('rule')) || 0));
-  const state = { rules, selectedId: rules.find(rule => rule.id === params.get('ruleId'))?.id || rules[initialIndex]?.id || null, stage: 'definition', revision: initialMode, stamp: 42, conflict: false, pendingDelete: null, toastTimer: null };
+  const state = { rules, selectedId: rules.find(rule => rule.id === params.get('ruleId'))?.id || rules[initialIndex]?.id || null, stage: 'definition', revision: initialMode, stamp: 42, conflict: false, pendingDelete: null };
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const selected = () => state.rules.find(rule => rule.id === state.selectedId);
@@ -89,14 +89,10 @@
     node.textContent = text;
     node.className = `message ${type}`.trim();
     node.hidden = !text;
+    node.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    if (text && type === 'error') node.scrollIntoView({ block:'nearest' });
   }
-  function toast(text) {
-    const node = $('#toast');
-    node.textContent = text;
-    node.hidden = false;
-    clearTimeout(state.toastTimer);
-    state.toastTimer = setTimeout(() => { node.hidden = true; }, 3200);
-  }
+  function toast(text) { window.PrototypeUI.toast(text); }
   function option(value, label, active) { return `<option value="${html(value)}"${value === active ? ' selected' : ''}>${html(label)}</option>`; }
   function variableOptions(active, filter = () => true) { return Object.entries(variableCatalog).filter(([key, variable]) => filter(variable, key)).map(([key, variable]) => option(key, variable.name, active)).join(''); }
   function kindName(kind) { return ({ Decimal: '数值', String: '文本', Boolean: '布尔' })[kind] || kind; }
@@ -317,8 +313,14 @@
       ExpressionAstJson: assignment.kind === 'expression' ? JSON.stringify(expressionAst(assignment)) : null,
       SortOrder: selected().assignments.indexOf(assignment) + 1, ExpectedRevisionConcurrencyStamp: `demo-${state.stamp}` };
   }
+  const compactRules = window.matchMedia('(max-width: 760px)');
+  const syncRulePicker = () => { $('#rule-picker').open = !compactRules.matches; };
+  compactRules.addEventListener('change', syncRulePicker);
+  syncRulePicker();
   function renderMenu() {
-    $('#rule-menu').innerHTML = state.rules.map((rule, index) => `<button class="rule-select${rule.id === state.selectedId ? ' active' : ''}" data-select-rule="${rule.id}"><span class="rule-meta">规则 ${String(index + 1).padStart(2, '0')} · 优先级 ${html(rule.priority)}</span><strong>${html(rule.name || '未命名规则')}</strong><small>${rule.saved ? '已保存' : '待创建'} · ${rule.assignments.length} 项赋值${rule.dirty || rule.assignments.some(item => item.dirty) ? ' · 有未保存修改' : ''}</small></button>`).join('') || '<p class="assignment-empty">当前修订没有规则。点击上方 ＋ 新建。</p>';
+    $('#rule-picker-label').textContent = `${selected()?.name || '尚未选择规则'} · ${state.rules.length} 条规则`;
+
+    $('#rule-menu').innerHTML = state.rules.map((rule, index) => `<button class="rule-select${rule.id === state.selectedId ? ' active' : ''}" aria-pressed="${rule.id === state.selectedId}" data-select-rule="${rule.id}"><span class="rule-meta">规则 ${String(index + 1).padStart(2, '0')} · 优先级 ${html(rule.priority)}</span><strong>${html(rule.name || '未命名规则')}</strong><small>${rule.saved ? '已保存' : '待创建'} · ${rule.assignments.length} 项赋值${rule.dirty || rule.assignments.some(item => item.dirty) ? ' · 有未保存修改' : ''}</small></button>`).join('') || '<p class="assignment-empty">当前修订没有规则。点击上方 ＋ 新建。</p>';
   }
   function renderConditionNode(node, root = false) {
     if (node.kind === 'condition') {
@@ -415,30 +417,34 @@
   function render() { $('#validation-result').hidden = true; $('#simulation-result').hidden = true; renderMenu(); renderDefinition(); renderAssignments(); renderSummary(); }
   function showStage(stage) {
     state.stage = stage;
-    $$('.flow-tab').forEach(tab => { const active = tab.dataset.stage === stage; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); });
-    $$('.stage').forEach(section => section.classList.toggle('active', section.id === `stage-${stage}`));
+    $$('.flow-tab').forEach(tab => { const active = tab.dataset.stage === stage; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; tab.id = `flow-tab-${tab.dataset.stage}`; tab.setAttribute('aria-controls', `stage-${tab.dataset.stage}`); });
+    $$('.stage').forEach(section => { section.classList.toggle('active', section.id === `stage-${stage}`); section.setAttribute('aria-labelledby', section.id.replace('stage-', 'flow-tab-')); });
   }
   function requireWrite(messageId) {
     if (!editable()) { showMessage(messageId, '线上修订只读。请切回草稿或从线上创建新草稿。', 'error'); return false; }
     if (state.conflict) { showMessage(messageId, '草稿已被他人更新，请先刷新草稿。', 'error'); return false; }
     return true;
   }
+  function ruleError(message, field) {
+    showMessage('definition-message', message, 'error');
+    if (field) { field.setAttribute('aria-invalid', 'true'); field.setAttribute('aria-describedby', 'definition-message'); field.focus(); }
+  }
   function saveRule() {
     if (!requireWrite('definition-message')) return;
     const rule = selected(); if (!rule) return;
-    if (!rule.name.trim()) { showMessage('definition-message', '填写规则名称后再保存。', 'error'); $('#rule-name').focus(); return; }
-    if (!Number.isInteger(Number(rule.priority)) || !Number.isInteger(Number(rule.order)) || rule.priority === '' || rule.order === '') { showMessage('definition-message', '优先级和同级顺序必须是整数。', 'error'); return; }
-    if (state.rules.some(other => other.id !== rule.id && Number(other.priority) === Number(rule.priority) && Number(other.order) === Number(rule.order))) { showMessage('definition-message', '同优先级下的顺序值与其他规则重复。', 'error'); return; }
+    if (!rule.name.trim()) { ruleError('填写规则名称后再保存。', $('#rule-name')); return; }
+    if (!Number.isInteger(Number(rule.priority)) || !Number.isInteger(Number(rule.order)) || rule.priority === '' || rule.order === '') { ruleError('优先级和同级顺序必须是整数。', !Number.isInteger(Number(rule.priority)) || rule.priority === '' ? $('#rule-priority') : $('#rule-order')); return; }
+    if (state.rules.some(other => other.id !== rule.id && Number(other.priority) === Number(rule.priority) && Number(other.order) === Number(rule.order))) { ruleError('同优先级下的顺序值与其他规则重复。', $('#rule-order')); return; }
     function conditionError(node, root = false) {
       if (node.kind === 'condition') return node.value.trim() === '' || (variableCatalog[node.field].kind === 'Decimal' && !Number.isFinite(Number(node.value))) ? '条件比较值不能为空，数值变量需要有效数值。' : '';
       if (!root && !node.children.length) return '子条件组至少需要一个条件。';
       return node.children.map(child => conditionError(child)).find(Boolean) || '';
     }
     const invalidCondition = conditionError(rule.conditionTree, true);
-    if (invalidCondition) { showMessage('definition-message', invalidCondition, 'error'); return; }
+    if (invalidCondition) { ruleError(invalidCondition, $$('#condition-rows input').find(input => !input.value.trim() || input.inputMode === 'decimal' && !Number.isFinite(Number(input.value)))); return; }
     const payload = rulePayload(rule);
     rule.saved = true; rule.dirty = false; state.stamp += 1; persistChange('rule', rule);
-    showMessage('definition-message', `规则与条件已保存在当前页面，请继续逐条保存赋值。`, 'success');
+    showMessage('definition-message', `规则与条件已保存到当前草稿，可继续编制赋值。`, 'success');
     renderMenu(); renderDefinition(); renderSummary(); toast('规则与条件已保存');
   }
   function saveAssignment(id) {
@@ -451,8 +457,8 @@
       try { assignmentPayload(assignment); }
       catch (error) { showMessage('assignment-message', error.message, 'error'); return; }
       assignment.saved = true; assignment.dirty = false; state.stamp += 1; persistChange('assignment', rule, assignment);
-      showMessage('assignment-message', '赋值已保存在当前页面。', 'success');
-      renderMenu(); renderAssignments(); renderSummary(); toast('赋值已保存');
+      showMessage('assignment-message', '赋值已保存到当前草稿。', 'success');
+      renderMenu(); renderAssignments(); renderSummary(); $(`[data-save-assignment="${id}"]`)?.focus({ preventScroll:true }); toast('赋值已保存');
       return;
     }
     if (assignment.kind === 'expression' && target.kind !== 'Decimal') { showMessage('assignment-message', '当前表达式产生数值，目标变量也必须是数值类型。', 'error'); return; }
@@ -475,9 +481,10 @@
     if (assignment.kind === 'constant' && (assignment.constant === '' || (target.kind === 'Decimal' && !Number.isFinite(Number(assignment.constant))))) { showMessage('assignment-message', '填写与目标类型相符的常量值。', 'error'); return; }
     assignmentPayload(assignment);
     assignment.saved = true; assignment.dirty = false; state.stamp += 1; persistChange('assignment', rule, assignment);
-    showMessage('assignment-message', '赋值已保存在当前页面。', 'success');
-    renderMenu(); renderAssignments(); renderSummary(); toast('赋值已保存');
+    showMessage('assignment-message', '赋值已保存到当前草稿。', 'success');
+    renderMenu(); renderAssignments(); renderSummary(); $(`[data-save-assignment="${id}"]`)?.focus({ preventScroll:true }); toast('赋值已保存');
   }
+  let dialogTrigger = null;
   function openDelete(kind, id) {
     if (!requireWrite(kind === 'rule' ? 'definition-message' : 'assignment-message')) return;
     const rule = selected(); if (!rule) return;
@@ -485,12 +492,18 @@
     state.pendingDelete = { kind, id };
     $('#dialog-title').textContent = kind === 'rule' ? `删除「${rule.name || '未命名规则'}」？` : `删除「${variableCatalog[assignment.target].name}」赋值？`;
     $('#dialog-body').innerHTML = kind === 'rule'
-      ? `<p>${rule.saved ? '服务端会先返回这条规则的删除影响与当前并发戳。影响只提示，不自动阻止规则删除。' : '这条规则尚未保存，只需丢弃本地编辑内容。'}删除规则时，其 ${rule.assignments.length} 项赋值会一起移除。</p><ul><li>规则路径：${revisionLabel()} / ${html(rule.name || '未命名规则')}</li><li>相关门禁用例：本规则集的回归用例（需重新验证）</li><li>删除后应重新进行完整校验与试算</li></ul>`
-      : `<p>${assignment.saved ? '服务端会先返回赋值的直接引用及下游影响。影响只提示，不自动阻止赋值删除。' : '这条赋值尚未保存，只需丢弃本地编辑内容。'}</p><ul><li>赋值路径：${revisionLabel()} / ${html(rule.name)} / ${html(variableCatalog[assignment.target].name)}</li><li>删除后可能缺少必需出口，请重新校验</li></ul>`;
-    $('#dialog-backdrop').hidden = false;
+      ? `<p>${rule.saved ? '这条规则将从当前草稿中移除，线上修订保持不变。' : '这条规则尚未保存，只需丢弃本地编辑内容。'}删除规则时，其 ${rule.assignments.length} 项赋值会一起移除。</p><ul><li>规则路径：${revisionLabel()} / ${html(rule.name || '未命名规则')}</li><li>相关发布校验规则：本规则集的回归用例（需重新验证）</li><li>删除后应重新进行完整校验与试算</li></ul>`
+      : `<p>${assignment.saved ? '这项赋值将从当前草稿中移除，依赖该值的后续计算可能受到影响。' : '这条赋值尚未保存，只需丢弃本地编辑内容。'}</p><ul><li>赋值路径：${revisionLabel()} / ${html(rule.name)} / ${html(variableCatalog[assignment.target].name)}</li><li>删除后可能缺少必需出口，请重新校验</li></ul>`;
+    dialogTrigger = document.activeElement;
+    $('#dialog-backdrop').showModal();
     $('#dialog-cancel').focus();
   }
-  function closeDialog() { $('#dialog-backdrop').hidden = true; state.pendingDelete = null; }
+  function closeDialog() { $('#dialog-backdrop').close(); state.pendingDelete = null; }
+  $('#dialog-backdrop').addEventListener('close', () => {
+    state.pendingDelete = null;
+    if (dialogTrigger?.isConnected) dialogTrigger.focus();
+    else document.querySelector('.flow-tab.active')?.focus();
+  });
   function confirmDelete() {
     const pending = state.pendingDelete; if (!pending) return;
     if (!requireWrite(pending.kind === 'rule' ? 'definition-message' : 'assignment-message')) { closeDialog(); return; }
@@ -548,9 +561,17 @@
     if (assignment.round !== '') value = Number(value.toFixed(Number(assignment.round)));
     return value;
   }
-  function executionTrace(trace) {
+  function executionTrace(trace, expanded = false) {
     if (!trace.length) return '';
-    return `<details class="simulation-trace" open><summary>执行过程 · ${execution.modes[collection[state.revision].executionMode].name}</summary><ol>${trace.map(step => `<li><div class="trace-rule"><strong>${html(step.name)}</strong><span>${html(step.status)} · 优先级 ${html(step.priority)} · 顺序 ${html(step.order)}</span></div>${step.assignments.length ? `<ul>${step.assignments.map(write => `<li><span>${html(variableCatalog[write.target].name)} · ${write.action}</span><code>${write.previous !== undefined ? html(JSON.stringify(write.previous)) + ' → ' : ''}${html(JSON.stringify(write.value))}</code></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></details>`;
+    return `<details class="simulation-trace"${expanded ? ' open' : ''}><summary>执行过程 · ${execution.modes[collection[state.revision].executionMode].name}</summary><ol>${trace.map(step => `<li><div class="trace-rule"><strong>${html(step.name)}</strong><span>${html(step.status)} · 优先级 ${html(step.priority)} · 顺序 ${html(step.order)}</span></div>${step.assignments.length ? `<ul>${step.assignments.map(write => `<li><span>${html(variableCatalog[write.target].name)} · ${write.action}</span><code>${write.previous !== undefined ? html(JSON.stringify(write.previous)) + ' → ' : ''}${html(JSON.stringify(write.value))}</code></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></details>`;
+  }
+  function resultValue(value) {
+    if (Array.isArray(value)) return `<div class="result-values">${value.map(item => `<span>${html(item)}</span>`).join('')}</div>`;
+    if (value && typeof value === 'object') return `${html(value.min)} <span class="subtle">至</span> ${html(value.max)}`;
+    return html(value);
+  }
+  function resultRows(results, revision) {
+    return `<div class="simulation-rows">${results.map((row, index) => `<section class="simulation-row" aria-label="结果 ${index + 1}"><div class="result-row-heading"><h3>结果 ${index + 1}</h3><span>命中规则：${row.sourceRuleIds.map(id => html(revision.rules.find(rule => rule.id === id)?.name || id)).join('、')}</span></div><dl>${Object.entries(row.outputs).map(([code,value]) => `<div><dt>${html(variableCatalog[code]?.name || code)}</dt><dd>${resultValue(value)}</dd></div>`).join('')}</dl></section>`).join('')}</div>`;
   }
   function runSimulation() {
     const box = $('#simulation-result'); box.hidden = false;
@@ -564,8 +585,8 @@
     const revision = collectionStore.get(collection.id).draft;
     const result = execution.execute({ revision, scene:collectionStore.getScene(collection.scene), variables:variableCatalog, initial, match:conditionMatches, evaluate:evaluateAssignment });
     box.className = `result-box${result.error ? ' error' : ''}`;
-    box.innerHTML = result.error ? `<strong>试算未通过</strong><p class="simulation-error">${html(result.error)}</p><p>本次不返回部分结果行。</p>${executionTrace(result.trace)}`
-      : `<strong>草稿规则预览 · ${result.results.length ? result.results.length + ' 行结果' : '没有规则命中'}</strong><p>${execution.modes[revision.executionMode].name}${revision.executionMode === 'Sequential' ? ' · ' + execution.policies[revision.multipleWritePolicy].name : ''}</p><pre>${html(JSON.stringify({ results:result.results }, null, 2))}</pre>${executionTrace(result.trace)}<p>此预览使用已保存的执行设置与规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
+    box.innerHTML = result.error ? `<strong>试算未通过</strong><p class="simulation-error">${html(result.error)}</p><p>本次不返回部分结果行。</p>${executionTrace(result.trace, true)}`
+      : `<strong>草稿规则预览 · ${result.results.length ? result.results.length + ' 行结果' : '没有规则命中'}</strong><p>${execution.modes[revision.executionMode].name}${revision.executionMode === 'Sequential' ? ' · ' + execution.policies[revision.multipleWritePolicy].name : ''}</p>${resultRows(result.results, revision)}${executionTrace(result.trace)}<details class="result-data"><summary>查看原始结果 JSON</summary><pre>${html(JSON.stringify({ results:result.results }, null, 2))}</pre></details><p>此预览使用已保存的执行设置与规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
   }
   function markDirty(rule, assignment) {
     if (assignment) assignment.dirty = true; else rule.dirty = true;
@@ -575,15 +596,16 @@
   }
 
   document.addEventListener('click', event => {
+    if (event.target.closest('.skip-link')) { event.preventDefault(); $('#main-content').focus(); return; }
     const stage = event.target.closest('[data-stage]'); if (stage) { showStage(stage.dataset.stage); return; }
-    const go = event.target.closest('[data-go]'); if (go) { showStage(go.dataset.go); return; }
+    const go = event.target.closest('[data-go]'); if (go) { if (go.dataset.go === 'assignments' && state.stage === 'definition' && selected() && (!selected().saved || selected().dirty)) { showMessage('definition-message', '先保存规则与条件，再继续编制赋值。', 'error'); $('#save-rule').focus(); return; } showStage(go.dataset.go); document.querySelector('.flow-tab.active').focus(); return; }
     const ruleButton = event.target.closest('[data-select-rule]');
-    if (ruleButton) { if (allDirty()) { toast('先保存当前修改，再切换规则'); return; } state.selectedId = ruleButton.dataset.selectRule; showMessage('definition-message', ''); showMessage('assignment-message', ''); render(); return; }
+    if (ruleButton) { if (allDirty()) { toast('先保存当前修改，再切换规则'); return; } state.selectedId = ruleButton.dataset.selectRule; showMessage('definition-message', ''); showMessage('assignment-message', ''); render(); if (compactRules.matches) { $('#rule-picker').open = false; $('#rule-picker-label').focus(); } else document.querySelector(`[data-select-rule="${state.selectedId}"]`)?.focus(); return; }
     if (event.target.closest('#add-rule')) { if (!editable()) return; if (allDirty()) { toast('先保存当前修改，再新建规则'); return; } const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; showStage('definition'); render(); $('#rule-name').focus(); return; }
-    const addCondition = event.target.closest('[data-add-condition]'); if (addCondition) { const rule = selected(); if (!rule || !editable()) return; const parent = findConditionNode(rule.conditionTree, addCondition.dataset.addCondition)?.node; parent.children.push(condition('inputWidth', 'gte', '')); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); return; }
-    const addGroup = event.target.closest('[data-add-group]'); if (addGroup) { const rule = selected(); if (!rule || !editable()) return; const parent = findConditionNode(rule.conditionTree, addGroup.dataset.addGroup)?.node; parent.children.push(group('or', [condition('inputWidth', 'gte', '')])); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); return; }
-    const removeCondition = event.target.closest('[data-remove-condition]'); if (removeCondition) { const rule = selected(); if (!rule || !editable()) return; const found = findConditionNode(rule.conditionTree, removeCondition.dataset.removeCondition); if (!found?.parent) return; found.parent.children.splice(found.parent.children.indexOf(found.node), 1); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); return; }
-    if (event.target.closest('#toggle-ast')) { const node = $('#ast-preview'); node.hidden = !node.hidden; $('#toggle-ast').textContent = node.hidden ? '查看条件结构' : '收起条件结构'; return; }
+    const addCondition = event.target.closest('[data-add-condition]'); if (addCondition) { const rule = selected(); if (!rule || !editable()) return; const parent = findConditionNode(rule.conditionTree, addCondition.dataset.addCondition)?.node; parent.children.push(condition('inputWidth', 'gte', '')); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); $(`[data-condition-id="${parent.children.at(-1).id}"] input`)?.focus(); return; }
+    const addGroup = event.target.closest('[data-add-group]'); if (addGroup) { const rule = selected(); if (!rule || !editable()) return; const parent = findConditionNode(rule.conditionTree, addGroup.dataset.addGroup)?.node; parent.children.push(group('or', [condition('inputWidth', 'gte', '')])); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); $(`[data-group-id="${parent.children.at(-1).id}"] input`)?.focus(); return; }
+    const removeCondition = event.target.closest('[data-remove-condition]'); if (removeCondition) { const rule = selected(); if (!rule || !editable()) return; const found = findConditionNode(rule.conditionTree, removeCondition.dataset.removeCondition); if (!found?.parent) return; found.parent.children.splice(found.parent.children.indexOf(found.node), 1); markDirty(rule); renderConditionRows(); renderConditionPreview(); applyReadOnly(); $(`[data-add-condition="${found.parent.id}"]`)?.focus(); return; }
+    if (event.target.closest('#toggle-ast')) { const node = $('#ast-preview'); node.hidden = !node.hidden; $('#toggle-ast').textContent = node.hidden ? '查看条件结构' : '收起条件结构'; $('#toggle-ast').setAttribute('aria-expanded', String(!node.hidden)); return; }
     if (event.target.closest('#save-rule')) { saveRule(); return; }
     if (event.target.closest('#delete-rule')) { openDelete('rule', state.selectedId); return; }
     if (event.target.closest('#add-assignment')) { const rule = selected(); if (!rule || !editable()) return; if (!rule.saved || rule.dirty) { showMessage('assignment-message', '先保存规则与条件，再添加赋值。', 'error'); return; } rule.assignments.push(newAssignment()); markDirty(rule, rule.assignments.at(-1)); renderAssignments(); return; }
@@ -620,15 +642,18 @@
     }
     const saveAssignmentButton = event.target.closest('[data-save-assignment]'); if (saveAssignmentButton) { saveAssignment(saveAssignmentButton.dataset.saveAssignment); return; }
     const removeAssignmentButton = event.target.closest('[data-remove-assignment]'); if (removeAssignmentButton) { openDelete('assignment', removeAssignmentButton.dataset.removeAssignment); return; }
-    if (event.target.closest('#run-validation')) { runValidation(); return; }
-    if (event.target.closest('#run-simulation')) { runSimulation(); return; }
+    if (event.target.closest('#run-validation')) { runValidation(); $('#validation-result').focus({ preventScroll:true }); $('#validation-result').scrollIntoView({ block:'start' }); return; }
+    if (event.target.closest('#run-simulation')) { runSimulation(); window.PrototypeUI.enhance($('#simulation-result')); $('#simulation-result').focus({ preventScroll:true }); $('#simulation-result').scrollIntoView({ block:'start' }); return; }
     if (event.target.closest('#trigger-conflict')) { state.conflict = true; $('#validation-result').hidden = true; $('#simulation-result').hidden = true; renderSummary(); toast('草稿已被他人更新，请刷新草稿'); return; }
     if (event.target.closest('#refresh-draft')) { state.conflict = false; state.stamp += 1; showMessage('definition-message', ''); showMessage('assignment-message', ''); renderSummary(); toast('草稿已刷新，请核对当前修改后再保存'); return; }
-    if (event.target.closest('#dialog-cancel') || event.target.id === 'dialog-backdrop') { closeDialog(); return; }
+    if (event.target.closest('#dialog-cancel')) { closeDialog(); return; }
+    if (event.target.id === 'dialog-backdrop') { const rect = event.target.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeDialog(); return; }
     if (event.target.closest('#dialog-confirm')) { confirmDelete(); }
   });
   document.addEventListener('input', event => {
     const rule = selected(); if (!rule || !editable()) return;
+    event.target.removeAttribute('aria-invalid');
+    if (event.target.getAttribute('aria-describedby') === 'definition-message') event.target.removeAttribute('aria-describedby');
     const ids = { 'rule-name': 'name', 'rule-priority': 'priority', 'rule-order': 'order' };
     if (ids[event.target.id]) { rule[ids[event.target.id]] = event.target.value; markDirty(rule); return; }
     const row = event.target.closest('[data-condition-id]');
@@ -697,9 +722,18 @@
     markDirty(selected(), assignment);
     renderFormulaStatus(card, assignment);
   });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#dialog-backdrop').hidden) closeDialog(); });
+  document.addEventListener('keydown', event => {
+    const tab = event.target.closest('.flow-tab');
+    if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const tabs = $$('.flow-tab'), index = tabs.indexOf(tab);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    showStage(tabs[next].dataset.stage);
+    tabs[next].focus();
+  });
   if (params.get('mode') === 'new' && editable()) { const rule = newRule(); state.rules.push(rule); state.selectedId = rule.id; }
   updateContext();
+  showStage(state.stage);
   if (['definition','assignments','review'].includes(params.get('stage'))) showStage(params.get('stage'));
   window.addEventListener('beforeunload', event => { if (allDirty()) { event.preventDefault(); event.returnValue = ''; } });
   render();

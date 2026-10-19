@@ -17,7 +17,7 @@
   function rememberFilters() { try { sessionStorage.setItem(filterKey, JSON.stringify(filters)); } catch { /* 保留页内筛选。 */ } }
   const variableNames = { inputWidth: '入口宽度', productKind: '产品类别', factor: '展开系数', offset: '偏移量', outputWidth: '展开宽度', calcStatus: '计算状态', widthRange: '宽度范围', candidateWidths: '候选宽度', candidateCodes: '候选编码' };
   const operators = { eq: '=', ne: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤' };
-  let catalogQuery = '', route = {}, dirtyCondition = false, dirtyExecution = false, dialogSubmit = null, dialogTrigger = null, toastTimer, selectedRule = null;
+  let catalogQuery = '', route = {}, dirtyCondition = false, dirtyExecution = false, dialogSubmit = null, dialogTrigger = null, selectedRule = null;
   const revisionName = no => `R${String(no).padStart(2, '0')}`;
   const option = (value, text, selected) => `<option value="${html(value)}"${value === selected ? ' selected' : ''}>${html(text)}</option>`;
   function address(view, params = {}) { return `#${view}${Object.keys(params).length ? '?' + new URLSearchParams(params) : ''}`; }
@@ -25,15 +25,15 @@
     const [view, query = ''] = location.hash.slice(1).split('?');
     return { ...Object.fromEntries(new URLSearchParams(query)), view: view || 'catalog' };
   }
-  function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3200); }
-  function navigate(view, params = {}, replace = false, force = false) {
+  function toast(message) { window.PrototypeUI.toast(message); }
+  function navigate(view, params = {}, replace = false, force = false, preserveScroll = false) {
     if ((dirtyCondition || dirtyExecution) && !force) {
-      showDialog('放弃未保存的修改？', dirtyExecution ? '执行设置有未保存的修改。保存后再切换可以保留这些内容。' : '当前条件草稿有未保存的修改。保存后再切换可以保留这些内容。', '', '放弃修改并离开', () => { dirtyCondition = false; dirtyExecution = false; closeDialog(); navigate(view, params, replace, true); });
+      showDialog('放弃未保存的修改？', dirtyExecution ? '执行设置有未保存的修改。保存后再切换可以保留这些内容。' : '当前条件草稿有未保存的修改。保存后再切换可以保留这些内容。', '', '放弃修改并离开', () => { dirtyCondition = false; dirtyExecution = false; closeDialog(); navigate(view, params, replace, true, preserveScroll); });
       return;
     }
     const hash = address(view, params);
     if (location.hash !== hash) history[replace ? 'replaceState' : 'pushState'](null, '', hash);
-    renderRoute(true);
+    renderRoute(!preserveScroll);
   }
   function listParams() { return route.scene ? { scene: route.scene } : {}; }
   function detailParams(item, extra = {}) {
@@ -70,9 +70,12 @@
     return `${item.published ? `<button class="status-pill live revision-badge" data-open-set="${html(item.id)}" data-mode="published">${item.archived ? '归档前发布' : '线上'} ${revisionName(item.published.no)}</button>` : '<span class="tag">未发布</span>'}
       ${item.draft ? `<button class="status-pill draft revision-badge" data-open-set="${html(item.id)}" data-mode="draft">草稿 ${revisionName(item.draft.no)}</button>` : ''}`;
   }
+  function publishCheckButton(item) {
+    return `<button type="button" class="btn publish-check-button" data-collection-action="publish-check" data-set="${html(item.id)}"><span>发布检查</span><span aria-hidden="true">→</span></button>`;
+  }
   function rowMenu(item) {
     if (item.archived) return '<span class="tag">已归档</span>';
-    return `<details class="collection-menu"><summary aria-label="${html(item.name)}的更多操作">更多</summary><div>
+    return `<details class="collection-menu"><summary aria-label="${html(item.name)}的更多操作">更多操作</summary><div>
       ${!item.draft && item.published ? rowAction('draft', item.id, '从线上创建草稿') : ''}
       ${item.kind === 'rule' ? rowAction('copy', item.id, '复制为新规则集') : ''}
       ${rowAction('archive', item.id, '归档')}
@@ -91,8 +94,8 @@
         <label class="collection-filter scene-filter"><span>所属场景</span><select data-list-scene="${kind}">${sceneOptions(kind, route.scene || '')}</select></label>
         <label class="collection-search"><span>搜索${type}</span><input type="search" autocomplete="off" placeholder="名称或编码" data-collection-search="${kind}" value="${html(filters[kind].query)}"></label>
         <label class="collection-filter"><span>维护状态</span><select data-collection-filter="${kind}">${[['active','全部在用'],['draft','有草稿'],['published','仅线上'],['unpublished','尚未发布'],['archived','已归档']].map(([v,t]) => option(v,t,filters[kind].status)).join('')}</select></label>
-      </div><div class="collection-list-heading"><span data-collection-count="${kind}" role="status" aria-live="polite"></span><span>点击修订标签可直接查看对应内容</span></div>
-      <div class="collection-columns" aria-hidden="true"><span>${type} / 所属场景</span><span>${kind === 'rule' ? '线上适用范围' : '线上判定优先级'}</span><span>修订</span><span>操作</span></div><div class="collection-rows" data-collection-rows="${kind}"></div></div>
+      </div>${kind === 'rule' ? '<p class="collection-scope-help">适用条件说明在哪些产品类别、工艺路线下选用规则集，以已发布修订为准；草稿修改需发布后才会生效。</p>' : ''}<div class="collection-list-heading"><span data-collection-count="${kind}" role="status" aria-live="polite"></span><span>点击修订标签可直接查看对应内容</span></div>
+      <div class="collection-columns" aria-hidden="true"><span>${type} / 所属场景</span><span>${kind === 'rule' ? '适用条件<small>已发布修订</small>' : '线上判定优先级'}</span><span>修订</span><span>操作</span></div><div class="collection-rows" data-collection-rows="${kind}"></div></div>
       <div class="set-note"><strong>${kind === 'rule' ? '规则集在各自的场景内参与选择' : '在同一场景内选择候选进行判定'}</strong><p>${kind === 'rule' ? '多个规则集可以同时发布。运行时在同一场景内比较命中的绑定，选择唯一的最高优先级绑定；不同场景之间独立运行。编辑草稿不会改变当前线上结果。' : '调用方选择需要判定的候选。可返回全部命中，或按已发布修订的优先级返回唯一的首条命中；不同场景的候选分开试算。'}</p></div>`;
     renderRows(kind);
   }
@@ -104,8 +107,8 @@
     });
     $(`[data-collection-count="${kind}"]`).textContent = `${route.scene ? store.getScene(route.scene).name : '全部场景'} · ${rows.length} 个${names[kind]}${query ? '符合搜索条件' : ''}`;
     $(`[data-collection-rows="${kind}"]`).innerHTML = rows.map(item => `<article class="collection-row">
-      <div class="collection-identity"><span class="set-code">${html(item.code)}</span><button class="collection-name" data-open-set="${html(item.id)}">${html(item.name)}</button><p>${html(item.description || '尚未填写说明')}</p><button class="collection-scene-link" data-open-scene="${html(item.scene)}" data-kind="${kind}">所属场景：${html(store.getScene(item.scene)?.name || item.scene)}</button></div>
-      <div class="collection-field"><span class="collection-mobile-label">${kind === 'rule' ? '线上适用范围' : '线上判定优先级'}</span>${kind === 'rule' ? `<p>${html(item.published?.bindings.map(binding => binding.text).join('；') || '发布并配置绑定后参与运行选择')}</p>` : `<strong>${item.published ? html(item.published.priority) : '尚未发布'}</strong><p>${item.published ? '数值越大越先判定' : '优先级随修订发布后生效'}</p>`}</div>
+      <div class="collection-identity"><span class="set-code">${html(item.code)}</span><button class="collection-name" data-open-set="${html(item.id)}">${html(item.name)}</button><p>${html(item.description || '尚未填写说明')}</p><span class="collection-scene">所属场景：${html(store.getScene(item.scene)?.name || item.scene)}</span></div>
+      <div class="collection-field"><span class="collection-mobile-label">${kind === 'rule' ? '适用条件' : '线上判定优先级'}</span>${kind === 'rule' ? `<p>${html(item.published?.bindings.map(binding => binding.text).join('；') || (item.published ? '尚未设置适用条件' : '尚未发布，暂无生效条件'))}</p>` : `<strong>${item.published ? html(item.published.priority) : '尚未发布'}</strong><p>${item.published ? '数值越大越先判定' : '优先级随修订发布后生效'}</p>`}</div>
       <div class="collection-revisions">${revisionBadges(item)}</div><div class="collection-row-actions"><button class="btn small${item.draft && !item.archived ? '' : ' ghost'}" data-open-set="${html(item.id)}" data-mode="${item.draft && !item.archived ? 'draft' : item.published ? 'published' : 'draft'}">${item.draft && !item.archived ? '编辑草稿' : '查看'}</button>${rowMenu(item)}</div></article>`).join('') || `<div class="collection-empty"><h2>${route.scene && !store.list(kind).some(item => item.scene === route.scene && !item.archived) && !query && filter.status === 'active' ? `这个场景还没有${names[kind]}` : `没有找到${names[kind]}`}</h2><p>${route.scene ? '可以在当前场景新建集合，或调整筛选条件查看已有内容。' : '调整名称、编码或维护状态后再试，也可以选择一个场景新建集合。'}</p><div class="empty-actions"><button class="btn primary" data-collection-action="new" data-kind="${kind}">新建${names[kind]}</button><button class="btn ghost" data-collection-action="clear" data-kind="${kind}">清除搜索与状态</button>${route.scene ? `<button class="btn ghost" data-view="${lists[kind]}">查看全部场景</button>` : ''}</div></div>`;
   }
   function detailHeader(item, mode) {
@@ -173,16 +176,16 @@
   }
   function renderModel(item) {
     const revision = item[route.revision], editable = route.revision === 'draft' && !item.archived;
-    const tabs = [['rules','规则'],['variables','变量'],['bindings','场景绑定'],['execution','执行设置'],['cases','门禁用例'],['versions','版本']];
+    const tabs = [['rules','规则'],['variables','变量'],['bindings','场景绑定'],['execution','执行设置'],['cases','发布校验规则'],['versions','版本']];
     if (!tabs.some(([key]) => key === route.tab)) route.tab = 'rules';
     let content;
     if (route.tab === 'rules') content = rulePanel(item, revision, editable);
     if (route.tab === 'execution') content = executionPanel(item, revision, editable);
     if (route.tab === 'variables') content = variablesPanel();
     if (route.tab === 'bindings') content = bindingsPanel(item, revision, editable);
-    if (route.tab === 'cases') content = `<h2>门禁用例</h2><div class="collection-empty"><h3>${revision.gateStatus === 'passed' ? '已发布修订的门禁已通过' : '草稿需要重新验证'}</h3><p>新增或修改规则后，请重新验证发布用例，再检查必需结果与适用范围。</p></div>`;
+    if (route.tab === 'cases') content = `<h2>发布校验规则</h2><p class="hint release-validation-copy">使用输入与预期结果验证规则是否符合业务要求，全部通过后才能发布。</p><div class="collection-empty"><h3>${revision.gateStatus === 'passed' ? '此修订的发布校验已通过' : '草稿需要重新校验'}</h3><p>新增或修改规则、执行设置后，请重新验证输入与预期结果，再检查必需结果和适用条件。</p></div>`;
     if (route.tab === 'versions') content = versionsPanel(item, route.revision);
-    $('#view-models').innerHTML = detailHeader(item, route.revision) + `<div class="workspace"><div class="main-panel"><div class="tabs" role="tablist" aria-label="规则集内容">${tabs.map(([key,label]) => `<button id="collection-tab-${key}" class="tab${route.tab === key ? ' active' : ''}" role="tab" tabindex="${route.tab === key ? 0 : -1}" aria-selected="${route.tab === key}" aria-controls="collection-tab-panel" data-collection-tab="${key}">${label}</button>`).join('')}</div><div class="tab-pane active" id="collection-tab-panel" role="tabpanel" aria-labelledby="collection-tab-${route.tab}">${content}</div></div><aside class="aside-panel"><div class="aside-block"><h3>当前查看</h3><div class="collection-revisions" style="margin-top:12px">${revisionBadges(item)}</div><p class="hint">${html(item.name)} · ${revisionName(revision.no)}</p></div><div class="aside-block"><h3>发布准备</h3><p class="hint">${editable ? '完成规则、适用范围与门禁验证后，再执行发布检查。' : '当前内容只读；在草稿中编制下一次修改。'}</p>${editable ? rowAction('publish-check', item.id, '发布检查') : ''}</div><div class="aside-block"><h3>场景内选择</h3><p class="hint">查看另一规则集不会改变运行时选择。线上执行仍依据命中的绑定与优先级。</p></div></aside></div>`;
+    $('#view-models').innerHTML = detailHeader(item, route.revision) + `<div class="workspace"><div class="main-panel"><div class="tabs" role="tablist" aria-label="规则集内容">${tabs.map(([key,label]) => `<button id="collection-tab-${key}" class="tab${route.tab === key ? ' active' : ''}" role="tab" tabindex="${route.tab === key ? 0 : -1}" aria-selected="${route.tab === key}" aria-controls="collection-tab-panel" data-collection-tab="${key}">${label}</button>`).join('')}</div><div class="tab-pane active" id="collection-tab-panel" role="tabpanel" aria-labelledby="collection-tab-${route.tab}">${content}</div></div><aside class="aside-panel"><div class="aside-block"><h3>当前查看</h3><div class="collection-revisions" style="margin-top:12px">${revisionBadges(item)}</div><p class="hint">${html(item.name)} · ${revisionName(revision.no)}</p></div><div class="aside-block"><h3>发布准备</h3><p class="hint">${editable ? '完成规则、适用条件和发布校验后，再检查是否可以发布。' : '当前内容只读；在草稿中编制下一次修改。'}</p>${editable ? publishCheckButton(item) : ''}</div><div class="aside-block"><h3>场景内选择</h3><p class="hint">查看另一规则集不会改变运行时选择。线上执行仍依据命中的绑定与优先级。</p></div></aside></div>`;
   }
   function conditionSource(d) { return `入口宽度 ${operators[d.operator]} ${d.threshold === '' ? '…' : d.threshold} 且 产品类别 = ${d.product || '…'}`; }
   function renderCondition(item) {
@@ -191,7 +194,7 @@
       <fieldset ${editable ? '' : 'disabled'}><legend class="sr-only">候选判定条件</legend><label class="field">判定优先级<input name="priority" type="number" step="1" min="-2147483648" max="2147483647" required value="${html(d.priority)}"><small>随修订发布后生效；数值越大越先判定</small></label>
       <div class="condition-fields"><label class="field">入口宽度<select name="operator">${[['gte','大于或等于'],['gt','大于'],['lte','小于或等于'],['lt','小于']].map(([v,t]) => option(v,t,d.operator)).join('')}</select></label><label class="field">比较值<input name="threshold" type="number" step="any" required value="${html(d.threshold)}"></label><span class="condition-and">且</span><label class="field">产品类别等于<input name="product" required maxlength="128" value="${html(d.product)}" placeholder="例如：A"></label></div></fieldset>
       <div class="collection-condition-preview"><span class="tiny-label">条件预览</span><p id="condition-source">${html(conditionSource(d))}</p></div>${editable ? '<div class="condition-save-bar"><button class="btn primary" type="submit">保存条件草稿</button></div>' : ''}</form>
-      <aside class="panel condition-guidance"><h3>发布样本</h3><p>${d.gateStatus === 'passed' ? '此修订已有通过发布检查的样本。' : '当前草稿需要补充或重新验证正反样本。'}</p><p class="hint">发布前至少包含一个预期满足、一个预期不满足的样本。编辑草稿不会改变线上候选的判定结果。</p>${editable ? rowAction('publish-check', item.id, '发布检查') : ''}<div class="divider"></div><h3>在多个候选间判定</h3><p class="hint">场景列表中的“试算已发布候选”可选择候选范围，并切换全部命中或首条命中。</p></aside></div>`;
+      <aside class="panel condition-guidance"><h3>发布样本</h3><p>${d.gateStatus === 'passed' ? '此修订已有通过发布检查的样本。' : '当前草稿需要补充或重新验证正反样本。'}</p><p class="hint">发布前至少包含一个预期满足、一个预期不满足的样本。编辑草稿不会改变线上候选的判定结果。</p>${editable ? publishCheckButton(item) : ''}<div class="divider"></div><h3>在多个候选间判定</h3><p class="hint">场景列表中的“试算已发布候选”可选择候选范围，并切换全部命中或首条命中。</p></aside></div>`;
   }
   function renderRoute(focus = false) {
     route = parseRoute();
@@ -223,6 +226,8 @@
     $('#crumb-current').textContent = kind ? `${validScene ? validScene.name + ' / ' : ''}${names[kind]}${item ? ' / ' + item.name : ''}` : route.view === 'catalog' ? '场景' : '发布记录';
     $('#scope-note').hidden = !validScene;
     $('#scope-note .scope-row').innerHTML = validScene ? `<span class="scope-dot"></span>${html(validScene.name)}` : '';
+    window.PrototypeUI.enhance($(`.screen.active`));
+    document.title = `${$('#crumb-current').textContent} · 规则管理`;
     if (focus) { $('.screen.active h1')?.focus({ preventScroll: true }); window.scrollTo({ top:0, behavior:'instant' }); }
   }
   function showDialog(title, description, content, confirm, submit) {
@@ -290,11 +295,13 @@
     if (action === 'archive') showDialog(`归档“${item.name}”？`, `${item.published ? `线上 ${revisionName(item.published.no)} 将停止参与后续运行。` : ''}草稿和已发布内容保留，归档后只读。`, `<div class="callout"><strong>${html(item.code)}</strong>请确认归档的是当前${names[item.kind]}。</div>`, '确认归档', () => { store.archive(item.id); dirtyCondition = false; dirtyExecution = false; filters[item.kind] = { query:'', status:'active' }; rememberFilters(); const params = [lists.rule,lists.condition].includes(route.view) ? listParams() : returnParams(); closeDialog(); navigate(lists[item.kind], params); toast('已归档，可在“已归档”中查看'); });
     if (action === 'binding') openBinding(item, button.dataset.binding);
     if (action === 'evaluate') openEvaluation();
-    if (action === 'publish-check') showDialog('发布检查', '发布需要服务端完成完整校验与门禁。当前页面提供编制交互预览，尚未连接发布服务。', `<div class="callout"><strong>待完成的检查</strong>${item.kind === 'rule' ? '规则与变量类型、必需结果、场景绑定冲突、回归用例。' : '条件类型、输入快照、至少一条正样本和一条反样本。'}</div>`, '返回编制', closeDialog);
+    if (action === 'publish-check') showDialog('发布检查', '发布前需要完成规则校验和发布样本验证。当前页面提供编制交互预览，尚未连接发布服务。', `<div class="callout"><strong>待完成的检查</strong>${item.kind === 'rule' ? '规则与变量类型、必需结果、场景绑定冲突、回归用例。' : '条件类型、输入快照、至少一条正样本和一条反样本。'}</div>`, '返回编制', closeDialog);
   }
   document.addEventListener('click', event => {
     const clickedMenu = event.target.closest('details.collection-menu');
     $$('details.collection-menu[open]').forEach(menu => { if (menu !== clickedMenu) menu.removeAttribute('open'); });
+    const skip = event.target.closest('.skip-link');
+    if (skip) { event.preventDefault(); $('#main-content').focus(); return; }
     const target = event.target.closest('button, a');
     if (!target) return;
     if (target.id === 'execution-trial-link' && dirtyExecution) { event.preventDefault(); $('#execution-settings-message').textContent = '先保存执行设置，再试算当前草稿。'; return; }
@@ -303,7 +310,7 @@
     if (target.dataset.view) { event.preventDefault(); navigate(target.dataset.view); return; }
     if (target.dataset.openSet) { const item = store.get(target.dataset.openSet); navigate(editors[item.kind], detailParams(item, target.dataset.mode ? { revision:target.dataset.mode } : {})); return; }
     if (target.dataset.revision) { if (target.dataset.revision !== route.revision) navigate(route.view, detailParams(store.get(route.set), { revision:target.dataset.revision, ...(route.tab ? { tab:route.tab } : {}) })); return; }
-    if (target.dataset.collectionTab) { navigate(route.view, detailParams(store.get(route.set), { revision:route.revision, tab:target.dataset.collectionTab })); $(`#collection-tab-${route.tab}`)?.focus(); return; }
+    if (target.dataset.collectionTab) { navigate(route.view, detailParams(store.get(route.set), { revision:route.revision, tab:target.dataset.collectionTab }), false, false, true); $(`#collection-tab-${route.tab}`)?.focus({ preventScroll:true }); return; }
     if (target.dataset.selectCollectionRule) { selectedRule = target.dataset.selectCollectionRule; renderModel(store.get(route.set)); $(`[data-select-collection-rule="${selectedRule}"]`)?.focus(); return; }
     if (target.dataset.collectionAction) { target.closest('details')?.removeAttribute('open'); try { perform(target.dataset.collectionAction, target); } catch (error) { toast(error.message); } return; }
     if (target.id === 'collection-dialog-cancel') closeDialog();
@@ -311,7 +318,7 @@
   });
   document.addEventListener('input', event => {
     const node = event.target;
-    if (node.hasAttribute('data-scene-search')) { catalogQuery = node.value; renderCatalogGroups(); }
+    if (node.hasAttribute('data-scene-search')) { catalogQuery = node.value; renderCatalogGroups(); window.PrototypeUI.enhance($('#view-catalog')); }
     if (node.dataset.collectionSearch) { filters[node.dataset.collectionSearch].query = node.value; rememberFilters(); renderRows(node.dataset.collectionSearch); }
     if (node.closest('#condition-editor-form')) {
       node.setCustomValidity?.('');
@@ -353,11 +360,11 @@
       event.preventDefault(); const data = Object.fromEntries(new FormData(event.target));
       if (!data.product.trim()) { event.target.elements.product.setCustomValidity('请填写产品类别。'); event.target.elements.product.reportValidity(); return; }
       data.priority = Number(data.priority); data.threshold = Number(data.threshold);
-      store.saveDraft(route.set, data); dirtyCondition = false; renderRoute(); toast('条件已保存到当前草稿');
+      store.saveDraft(route.set, data); dirtyCondition = false; renderRoute(); $('#condition-editor-form [type="submit"]').focus({ preventScroll:true }); toast('条件已保存到当前草稿');
     }
   });
   $('#collection-dialog').addEventListener('close', () => { dialogSubmit = null; if (dialogTrigger?.isConnected) dialogTrigger.focus(); else $('.screen.active h1')?.focus({ preventScroll:true }); });
-  $('#collection-dialog').addEventListener('click', event => { if (event.target === $('#collection-dialog')) closeDialog(); });
+  $('#collection-dialog').addEventListener('click', event => { if (event.target === $('#collection-dialog')) { const rect = event.target.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeDialog(); } });
   window.addEventListener('hashchange', () => {
     if (dirtyCondition || dirtyExecution) { const requested = parseRoute(); history.replaceState(null,'',address(route.view,Object.fromEntries(Object.entries(route).filter(([key]) => key !== 'view')))); navigate(requested.view,Object.fromEntries(Object.entries(requested).filter(([key]) => key !== 'view'))); }
     else renderRoute(true);
@@ -369,8 +376,8 @@
       const tabs = $$('[data-collection-tab]'), position = tabs.indexOf(tab);
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (position + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
       const key = tabs[next].dataset.collectionTab;
-      navigate(route.view,detailParams(store.get(route.set), {revision:route.revision,tab:key}));
-      $(`#collection-tab-${key}`).focus();
+      navigate(route.view,detailParams(store.get(route.set), {revision:route.revision,tab:key}), false, false, true);
+      $(`#collection-tab-${key}`).focus({ preventScroll:true });
     }
     if (event.key === 'Escape' && !$('#collection-dialog').open) {
       const menu = $('details.collection-menu[open]');
