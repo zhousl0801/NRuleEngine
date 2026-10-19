@@ -107,7 +107,7 @@ range 的 args 顺序为最小值、最大值，list 的 args 顺序为候选顺
 - Sequential：共享上下文，后续条件与公式能读取先前赋值；实际命中路径最终必须补齐出口。ErrorOnMultipleWrite 静态拒绝潜在重复目标，FirstWriteWins 跳过后续赋值及公式，LastWriteWins 求值后覆盖。
 - CollectMatches：每条规则从相同输入与中间变量默认值开始，条件不能读取其他规则结果；赋值只可读取初始值及本行已赋值单值。每条命中生成一行完整出口，不合并相同值。
 
-无规则命中在后端所有模式下均为 NotMatched。运行与试算使用统一 Results 行，每行有 SourceRuleIds 和原生 JSON Outputs。一个 List 出口是同一行中的数组，与多条规则形成多行无关。核心不支持任意 Object 或 List<Object>。
+后端和原型预览的三种模式在无规则命中时均为 NotMatched，结果为空；即使存在初始出口值也不生成业务行。已命中但出口缺失仍失败。运行与试算使用统一 Results 行，每行有 SourceRuleIds 和原生 JSON Outputs。一个 List 出口是同一行中的数组，与多条规则形成多行无关。核心不支持任意 Object 或 List<Object>。
 
 ## 5. 资源边界
 

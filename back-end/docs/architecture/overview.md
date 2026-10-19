@@ -164,7 +164,7 @@ ResultCardinality.Single 成功一行，Many 成功 1–100 行。每行包含 S
 
 规则集的确定性结果使用 RuleExecutionStatus 与 Error.Code；运行服务生成 ExecutionId。底层试算诊断码由应用服务映射为 Domain.Shared 的稳定运行错误码，不能混用。系统存储故障、发布内容损坏、超时和未知异常使用 ABP 异常通道，具体码见[API 参考](../reference/api.md)。
 
-RuleExecutionOptions.Timeout 默认为两秒，宿主配置，运行服务使用链接取消令牌传入加载、哈希及 AST 求值。进入 ExecuteAsync 前已取消可直接传播；临时诊断已复现执行中调用方取消落入通用 Exception 捕获并被包装为 System:Unexpected，这是尚待修正的实现缺口。内部预算超时转换为 System:Timeout。不能根据现有入场前取消测试推断全链路取消传播已完成。
+RuleExecutionOptions.Timeout 默认为两秒，宿主配置，运行服务使用链接取消令牌传入加载、哈希及 AST 求值。进入 ExecuteAsync 前或执行中调用方取消，均原样传播 OperationCanceledException；调用方取消分支先于内部超时和通用异常处理，保留异常及其取消令牌。只有调用方未取消时，取消异常才转换为 System:Timeout；内部预算与调用方均已取消时优先传播调用方取消。
 
 HTTP 目录要求认证；管理、发布和执行端点分别要求 Manage、Publish、Execute。模型发布历史用 Publish，条件集历史用 Manage。当前组件应用服务未统一声明这些授权属性，直接在进程内调用服务时宿主须自行建立授权边界，不能仅依赖 Controller。
 
@@ -190,6 +190,8 @@ HTTP 目录要求认证；管理、发布和执行端点分别要求 Manage、Pu
 
 Domain.Tests 覆盖注册、编制约束、默认值、AST、精度、依赖、执行模式、复合值、多行限额和内容哈希；Application.Tests 覆盖 SQLite 下的保存读回、复制、门禁、发布回滚、执行状态与并发；EntityFrameworkCore.Tests 覆盖模块装配、映射和唯一约束。
 
-原型 Node.js 测试验证浏览器侧本地执行预览，与后端测试属于不同证据。特别是原型单行无命中返回失败，而后端已统一为 NotMatched；此差异尚未修复。
+原型 Node.js 测试验证浏览器侧本地执行预览，与后端测试属于不同证据。FirstMatch、Sequential、CollectMatches 无规则命中均返回 NotMatched、NoMatchingRule 和空结果，与后端试算一致；未命中不会继续检查出口完整性或执行赋值，已有默认值也不会形成业务结果。已命中但缺少必需出口仍是计算失败。
+
+[RuleExecutionCancellationTests](../../test/NRuleEngine.Application.Tests/RuleExecutionCancellationTests.cs) 使用受控异步执行段验证执行中取消及同时超时的取消优先级；既有运行测试覆盖进入执行前已取消和内部预算超时。这些测试验证执行入口的异常分流，不代表实际 HTTP 断连或所有数据库驱动的取消行为已完成环境验收。
 
 当前测试不能替代生产鉴权、多实例竞争压力、其他数据库提供程序、正式浏览器联调或真实业务同输入对照。验证命令及本地启动方式见[后端指南](../../README.md)，未实现能力集中列于[产品说明第 10 节](../product/features.md#10-未实现项与后续边界)。

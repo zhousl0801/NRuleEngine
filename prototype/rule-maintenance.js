@@ -586,7 +586,7 @@
     const result = execution.execute({ revision, scene:collectionStore.getScene(collection.scene), variables:variableCatalog, initial, match:conditionMatches, evaluate:evaluateAssignment });
     box.className = `result-box${result.error ? ' error' : ''}`;
     box.innerHTML = result.error ? `<strong>试算未通过</strong><p class="simulation-error">${html(result.error)}</p><p>本次不返回部分结果行。</p>${executionTrace(result.trace, true)}`
-      : `<strong>草稿规则预览 · ${result.results.length ? result.results.length + ' 行结果' : '没有规则命中'}</strong><p>${execution.modes[revision.executionMode].name}${revision.executionMode === 'Sequential' ? ' · ' + execution.policies[revision.multipleWritePolicy].name : ''}</p>${resultRows(result.results, revision)}${executionTrace(result.trace)}<details class="result-data"><summary>查看原始结果 JSON</summary><pre>${html(JSON.stringify({ results:result.results }, null, 2))}</pre></details><p>此预览使用已保存的执行设置与规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
+      : `<strong>草稿规则预览 · ${result.results.length ? result.results.length + ' 行结果' : '没有规则命中'}</strong><p>${execution.modes[revision.executionMode].name}${revision.executionMode === 'Sequential' ? ' · ' + execution.policies[revision.multipleWritePolicy].name : ''}</p>${resultRows(result.results, revision)}${executionTrace(result.trace)}<details class="result-data"><summary>查看原始结果 JSON</summary><pre>${html(JSON.stringify({ status:result.status, errorCode:result.errorCode, results:result.results }, null, 2))}</pre></details><p>此预览使用已保存的执行设置与规则；完整绑定校验、数值精度和正式结果由服务端试算提供。</p>`;
   }
   function markDirty(rule, assignment) {
     if (assignment) assignment.dirty = true; else rule.dirty = true;

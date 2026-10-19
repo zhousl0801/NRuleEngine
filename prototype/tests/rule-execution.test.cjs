@@ -25,6 +25,7 @@ test('FirstMatch 按优先级和顺序停止，后续条件和公式均不执行
   const rules = dependent();
   rules[1].condition = () => { throw new Error('不应计算后续条件'); };
   const result = run(rules.reverse(), 'FirstMatch');
+  assert.equal(result.status, 'Succeeded');
   assert.equal(result.error, undefined); assert.equal(result.results[0].outputs.output, 20);
   assert.equal(result.results[0].sourceRuleIds.join(','), 'base');
   assert.match(result.trace[1].status, /未执行/);
@@ -34,6 +35,7 @@ test('FirstMatch 按优先级和顺序停止，后续条件和公式均不执行
 });
 test('Sequential 后续条件和表达式读取前序赋值，结果合成一行', () => {
   const result = run(dependent());
+  assert.equal(result.status, 'Succeeded');
   assert.equal(result.error, undefined); assert.equal(result.results.length, 1);
   assert.equal(result.results[0].outputs.output, 25); assert.equal(result.results[0].sourceRuleIds.join(','), 'base,next');
   assert.equal(result.trace[1].assignments[0].previous, 20);
@@ -63,6 +65,7 @@ test('CollectMatches 独立重置上下文，跨行不覆盖，保留完整行�
   const rules = [rule('one', 100, [write('factor', 2), write('output', 20)]), rule('two', 80, [formula('output', values => values.factor * 10)])];
   const initial = { factor: 1 };
   const result = run(rules, 'CollectMatches', 'ErrorOnMultipleWrite', { initial });
+  assert.equal(result.status, 'Succeeded');
   assert.equal(result.error, undefined); assert.equal(result.results.map(row => row.outputs.output).join(','), '20,10');
   assert.equal(result.results.map(row => row.sourceRuleIds.join(',')).join(';'), 'one;two');
   assert.equal(initial.factor, 1);
@@ -73,14 +76,22 @@ test('同一规则重复目标不被 First/Last 策略放行', () => {
 test('后续规则计算失败时丢弃已有结果行', () => {
   const rules = [rule('one', 100, [write('output', 1)]), rule('broken', 80, [formula('output', () => { throw new Error('除零'); })])];
   const result = run(rules, 'CollectMatches', 'ErrorOnMultipleWrite');
+  assert.equal(result.status, 'Failed');
   assert.match(result.error, /除零/); assert.equal(result.results.length, 0); assert.equal(result.trace[1].status, '计算失败');
 });
-test('无命中：多行返回空集合，单行无法生成结果时报错', () => {
-  const rules = [rule('no-match', 1, [write('output', 1)], () => false)];
-  assert.equal(run(rules, 'CollectMatches', 'ErrorOnMultipleWrite').results.length, 0);
-  assert.equal(run(rules, 'CollectMatches', 'ErrorOnMultipleWrite').error, undefined);
-  assert.match(run(rules, 'FirstMatch').error, /没有规则命中/);
-});
+for (const mode of ['FirstMatch', 'Sequential', 'CollectMatches']) {
+  test(`${mode} 无命中返回 NotMatched 和空结果，不读取出口或执行赋值`, () => {
+    const rules = [rule('no-match', 1, [formula('output', () => { throw new Error('未命中不能执行赋值'); })], () => false)];
+    const result = run(rules, mode, 'ErrorOnMultipleWrite', { initial: { factor: 1, output: 999 } });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 'NotMatched');
+    assert.equal(result.errorCode, 'NoMatchingRule');
+    assert.equal(result.results.length, 0);
+    assert.equal(result.trace.length, 1);
+    assert.equal(result.trace[0].status, '未命中');
+    assert.equal(result.trace[0].assignments.length, 0);
+  });
+}
 test('Sequential 实际命中路径缺少结果时失败，不能只看所有规则的赋值并集', () => {
   const rules = [rule('factor', 100, [write('factor', 2)]), rule('output', 80, [write('output', 20)], () => false)];
   assert.match(run(rules).error, /缺少完整结果/);

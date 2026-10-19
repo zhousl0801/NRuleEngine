@@ -91,12 +91,12 @@
           }
         } catch (error) { step.status = '计算失败'; throw new Error(`${rule.name}：${error.message}`); }
       }
-      if (!sources.length && !many) throw new Error('没有规则命中，无法生成单行结果。');
+      if (!sources.length) return { status: 'NotMatched', errorCode: 'NoMatchingRule', results: [], trace };
       if (!many) append(sources);
-      return { results, trace };
+      return { status: 'Succeeded', results, trace };
     } catch (error) {
       // 任意规则失败时丢弃已计算的行，过程仅供定位，不代表成功结果。
-      return { error: error.message, results: [], trace };
+      return { status: 'Failed', error: error.message, results: [], trace };
     }
   }
   window.RuleExecution = { modes, policies, defaults, checkSettings, validate, execute };

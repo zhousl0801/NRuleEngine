@@ -50,7 +50,12 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
             timeout.CancelAfter(_options.Value.Timeout);
             return await ExecuteCoreAsync(executionId, input, timeout.Token);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 调用方取消优先于内部预算，保留原始取消异常，避免落入通用故障包装。
+            throw;
+        }
+        catch (OperationCanceledException)
         {
             _logger.LogWarning("规则执行 {ExecutionId} 超过时间预算", executionId);
 

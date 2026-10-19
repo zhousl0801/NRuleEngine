@@ -138,7 +138,7 @@ ContractVersion 可选，指定时只考虑相应版本的活动修订。响应�
 
 条件与赋值错误统一映射 ExpressionEvaluationFailed，再通过 ErrorPath、VariableCode、SourceStart/SourceLength 定位；没有独立的函数异常、除零或类型转换稳定运行码。管理端另有 Concurrency:Conflict、Variable:Referenced、Release:GateFailed 等 BusinessException 码，不使用规则集的四状态协议。
 
-Error.Data 仅用于必要定位，不包含变量真实值、完整表达式或内部异常细节。宿主记录 ExecutionId 并自行决定重试或业务兜底。默认执行预算为两秒，内部超时走异常；执行中调用方取消的传播尚有缺口，见[架构说明](../architecture/overview.md#10-错误时间预算与权限)。
+Error.Data 仅用于必要定位，不包含变量真实值、完整表达式或内部异常细节。宿主记录 ExecutionId 并自行决定重试或业务兜底。默认执行预算为两秒，内部超时返回 System:Timeout 异常；调用方在执行前或执行中取消均原样传播 OperationCanceledException，不转换为 System:Unexpected。两种取消均已发生时优先处理调用方取消，见[架构说明](../architecture/overview.md#10-错误时间预算与权限)。
 
 ## 6. 条件集
 
