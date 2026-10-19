@@ -1,36 +1,12 @@
-# NRuleEngine 设计文档
+# NRuleEngine 后端开发与接入
 
-NRuleEngine 是供 ODS 等 ABP 应用引用的通用规则编制与运行组件。当前已建立 .NET 8 / ABP 8.0.4 的模块骨架，完成赋值型规则与独立布尔条件集的场景注册、草稿、发布、回滚及运行能力，并提供本地联调 Host。
+产品和技术正文分别见[产品功能说明](docs/product/features.md)与[系统架构说明](docs/architecture/overview.md)。调用协议见[API 参考](docs/reference/api.md)，AST 与复合出口见[表达式与值结构](docs/reference/expressions.md)。本文只说明开发运行和宿主接入。
 
-设计文档按用途归档在 [docs](docs/)；可编译项目位于本目录。本文是后端文档总入口。
+## 目录与构建
 
-## 文档地图
+src 下包含六个分层 ABP 模块及本地 Host；test 下按 Domain、Application、EntityFrameworkCore 分层，TestBase 提供公共测试装配。所有项目使用 net8.0，ABP 与 EF Core SQLite 为 8.0.4；SDK 由本目录 global.json 选择，包版本在 Directory.Packages.props 集中定义。
 
-| 分类 | 文档 | 用途 | 当前版本 |
-|---|---|---|---|
-| 产品 `docs/product/` | [产品设计草案](docs/product/NRuleEngine-产品设计草案.md) | 产品目标、首版范围、能力、交互和产品验收 | v0.9 |
-| 产品 `docs/product/` | [维护能力完成计划](docs/product/维护能力完成计划.md) | 模型复制、变量维护及删除影响分析的实施顺序和验收点 | 2026-10-10 |
-| 架构 `docs/architecture/` | [系统设计草案](docs/architecture/NRuleEngine-系统设计草案.md) | ABP 结构、扩展契约、领域模型、接口和技术验收 | v0.9 |
-| 架构 `docs/architecture/` | [运行错误与异常模型](docs/architecture/runtime-error-model.md) | 执行状态、稳定错误码、异常数据和 ODS 映射 | v0.3 |
-| 架构 `docs/architecture/` | [编制 AST v1](docs/architecture/authoring-ast-v1.md) | 草稿表达式 JSON 格式与当前 API 范围 | v0.1 |
-| 架构 `docs/architecture/` | [区间与候选列表输出](docs/architecture/output-values.md) | 出口形状、赋值格式、运行约束及验证 | 2026-10-14 |
-| 架构 `docs/architecture/` | [执行模式与统一结果行](docs/architecture/execution-results.md) | 多命中隔离、结果行、门禁与资源边界 | 2026-10-16 |
-| 架构 `docs/architecture/` | [.NET 8 / ABP 8 兼容基线](docs/architecture/framework-compatibility.md) | SDK、依赖、CI、容器及并发适配 | 2026-10-16 |
-| 架构 `docs/architecture/` | [条件集设计与使用](docs/architecture/ConditionSet-条件集设计与使用.md) | 无赋值布尔条件的领域边界、API 与候选匹配语义 | 2026-09-29 |
-| 决策 `docs/adr/` | [架构决策记录](docs/adr/README.md) | 已确认决策、替代方案和后果 | ADR-0001–0022 |
-
-## 已确认的首版边界
-
-- 只提供后端领域能力和 API，前端待 API 稳定后设计。
-- App 和场景由接入应用代码注册。
-- 同一场景允许多个已发布模型，按绑定优先级裁决唯一结果。
-- 场景契约固定入口和必需出口，用户可维护中间变量。
-- 试算只验证输入、表达式、规则命中和最终输出，不持久化完整 Trace。
-- 不包含 ODS 集成项目、不采用软删除；独立 Host 仅供本地联调。
-
-## 骨架验证
-
-先进入 `back-end/`，再执行：
+在 back-end 目录执行：
 
 ```bash
 dotnet restore NRuleEngine.sln
@@ -38,89 +14,58 @@ dotnet build NRuleEngine.sln --no-restore
 dotnet test NRuleEngine.sln --no-build --no-restore
 ```
 
-解决方案按 `src`、`test` 文件夹分组。上述命令构建六个 ABP 模块及本地 Host，并运行 Domain、Application、EntityFrameworkCore 三层测试；`TestBase` 是共享测试基础项目。已有代码注册目录、模型与草稿、契约/中间变量、草稿规则与赋值、绑定、EF 映射、完整校验、试算、发布、回滚、执行及维护影响查询 API。本地 Host 中的演示契约不代表 ODS 真实字段。生产宿主的迁移、鉴权和 HTTP 联调尚未执行。
-
-## 统一结果行与多命中
-
-场景通过 ResultCardinality 固定 Single 或 Many。Single 使用 FirstMatch/Sequential 成功返回一行，Many 使用 CollectMatches 逐条独立返回完整结果行；规则之间不传递赋值。运行与试算均采用 Results（SourceRuleIds、原生 JSON Outputs），不再提供顶层 Outputs/OutputsJson。已选模型无规则命中返回 NotMatched / NoMatchingRule，计算失败不交付部分行。
-
-门禁使用 ExpectedStatus 和 ExpectedResultsJson 有序出口数组；成功至少一行，未匹配必须为空数组，发布至少需要一条成功样本。结果最多 100 行、序列化数组最多 65536 UTF-8 字节。完整约定见[执行结果契约](docs/architecture/execution-results.md)。框架和 SDK 均已统一到 .NET 8，详见[兼容基线](docs/architecture/framework-compatibility.md)。
+如本机文件监控影响运行，可设置 `DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false`。VSTest 需要本机端口通信；沙箱阻止监听时，需在允许测试通信的执行环境重跑，不能将中止视为测试通过或功能失败。
 
 ## 本地联调 Host
-
-在 `back-end/` 目录运行：
 
 ```bash
 DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false dotnet run --project src/NRuleEngine.Host
 ```
 
-默认监听 `http://127.0.0.1:5088`，数据库文件为当前工作目录下的 `nrule-engine-dev.sqlite`。首次启动会按当前 EF 模型建表，重启保留数据；这是联调库，不使用数据库迁移。模型结构改变后需要自行删除该本地库再启动。Host 默认允许 `localhost` / `127.0.0.1` 的 5173、3000 端口跨域；可在 `src/NRuleEngine.Host/appsettings.json` 的 `Cors:Origins` 修改来源。
+默认监听 `http://127.0.0.1:5088`，SQLite 路径为工作目录下的 nrule-engine-dev.sqlite。首次启动调用 EnsureCreatedAsync 建表，重启保留数据；EnsureCreated 不更新已有表结构。需要隔离验证时可指定新的临时库，保留已有开发数据：
 
-联调 Host 自动授予开发身份和规则权限，**仅在本机使用，不要对外网开放**。可先请求 `GET http://127.0.0.1:5088/api/nrule-engine/catalog/apps`，再查询 `GET .../catalog/apps/DEMO/scenarios` 或 `GET .../catalog/apps/DEMO/condition-scenarios`。示例应用编码 `DEMO`；赋值场景为 `size-expansion`（输入 `inputWidth`，输出 `targetWidth`，绑定维度 `productKind`），条件场景为 `thickness-eligibility`（输入 `thickness`），契约版本均为 `1.0`。另有 `size-candidates` 场景，输入 `inputWidth`，输出 `widthRange`（数值区间）、`candidateWidths`（数值列表）、`candidateCodes`（文本列表），绑定维度 `productKind`。另注册 `DEMO/matched-results/1.0` 多行场景：入口 `width`，出口 `targetWidth` 和区间 `tolerance`，可编制多条重叠规则验证 CollectMatches；其成功结果按规则执行顺序返回。
+```bash
+DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false dotnet run --project src/NRuleEngine.Host -- --ConnectionStrings:Default='Data Source=/tmp/nrule-engine-local-check.sqlite'
+```
 
-## 当前 API
+此示例路径若已存在会复用该库，需隔离时自行指定新的文件名。模型变动后选择明确的迁移或新库，不应指望自动加列。
 
-HTTP 控制器由接入宿主装配；本地联调可使用上述 Host。
+Host 使用固定 local-dev 开发身份和自动授权，**仅供本机联调，不要对外网开放**。默认 CORS 来源为 localhost/127.0.0.1 的 5173、3000 端口，可在 Host 的 appsettings.json 中配置。原型按静态站点独立运行，目前没有 API 请求。
 
-| 路径 | 能力 |
-|---|---|
-| `GET /api/nrule-engine/catalog/apps`、`GET /api/nrule-engine/catalog/apps/{appCode}/scenarios` | 查询代码注册的目录与契约版本 |
-| `POST /api/nrule-engine/models`、`GET /api/nrule-engine/models` | 创建和查询模型；创建时自动生成首个草稿 |
-| `POST /api/nrule-engine/models/{sourceModelId}/copy` | 从指定源修订复制独立模型及首个草稿，继承变量稳定键和门禁用例内容 |
-| `GET /api/nrule-engine/models/{modelId}/archive-impact` | 归档前查看活动修订影响；影响只提示 |
-| `GET /api/nrule-engine/models/{modelId}/revisions`、`GET /api/nrule-engine/models/revisions/{revisionId}` | 发现草稿并读取变量与并发戳 |
-| `POST /api/nrule-engine/models/{modelId}/drafts` | 从指定修订或当前活动修订复制草稿；无活动修订时新建空草稿 |
-| `POST /api/nrule-engine/models/revisions/{revisionId}/intermediate-variables` | 增加中间变量；修改操作携带期望并发戳 |
-| `PUT .../revisions/{revisionId}/inputs/{stableKey}/default` | 设置或清除契约入口默认值 |
-| `PUT .../revisions/{revisionId}/intermediate-variables/{stableKey}/properties`、`PUT .../precision` | 分别维护中间变量默认值与单位、Decimal 精度 |
-| `GET .../revisions/{revisionId}/variables/{stableKey}/references`、`DELETE .../intermediate-variables/{stableKey}` | 查看直接引用和下游影响；有引用时禁止删除草稿中间变量 |
-| `GET .../revisions/{revisionId}/rules/{ruleId}/removal-impact`、`GET .../assignments/{assignmentId}/removal-impact` | 删除规则或赋值前查看影响；影响只提示 |
-| `POST .../revisions/{revisionId}/rules`、`PUT/DELETE .../rules/{ruleId}` | 创建、修改、删除草稿规则；赋值使用 `.../rules/{ruleId}/assignments` 子路径 |
-| `POST .../revisions/{revisionId}/bindings`、`PUT/DELETE .../bindings/{bindingId}` | 创建、修改、删除草稿绑定 |
-| `PUT /api/nrule-engine/models/revisions/{revisionId}/execution-semantics` | 按 Single/Many 场景基数设置 FirstMatch、Sequential 或 CollectMatches |
-| `GET /api/nrule-engine/models/revisions/{revisionId}/validation` | 完整校验草稿，返回对象路径及错误 |
-| `POST /api/nrule-engine/models/revisions/simulate` | 按指定草稿、场景上下文和输入试算，不修改线上状态 |
-| `POST/DELETE /api/nrule-engine/models/revisions/{revisionId}/gate-cases` | 维护草稿发布门禁回归用例；删除路径另带 `{gateCaseId}` |
-| `POST /api/nrule-engine/models/revisions/{revisionId}/publish` | 完整校验、门禁与跨模型绑定检查后发布草稿 |
-| `POST /api/nrule-engine/models/{modelId}/rollback`、`GET /api/nrule-engine/models/{modelId}/releases` | 回滚至历史发布修订及查询发布记录 |
-| `POST /api/nrule-engine/execute` | 在全部活动发布模型中按绑定优先级选出唯一修订并执行；四种确定性状态均返回 HTTP 200 |
-| `GET /api/nrule-engine/catalog/apps/{appCode}/condition-scenarios` | 查询只含输入的条件判定场景契约 |
-| `POST /api/nrule-engine/condition-sets`、`GET .../{setId}/revisions` | 创建条件集及首个草稿，读取修订 |
-| `PUT /api/nrule-engine/condition-sets/revisions/{revisionId}/condition` | 编制唯一布尔条件及优先级 |
-| `POST .../revisions/{revisionId}/publish`、`POST .../{setId}/rollback` | 用正反样本发布条件集，或回滚历史修订 |
-| `POST /api/nrule-engine/condition-sets/evaluate` | 按明确候选编码作 `AllMatches` / `FirstMatch` 布尔判定 |
+### 演示契约
 
-赋值型规则编制及门禁维护接口要求 `NRuleEngine.Manage` 权限；发布、回滚及其历史查询要求 `NRuleEngine.Publish`；执行接口要求 `NRuleEngine.Execute`。条件集编制和历史查询使用 Manage，发布与回滚使用 Publish，候选判定使用 Execute。当前表达式输入为版本化 AST JSON，详见[编制 AST v1](docs/architecture/authoring-ast-v1.md)。运行请求的 `Context` 和 `Inputs` 使用原生 JSON 值，可选 `ContractVersion` 只考虑对应版本的活动修订；结果提供 `ExecutionId`、状态、稳定错误码及统一 Results 结果行中的原生 JSON 出口。宿主可通过 `RuleExecutionOptions.Timeout` 配置执行预算，默认两秒。宿主数据库迁移和 ODS 接入尚未执行。
+应用编码均为 DEMO，契约版本均为 1.0；启动只注册契约，不自动建立可发布的业务规则。
 
-缺少入口或读取前尚未赋值的中间变量使用该修订已配置的默认值；没有默认值时仍返回原有错误。显式 JSON `null` 按变量可空性处理，默认值不计入规则赋值次数。影响查询返回当前并发戳；删除中间变量时服务端再次检查引用和并发戳。模型复制在事务内创建新模型与首个草稿，源模型的活动发布状态不变。
+| 场景 | 输入 | 必需输出/用途 | 绑定 |
+| --- | --- | --- | --- |
+| size-expansion | inputWidth | targetWidth，单行计算 | productKind |
+| size-candidates | inputWidth | widthRange 数值区间、candidateWidths 数值列表、candidateCodes 文本列表，单行计算 | productKind |
+| matched-results | width | targetWidth、tolerance 数值区间，多行 CollectMatches | 无维度，仍需创建绑定 |
+| thickness-eligibility（条件场景） | thickness | 布尔资格判定 | 不使用规则集绑定 |
 
-发布与回滚新增 `NreReleaseGateCases`、`NreReleaseRecords`、`NreReleaseScopes` 表及模型的 `NextReleaseNo` 字段。条件集另有 `NreConditionSets`、`NreConditionSetRevisions`、`NreConditionInputDefinitions` 和 `NreConditionSetReleaseRecords`。宿主须生成并执行相应迁移后再启用接口。发布服务在独立数据库事务中先写入场景协调行，再查询其他活动模型；并发首次创建同一协调行时，数据库唯一约束会使其中一个请求失败，调用方应刷新并重试。执行服务每次从数据库批量读取活动修订并核对内容哈希；当前组件不缓存运行时快照。
+先查询 GET `/api/nrule-engine/catalog/apps`，再读取 DEMO 下的 scenarios 或 condition-scenarios。规则集联调顺序为创建模型、读取草稿稳定键、编制规则/赋值/绑定、完整校验、试算、保存门禁、读取最新并发戳、发布、执行。字段编码和演示数值不是实际业务系统契约。
 
-出口支持单值、数值区间及同类型候选列表，格式和约束见[输出值契约](docs/architecture/output-values.md)。`NreVariableDefinitions.Shape` 保存出口形状。项目处于开发阶段，尚无系统集成，结构修改无需历史数据兼容；已有联调库需明确重建，或使用新临时库验证。
+### Docker
 
-## 代码职责与 C# 引用
+在仓库根目录运行：
 
-`RuleModels` 保留模型、修订和变量聚合；`Rules` 管理规则与赋值，`Bindings` 管理场景绑定，`Validation` 和 `Simulation` 分别负责整份校验与试算；`Release` 管理发布门禁、快照哈希、发布记录和活动修订切换；`Runtime` 管理活动修订选择与运行结果。修订仍是内容一致性边界。
+```bash
+docker compose up --build -d
+docker compose logs -f nrule-engine
+```
 
-直接引用组件程序集的调用方需要更新 C# 命名空间和注入接口：规则编制使用 `NRuleEngine.Application.Contracts.Rules.IRuleAuthoringAppService`，绑定使用 `...Bindings.IRuleBindingAppService`，校验与试算分别使用 `...Validation.IRuleValidationAppService`、`...Simulation.IRuleSimulationAppService`。对应 DTO 和领域规则、绑定类型也迁入同名目录与命名空间；模型与修订接口仍在 `RuleModels`。
+Compose 映射 `127.0.0.1:5088` 到容器 8080，命名卷保存 SQLite。`docker compose down` 停止服务但保留卷。Dockerfile 使用 .NET 8 SDK/ASP.NET 镜像，容器运行的仍是开发授权 Host。
 
-## 已收敛的编码前决策
+## 宿主接入步骤
 
-1. 发布修订锁定准确的场景契约版本，见 ADR-0015。
-2. Revision 是草稿内容一致性边界，发布事务及数据库级并发协调见 ADR-0016。
-3. 首版表达式边界与规则顺序见 ADR-0017。
-4. 首版不设绑定生效期，见 ADR-0018。
-5. 独立条件集与明确候选判定，见 ADR-0019。
-6. App/场景数据库目录投影仍待对应能力实现前决定。
+1. 按层引用 Domain.Shared、Domain、Application.Contracts、Application、EntityFrameworkCore、HttpApi 模块；HTTP 可按实际调用方式选用。当前表达式与运行能力在 Domain/Application 内部，没有独立运行包。
+2. 实现并通过依赖注入注册 IRuleAppContributor、IRuleScenarioContributor、IConditionScenarioContributor，建立实际业务契约。示例见 [Host 场景贡献者](src/NRuleEngine.Host/Scenarios/)。目前没有自定义函数/类型及动态绑定候选值 Provider 扩展。
+3. 装配 EF 数据库提供程序和连接，选择使用组件 DbContext，或在宿主整合组件模型与仓储。模型配置入口为 ConfigureNRuleEngine()，上下文接口为 INRuleEngineDbContext；仓储当前以 NRuleEngineDbContext 注册，不能仅调用模型扩展就假定完成上下文替换。
+4. 由宿主生成、审阅并执行迁移。SQLite 的组件测试不代表 PostgreSQL 等提供程序和宿主迁移已经验收；检查唯一约束、外键、修订并发及同场景竞争发布。
+5. 配置真实认证、Manage/Publish/Execute 授权、AppCode 数据范围、CORS 和异常日志；不沿用本地 Host 的自动授权。进程内直接调用应用服务时也需建立授权边界。
+6. 根据业务流程构造 Context/Inputs；规则集按结果行组装业务对象，条件集按命中 Code 查业务参数。明确无命中、错误、重试和兜底，不把 HTTP 200 当成业务成功。
+7. 使用实际同输入样本验证绑定裁决、顺序、空值、精度、回滚和业务状态，再完成环境验收。
 
-## 维护约定
+运行服务预算可通过 `Configure<RuleExecutionOptions>` 设置 Timeout，默认两秒。该预算属于宿主配置，不是单次请求参数。已知运行中调用方取消传播、前端查询及其他缺口见[产品说明](docs/product/features.md#10-未实现项与后续边界)。
 
-- 产品行为以产品设计草案为准。
-- 技术结构和不变量以系统设计草案及已接受 ADR 为准。
-- ODS 文档只描述接入映射，不反向定义 NRuleEngine 核心能力。
-- 运行错误等专项技术契约放在 `docs/architecture/`，由系统设计引用，避免在两处维护完整定义。
-- 评审文档是特定版本的历史快照，问题关闭后不回写原评审结论。
-- 高成本、难以撤销的技术选择写入 ADR；普通首版范围裁剪留在产品文档。
-- 新增主题时先确定所属分类，并在本文档地图补入口；移动文档时同步检查相对链接。
-
-本次模型新增结果基数与门禁预期状态，门禁字段改为 ExpectedResultsJson。宿主迁移或新开发库需使用最新 EF 模型；本次未改动任何既有本地数据库或 ODS。
+本仓库未提供业务系统集成包、生产 DbMigrator 或生产配置；也没有旧表、旧 AST、旧哈希兼容实现。生产接入及历史数据保留需求应在实际宿主中明确验证。

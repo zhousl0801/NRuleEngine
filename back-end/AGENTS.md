@@ -1,6 +1,6 @@
 # NRuleEngine 编码规范
 
-适用范围：本项目 `src`、`test` 中的 C# 代码。新增代码直接遵守；整理存量代码时按功能范围逐步调整，并保持原有行为。业务边界以已接受的 ADR 和设计文档为准。
+适用范围：本项目 `src`、`test` 中的 C# 代码。新增代码直接遵守；整理存量代码时按功能范围逐步调整，并保持原有行为。业务边界以 `docs/product/features.md` 和 `docs/architecture/overview.md` 为准；未实现项不作为已交付能力。
 
 ## 1. 分层与依赖
 
@@ -98,7 +98,7 @@ public virtual async Task<RuleModelDto> ArchiveAsync(Guid modelId, ArchiveRuleMo
 
 ## 6. API、性能与测试
 
-- HTTP 接口使用清晰的路由和状态语义，鉴权沿用 ABP 与接入宿主的现有机制。当前组件不自带 Host；认证协议、全局中间件、CORS、API 版本化和 Swagger 由有需求的宿主配置。
+- HTTP 接口使用清晰的路由和状态语义，鉴权沿用 ABP 与接入宿主的现有机制。仓库自带 Host 仅供本机联调；正式认证协议、全局中间件、CORS、API 版本化和 Swagger 由有需求的宿主配置。
 - I/O 使用异步 API；异步方法以 `Async` 结尾。查询注意避免 N+1；大结果集按接口语义分页。缓存应有明确的读取特征和失效规则。
 - 行为变更使用现有 xUnit 项目补充必要的单元或集成测试；需要模拟依赖时沿用测试项目现有做法，不为套用规范引入新的测试或 mocking 框架。
 - 运行受影响项目的构建和相关测试，并核对最终差异中没有无关格式变化。
