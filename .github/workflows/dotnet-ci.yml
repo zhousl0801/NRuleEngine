@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: back-end
+        working-directory: .
 
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          global-json-file: back-end/global.json
+          global-json-file: global.json
 
       - name: Restore
         run: dotnet restore NRuleEngine.sln

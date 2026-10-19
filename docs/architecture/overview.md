@@ -4,7 +4,7 @@
 
 ## 1. 技术基线与部署形态
 
-组件、联调 Host 和测试均使用 net8.0。ABP 与 EF Core SQLite 包版本为 8.0.4，依赖由 back-end/Directory.Packages.props 集中管理；global.json 采用 8.0.400 SDK 基线并允许同主版本最新功能带，C# 使用 SDK 稳定默认版本。构建入口为 back-end/NRuleEngine.sln。
+组件、联调 Host 和测试均使用 net8.0。ABP 与 EF Core SQLite 包版本为 8.0.4，依赖由 Directory.Packages.props 集中管理；global.json 采用 8.0.400 SDK 基线并允许同主版本最新功能带，C# 使用 SDK 稳定默认版本。构建入口为 NRuleEngine.sln。
 
 组件通过 ABP 模块嵌入宿主，宿主可以直接调用应用服务，HTTP 由 HttpApi 层提供。仓库中的 NRuleEngine.Host 是本地联调程序，使用 SQLite 和自动授权开发身份，不是生产宿主。Docker Compose 也仅启动该联调程序。
 
@@ -194,4 +194,4 @@ Domain.Tests 覆盖注册、编制约束、默认值、AST、精度、依赖、�
 
 [RuleExecutionCancellationTests](../../test/NRuleEngine.Application.Tests/RuleExecutionCancellationTests.cs) 使用受控异步执行段验证执行中取消及同时超时的取消优先级；既有运行测试覆盖进入执行前已取消和内部预算超时。这些测试验证执行入口的异常分流，不代表实际 HTTP 断连或所有数据库驱动的取消行为已完成环境验收。
 
-当前测试不能替代生产鉴权、多实例竞争压力、其他数据库提供程序、正式浏览器联调或真实业务同输入对照。验证命令及本地启动方式见[后端指南](../../README.md)，未实现能力集中列于[产品说明第 10 节](../product/features.md#10-未实现项与后续边界)。
+当前测试不能替代生产鉴权、多实例竞争压力、其他数据库提供程序、正式浏览器联调或真实业务同输入对照。验证命令及本地启动方式见[后端指南](../../BACKEND.md)，未实现能力集中列于[产品说明第 10 节](../product/features.md#10-未实现项与后续边界)。

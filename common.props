@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Authors>NRuleEngine contributors</Authors>
+    <Description>ABP 8 rule authoring, release and execution module.</Description>
+    <PackageTags>abp;rules;rule-engine</PackageTags>
+    <PackageProjectUrl>https://github.com/zhousl0801/NRuleEngine</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zhousl0801/NRuleEngine.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <AbpProjectType>module</AbpProjectType>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

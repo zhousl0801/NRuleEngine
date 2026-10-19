@@ -6,7 +6,7 @@
 
 NRuleEngine 是供 ABP 应用引用的通用规则编制与运行组件。接入应用定义场景、输入、必需输出和适用维度，维护者通过 API 编制规则并发布，业务流程使用已发布修订进行计算或条件判定。
 
-当前交付包括六个后端模块、本地联调 Host、分层自动化测试，以及独立的[交互原型](../../../prototype/README.md)。首版以**后端组件和 API**为范围；原型尚未连接后端，不能作为正式编制台交付或服务端执行凭据。业务系统的模块装配、数据库迁移、数据映射和生产验收由接入方完成。
+当前交付包括六个后端模块、本地联调 Host、分层自动化测试，以及独立的[交互原型](../../prototype/README.md)。首版以**后端组件和 API**为范围；原型尚未连接后端，不能作为正式编制台交付或服务端执行凭据。业务系统的模块装配、数据库迁移、数据映射和生产验收由接入方完成。
 
 引擎不包含具体行业的领域对象，不执行任意脚本或外部 I/O，不自动迁移旧规则，也不要求接入方单独部署规则平台。
 
@@ -177,4 +177,4 @@ Sequential 的重复写入策略为：ErrorOnMultipleWrite 拒绝潜在重复写
 | 多行与复合出口 | [RuleValueEngine](../../src/NRuleEngine.Domain/Expressions/RuleValueEngine.cs) | [CollectMatchesTests](../../test/NRuleEngine.Domain.Tests/CollectMatchesTests.cs)、[CompositeOutputAppServiceTests](../../test/NRuleEngine.Application.Tests/CompositeOutputAppServiceTests.cs) |
 | 条件集与存储 | [ConditionSetAppService](../../src/NRuleEngine.Application/Conditions/ConditionSetAppService.cs)、[EF 映射](../../src/NRuleEngine.EntityFrameworkCore/NRuleEngineModelBuilderExtensions.cs) | [条件集应用测试](../../test/NRuleEngine.Application.Tests/ConditionSetAppServiceTests.cs)、[EF 测试](../../test/NRuleEngine.EntityFrameworkCore.Tests/) |
 
-这些入口证明组件级实现与覆盖范围，不代表已完成真实业务系统接入、生产数据库迁移、生产鉴权或订单结果对照。运行检查命令见[后端指南](../../README.md)。
+这些入口证明组件级实现与覆盖范围，不代表已完成真实业务系统接入、生产数据库迁移、生产鉴权或订单结果对照。运行检查命令见[后端指南](../../BACKEND.md)。

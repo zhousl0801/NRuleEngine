@@ -1,6 +1,6 @@
 # NRuleEngine 交互原型
 
-本目录是独立的静态交互演示，不需要后端或前端构建。产品范围见[产品功能说明](../back-end/docs/product/features.md)，服务端协议见[API 参考](../back-end/docs/reference/api.md)。页面未调用真实 API，所有保存和试算均为浏览器本地行为。
+本目录是独立的静态交互演示，不需要后端或前端构建。产品范围见[产品功能说明](../docs/product/features.md)，服务端协议见[API 参考](../docs/reference/api.md)。页面未调用真实 API，所有保存和试算均为浏览器本地行为。
 
 ## 启动与检查
 
@@ -41,7 +41,7 @@ node --test prototype/tests/rule-execution.test.cjs
 
 条件组逐层选择 AND/OR，可表达 `(A AND B) OR (C AND D)`。主组无条件表示始终满足，空子组不能保存。公式栏支持示例 Decimal 变量、数字、四则运算及括号，快捷按钮在光标处插入；页面生成 AST，原始文本不直接交给服务端执行。可选小数位生成外层 Round。
 
-区间分别编辑两个端点，列表逐项维护及排序，端点和元素可选常量或标量公式。整体保存为一条赋值，正式边界见[表达式与值结构](../back-end/docs/reference/expressions.md)。
+区间分别编辑两个端点，列表逐项维护及排序，端点和元素可选常量或标量公式。整体保存为一条赋值，正式边界见[表达式与值结构](../docs/reference/expressions.md)。
 
 执行设置随修订保存，单行允许 FirstMatch/Sequential，多行固定 CollectMatches；顺序计算选择重复写入策略。保存设置使草稿门禁待重新验证，复制及从线上建草稿继承设置。多行预览保持字段对应关系，各行隔离；任一后续计算失败均不返回部分成功行。
 

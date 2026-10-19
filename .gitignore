@@ -4,5 +4,12 @@
 **/.vs/
 **/*.user
 **/.DS_Store
-back-end/*.sqlite
-back-end/*.sqlite-*
+*.sqlite
+*.sqlite-*
+artifacts/
+TestResults/
+__pycache__/
+
+# Host repositories may ignore Release/ globally; these are source folders.
+!/src/*/Release/
+!/src/*/Release/**

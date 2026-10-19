@@ -1,0 +1,13 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)common.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NRuleEngineCompanyProps Condition="'$(NRuleEngineCompanyProps)' == '' and Exists('$(MSBuildThisFileDirectory)../../build/nrule-engine/Company.props')">$(MSBuildThisFileDirectory)../../build/nrule-engine/Company.props</NRuleEngineCompanyProps>
+  </PropertyGroup>
+  <Import Project="$(NRuleEngineCompanyProps)" Condition="'$(NRuleEngineCompanyProps)' != '' and Exists('$(NRuleEngineCompanyProps)')" />
+</Project>

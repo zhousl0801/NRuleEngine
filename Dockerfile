@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props Directory.Packages.props global.json ./
+COPY Directory.Build.props Directory.Packages.props common.props global.json ./
 COPY src/NRuleEngine.Domain.Shared/NRuleEngine.Domain.Shared.csproj src/NRuleEngine.Domain.Shared/
 COPY src/NRuleEngine.Domain/NRuleEngine.Domain.csproj src/NRuleEngine.Domain/
 COPY src/NRuleEngine.Application.Contracts/NRuleEngine.Application.Contracts.csproj src/NRuleEngine.Application.Contracts/

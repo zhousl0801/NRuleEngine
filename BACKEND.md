@@ -6,7 +6,7 @@
 
 src 下包含六个分层 ABP 模块及本地 Host；test 下按 Domain、Application、EntityFrameworkCore 分层，TestBase 提供公共测试装配。所有项目使用 net8.0，ABP 与 EF Core SQLite 为 8.0.4；SDK 由本目录 global.json 选择，包版本在 Directory.Packages.props 集中定义。
 
-在 back-end 目录执行：
+在本项目根目录执行：
 
 ```bash
 dotnet restore NRuleEngine.sln

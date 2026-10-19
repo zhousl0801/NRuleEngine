@@ -1,7 +1,7 @@
 services:
   nrule-engine:
     build:
-      context: ./back-end
+      context: .
       dockerfile: Dockerfile
     image: nrule-engine-host:local
     environment:
