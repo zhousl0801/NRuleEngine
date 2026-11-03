@@ -7,6 +7,8 @@ public interface IConditionSetAppService : IApplicationService
 {
     /// <summary>创建条件集及首个草稿。</summary>
     Task<ConditionSetDto> CreateAsync(CreateConditionSetDto input);
+    /// <summary>按应用和可选场景获取条件集列表；默认排除外部维护场景。</summary>
+    Task<IReadOnlyList<ConditionSetDto>> GetListAsync(string appCode, string? scenarioCode = null, bool includeExternal = false);
     /// <summary>读取条件集身份和活动修订。</summary>
     Task<ConditionSetDto> GetAsync(Guid setId);
     /// <summary>读取条件集的修订摘要。</summary>

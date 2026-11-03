@@ -4,7 +4,7 @@ using NRuleEngine.Domain.Shared.Runtime;
 
 namespace NRuleEngine.Application.Contracts.Release;
 
-/// <summary>向草稿加入一条发布前必须通过的回归用例。</summary>
+/// <summary>向草稿加入一条发布参考回归用例。</summary>
 [Serializable]
 public class AddReleaseGateCaseDto
 {
@@ -25,6 +25,5 @@ public class AddReleaseGateCaseDto
     /// <summary>预期成功或正常未匹配；未匹配时预期结果必须为空数组。</summary>
     public RuleExecutionStatus ExpectedStatus { get; set; } = RuleExecutionStatus.Succeeded;
     /// <summary>调用方读取草稿时获得的并发戳。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

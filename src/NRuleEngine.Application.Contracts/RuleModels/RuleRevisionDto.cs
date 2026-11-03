@@ -73,7 +73,7 @@ public class RuleRevisionDto
     /// <summary>草稿场景绑定。</summary>
     public IReadOnlyList<ScenarioBindingDto> Bindings { get; set; } = [];
 
-    /// <summary>本修订的发布门禁回归用例。</summary>
+    /// <summary>本修订的发布参考回归用例。</summary>
     public IReadOnlyList<ReleaseGateCaseDto> GateCases { get; set; } = [];
 
     public RuleRevisionDto()

@@ -7,7 +7,7 @@ using Volo.Abp.AspNetCore.Mvc;
 
 namespace NRuleEngine.HttpApi.Release;
 
-/// <summary>维护发布门禁、发布草稿并查询或回滚历史版本。</summary>
+/// <summary>维护发布参考用例、发布草稿并查询或回滚历史版本。</summary>
 [Area("nrule-engine")]
 [Route("api/nrule-engine/models")]
 public sealed class ReleaseController : AbpControllerBase
@@ -35,7 +35,7 @@ public sealed class ReleaseController : AbpControllerBase
         return _release.RemoveGateCaseAsync(revisionId, gateCaseId, input);
     }
 
-    /// <summary>发布通过完整校验和门禁的草稿。</summary>
+    /// <summary>发布通过完整校验的草稿。</summary>
     [Authorize(NRuleEnginePermissions.Publish)]
     [HttpPost("revisions/{revisionId:guid}/publish")]
     public Task<ReleaseDto> PublishAsync(Guid revisionId, [FromBody] PublishRuleDto input)

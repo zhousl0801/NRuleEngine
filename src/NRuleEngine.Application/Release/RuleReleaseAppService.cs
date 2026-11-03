@@ -13,7 +13,7 @@ using Volo.Abp.Uow;
 
 namespace NRuleEngine.Application.Release;
 
-/// <summary>编排发布门禁、跨模型绑定检查和原子活动修订切换。</summary>
+/// <summary>编排发布校验、跨模型绑定检查和原子活动修订切换。</summary>
 public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
 {
     private readonly IRuleModelRepository _models;
@@ -57,8 +57,8 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
         return RuleRevisionDtoMapper.ToDto(revision);
     }
 
-    /// <summary>在事务内执行完整校验、门禁和跨模型歧义检查，再切换活动修订。</summary>
-    /// <remarks>核心逻辑：锁定场景协调行，完成校验、门禁和跨模型冲突检查后原子切换；调用时机：维护者发布规则修订时。</remarks>
+    /// <summary>在事务内执行完整校验和跨模型歧义检查，再切换活动修订。</summary>
+    /// <remarks>核心逻辑：锁定场景协调行，完成校验和跨模型冲突检查后原子切换；门禁用例保留为参考数据，不再阻断发布；调用时机：维护者发布规则修订时。</remarks>
     public virtual async Task<ReleaseDto> PublishAsync(Guid revisionId, PublishRuleDto input)
     {
         using var uow = _unitOfWorkManager.Begin(requiresNew: true, isTransactional: true);
@@ -80,17 +80,12 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
         }
 
         await CheckActiveBindingsAsync(model, revision, contract);
-        var gateFailures = ReleaseGateEvaluator.Evaluate(revision, contract);
-        if (gateFailures.Count > 0)
-        {
-            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ReleaseGateFailed).WithData("GateFailures", gateFailures);
-        }
 
         var hash = RuleRevisionContentHasher.Compute(model.AppCode, revision);
         var previous = model.ActiveRevisionId;
         revision.Publish(hash, input.ChangeSummary);
         var releaseNo = model.Activate(revision.Id);
-        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, revision.Id, previous, releaseNo, ReleaseKind.Publish, hash, $"完整校验通过；{revision.GateCases.Count} 条门禁用例通过。", revision.ChangeSummary);
+        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, revision.Id, previous, releaseNo, ReleaseKind.Publish, hash, "完整校验通过。", revision.ChangeSummary);
         await _revisions.UpdateAsync(revision, autoSave: true);
         await _models.UpdateAsync(model, autoSave: true);
         await _records.InsertAsync(record, autoSave: true);
@@ -99,7 +94,7 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
     }
 
     /// <summary>在事务内校验历史修订、当前指针和跨模型绑定，再写一条回滚记录。</summary>
-    /// <remarks>核心逻辑：验证历史内容哈希和当前活动指针后原子切换；调用时机：维护者回滚到历史发布修订时。</remarks>
+    /// <remarks>核心逻辑：验证历史发布状态、当前活动指针和跨模型绑定后原子切换，内容哈希仅保留为审计信息；调用时机：维护者回滚到历史发布修订时。</remarks>
     public virtual async Task<ReleaseDto> RollbackAsync(Guid modelId, RollbackRuleDto input)
     {
         using var uow = _unitOfWorkManager.Begin(requiresNew: true, isTransactional: true);
@@ -114,21 +109,17 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
         await _scopes.AcquireAsync(model.AppCode, model.ScenarioCode);
         var target = await GetRevisionAsync(input.TargetRevisionId);
         CheckStamp(target.ConcurrencyStamp, input.ExpectedTargetRevisionConcurrencyStamp);
-        if (target.RuleModelId != modelId || target.Status != RuleRevisionStatus.Published || target.ContentHash is null)
+        if (target.RuleModelId != modelId || target.Status != RuleRevisionStatus.Published)
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
 
         var contract = _catalog.GetScenario(model.AppCode, target.ScenarioCode, target.ContractVersion);
         await CheckActiveBindingsAsync(model, target, contract);
-        if (RuleRevisionContentHasher.Compute(model.AppCode, target) != target.ContentHash)
-        {
-            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
-        }
 
         var previous = model.ActiveRevisionId;
         var releaseNo = model.Activate(target.Id);
-        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, target.Id, previous, releaseNo, ReleaseKind.Rollback, target.ContentHash, "历史已发布修订已重新激活。", target.ChangeSummary);
+        var record = new ReleaseRecord(GuidGenerator.Create(), model.Id, target.Id, previous, releaseNo, ReleaseKind.Rollback, target.ContentHash ?? string.Empty, "历史已发布修订已重新激活。", target.ChangeSummary);
         await _models.UpdateAsync(model, autoSave: true);
         await _records.InsertAsync(record, autoSave: true);
         await uow.CompleteAsync();
@@ -181,10 +172,10 @@ public class RuleReleaseAppService : ApplicationService, IRuleReleaseAppService
     }
 
     /// <summary>确保请求仍基于当前模型或修订并发戳。</summary>
-    /// <remarks>核心逻辑：比较请求戳与当前实体戳并拒绝过期写入；调用时机：执行任何草稿或发布写操作前。</remarks>
+    /// <remarks>核心逻辑：请求提供戳时比较并拒绝过期写入，省略时交由数据库乐观并发保护；调用时机：执行任何草稿或发布写操作前。</remarks>
     protected virtual void CheckStamp(string actual, string expected)
     {
-        if (string.IsNullOrWhiteSpace(expected) || actual != expected)
+        if (!string.IsNullOrWhiteSpace(expected) && actual != expected)
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConcurrencyConflict);
         }

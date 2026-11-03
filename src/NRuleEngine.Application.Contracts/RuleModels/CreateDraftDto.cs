@@ -16,16 +16,15 @@ public class CreateDraftDto
     /// <summary>
     /// 期望的模型并发戳。
     /// </summary>
-    [Required]
     public string ExpectedModelConcurrencyStamp { get; set; } = string.Empty;
 
     public CreateDraftDto()
     {
     }
 
-    public CreateDraftDto(Guid? basedOnRevisionId, string expectedModelConcurrencyStamp)
+    public CreateDraftDto(Guid? basedOnRevisionId, string? expectedModelConcurrencyStamp = null)
     {
         BasedOnRevisionId = basedOnRevisionId;
-        ExpectedModelConcurrencyStamp = expectedModelConcurrencyStamp;
+        ExpectedModelConcurrencyStamp = expectedModelConcurrencyStamp ?? string.Empty;
     }
 }

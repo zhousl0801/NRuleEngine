@@ -1,5 +1,6 @@
 using NRuleEngine.Domain.Scenarios;
 using NRuleEngine.Domain.Shared;
+using NRuleEngine.Domain.Shared.Rules;
 using Volo.Abp;
 using Xunit;
 
@@ -15,6 +16,7 @@ public sealed class RuleCatalogTests
         catalog.Initialize([new SimulatedRuleAppContributor()], [new SimulatedSizeExpansionContributor()]);
 
         var contract = catalog.GetScenario("TEST-ODS", "size-expansion", "1.0");
+        Assert.Equal(ScenarioManagementMode.Workbench, contract.ManagementMode);
         Assert.Equal(2, contract.Inputs.Count);
         Assert.Single(contract.RequiredOutputs);
         Assert.Equal("productKind", Assert.Single(contract.BindingDimensions).Code);
@@ -39,5 +41,31 @@ public sealed class RuleCatalogTests
         duplicate.Add(SimulatedSizeExpansionScenario.Contract);
         Assert.Throws<InvalidOperationException>(() =>
             duplicate.Add(SimulatedSizeExpansionScenario.Contract));
+    }
+
+    [Fact]
+    public void EnforcesManagementModeConsistencyAcrossContractVersions()
+    {
+        // 同一场景的不同契约版本必须共用维护模式，避免工作台列表按版本产生歧义。
+        var catalog = new RuleCatalog();
+        catalog.Add(SimulatedSizeExpansionScenario.App);
+        catalog.Add(SimulatedSizeExpansionScenario.Contract);
+
+        var externalRuleScenario = SimulatedSizeExpansionScenario.Contract with
+        {
+            ContractVersion = "2.0",
+            ManagementMode = ScenarioManagementMode.External
+        };
+        Assert.Throws<InvalidOperationException>(() => catalog.Add(externalRuleScenario));
+
+        var conditionScenario = new ConditionScenarioDescriptor("TEST-ODS", "thickness-eligibility", "1.0",
+            [new VariableContract("thickness", "Thickness", RuleVariableDirection.Input, new RuleTypeDescriptor(RuleValueKind.Decimal))]);
+        catalog.Add(conditionScenario);
+        var externalConditionScenario = conditionScenario with
+        {
+            ContractVersion = "2.0",
+            ManagementMode = ScenarioManagementMode.External
+        };
+        Assert.Throws<InvalidOperationException>(() => catalog.Add(externalConditionScenario));
     }
 }

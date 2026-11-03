@@ -70,10 +70,10 @@ public class RuleBindingAppService : ApplicationService, IRuleBindingAppService
     }
 
     /// <summary>阻止持旧并发戳的编辑覆盖其他维护者的改动。</summary>
-    /// <remarks>核心逻辑：比较请求戳与当前实体戳并拒绝过期写入；调用时机：执行任何草稿或发布写操作前。</remarks>
+    /// <remarks>核心逻辑：请求提供戳时比较并拒绝过期写入，省略时交由数据库乐观并发保护；调用时机：执行任何草稿或发布写操作前。</remarks>
     protected virtual void CheckStamp(string actual, string expected)
     {
-        if (string.IsNullOrWhiteSpace(expected) || actual != expected)
+        if (!string.IsNullOrWhiteSpace(expected) && actual != expected)
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConcurrencyConflict);
         }

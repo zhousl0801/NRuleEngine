@@ -83,27 +83,24 @@ public sealed class RuleReleaseAppServiceTests : NRuleEngineTestBase<NRuleEngine
     }
 
     [Fact]
-    public async Task FailedGateDoesNotActivateOrWriteReleaseRecord()
+    public async Task FailingGateCasesDoNotBlockPublish()
     {
-        // 让门禁失败，确认事务没有切换活动修订或写入发布记录。
+        // 门禁用例保留为参考数据，预期结果不一致也不再阻断发布。
         var (modelId, revision) = await CreatePreparedDraftAsync("gate-failure", "A", 999);
         var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
         var release = ServiceProvider.GetRequiredService<IRuleReleaseAppService>();
         var modelStamp = (await service.GetAsync(modelId)).ConcurrencyStamp;
-        var error = await Assert.ThrowsAsync<BusinessException>(() => release.PublishAsync(revision.Id,
+        var published = await release.PublishAsync(revision.Id,
             new PublishRuleDto
             {
                 ExpectedModelConcurrencyStamp = modelStamp,
                 ExpectedRevisionConcurrencyStamp = revision.ConcurrencyStamp
-            }));
-        Assert.Equal(NRuleEngineErrorCodes.ReleaseGateFailed, error.Code);
-        Assert.Null((await service.GetAsync(modelId)).ActiveRevisionId);
-        Assert.Equal(RuleRevisionStatus.Draft, (await service.GetRevisionAsync(revision.Id)).Status);
-        Assert.Empty(await release.GetHistoryAsync(modelId));
-        using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
-        var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
-        Assert.Empty(await db.ReleaseScopes.ToListAsync());
-        await uow.CompleteAsync();
+            });
+        Assert.Equal(ReleaseKind.Publish, published.Kind);
+        Assert.Equal("完整校验通过。", published.ValidationSummary);
+        Assert.Equal(revision.Id, (await service.GetAsync(modelId)).ActiveRevisionId);
+        Assert.Equal(RuleRevisionStatus.Published, (await service.GetRevisionAsync(revision.Id)).Status);
+        Assert.Single(await release.GetHistoryAsync(modelId));
     }
 
     [Fact]

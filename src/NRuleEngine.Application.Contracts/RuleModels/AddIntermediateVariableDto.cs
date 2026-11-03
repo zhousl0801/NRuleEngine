@@ -32,7 +32,6 @@ public class AddIntermediateVariableDto
     /// <summary>
     /// 期望的修订并发戳。
     /// </summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 
     public AddIntermediateVariableDto()
@@ -41,11 +40,11 @@ public class AddIntermediateVariableDto
 
     public AddIntermediateVariableDto(
         string code, string name, RuleTypeDescriptor type,
-        string expectedRevisionConcurrencyStamp)
+        string? expectedRevisionConcurrencyStamp = null)
     {
         Code = code;
         Name = name;
         Type = type;
-        ExpectedRevisionConcurrencyStamp = expectedRevisionConcurrencyStamp;
+        ExpectedRevisionConcurrencyStamp = expectedRevisionConcurrencyStamp ?? string.Empty;
     }
 }

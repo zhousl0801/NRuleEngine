@@ -5,8 +5,10 @@ namespace NRuleEngine.Domain.Shared.Rules;
 /// <param name="ScenarioCode">条件判定场景编码。</param>
 /// <param name="ContractVersion">场景输入契约的精确版本。</param>
 /// <param name="Inputs">该版本唯一允许的输入变量集合。</param>
+/// <param name="ManagementMode">场景数据的维护入口归属；通用工作台默认只展示 Workbench。</param>
 public sealed record ConditionScenarioDescriptor(
     string AppCode,
     string ScenarioCode,
     string ContractVersion,
-    IReadOnlyList<VariableContract> Inputs);
+    IReadOnlyList<VariableContract> Inputs,
+    ScenarioManagementMode ManagementMode = ScenarioManagementMode.Workbench);

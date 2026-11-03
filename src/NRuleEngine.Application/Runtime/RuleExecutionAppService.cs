@@ -1,9 +1,7 @@
 using System.Data.Common;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NRuleEngine.Application.Contracts.Runtime;
-using NRuleEngine.Domain.Release;
 using NRuleEngine.Domain.RuleModels;
 using NRuleEngine.Domain.Shared;
 using NRuleEngine.Domain.Shared.Rules;
@@ -123,8 +121,7 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!revisions.TryGetValue(model.ActiveRevisionId!.Value, out var revision) ||
-                revision.RuleModelId != model.Id || revision.Status != RuleRevisionStatus.Published ||
-                string.IsNullOrWhiteSpace(revision.ContentHash))
+                revision.RuleModelId != model.Id || revision.Status != RuleRevisionStatus.Published)
             {
                 return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.PublishedRevisionUnavailable, "活动的已发布修订不可用。", model.Id, model.ActiveRevisionId);
             }
@@ -132,23 +129,6 @@ public class RuleExecutionAppService : ApplicationService, IRuleExecutionAppServ
             if (!contracts.TryGetValue(revision.ContractVersion, out var contract))
             {
                 return Error(executionId, RuleExecutionStatus.Rejected, NRuleEngineErrorCodes.ScenarioContractMismatch, "已发布修订锁定的场景契约不可用。", model.Id, revision.Id);
-            }
-
-            string actualHash;
-            try
-            {
-                actualHash = RuleRevisionContentHasher.Compute(appCode, revision, cancellationToken);
-            }
-            catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException)
-            {
-                _logger.LogError(ex, "执行 {ExecutionId} 的已发布规则内容无法计算哈希", executionId);
-                throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.PublishedContentCorrupted).WithData("ExecutionId", executionId).WithData("RuleModelId", model.Id).WithData("RevisionId", revision.Id);
-            }
-
-            if (actualHash != revision.ContentHash)
-            {
-                _logger.LogError("执行 {ExecutionId} 的已发布规则内容哈希不一致，模型 {RuleModelId}，修订 {RevisionId}", executionId, model.Id, revision.Id);
-                throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.PublishedContentCorrupted).WithData("ExecutionId", executionId).WithData("RuleModelId", model.Id).WithData("RevisionId", revision.Id);
             }
 
             if (input.ContractVersion is not null && revision.ContractVersion != input.ContractVersion)

@@ -7,26 +7,26 @@
 | 方法与路径 | 用途 | 权限 |
 | --- | --- | --- |
 | GET `/catalog/apps` | 全部注册应用 | 认证 |
-| GET `/catalog/apps/{appCode}/scenarios` | 赋值场景的全部契约版本 | 认证 |
+| GET `/catalog/apps/{appCode}/scenarios` | 工作台可见的赋值契约版本；`includeExternal=true` 时包含外部维护场景 | 认证 |
 | GET `/catalog/apps/{appCode}/scenarios/{scenarioCode}/versions/{contractVersion}` | 精确赋值契约 | 认证 |
-| GET `/catalog/apps/{appCode}/condition-scenarios` | 条件场景的全部契约版本 | 认证 |
+| GET `/catalog/apps/{appCode}/condition-scenarios` | 工作台可见的条件契约版本；`includeExternal=true` 时包含外部维护场景 | 认证 |
 | GET `/catalog/apps/{appCode}/condition-scenarios/{scenarioCode}/versions/{contractVersion}` | 精确条件契约 | 认证 |
 
-App 与场景不提供写入接口；目录不提供动态业务候选值查询。
+场景描述包含 `managementMode`：`Workbench` 表示由通用工作台维护，`External` 表示由业务系统其他入口维护。列表接口默认只返回 `Workbench`，精确版本接口不按该字段过滤。App 与场景不提供写入接口；目录不提供动态业务候选值查询。
 
 ## 2. 模型、修订与变量
 
 | 方法与路径 | 用途 | 权限 |
 | --- | --- | --- |
 | POST `/models` | 创建模型及首个草稿 | M |
-| GET `/models?appCode=...&scenarioCode=...` | 按应用、可选场景查询，返回列表而非分页对象 | M |
+| GET `/models?appCode=...&scenarioCode=...&includeExternal=false` | 按应用、可选场景查询；默认隐藏外部维护场景，返回列表而非分页对象 | M |
 | GET `/models/{modelId}` | 模型详情与活动指针 | M |
 | POST `/models/{sourceModelId}/copy` | 从指定修订复制独立模型 | M |
-| POST `/models/{modelId}/archive` | 归档，携带模型并发戳 | M |
+| POST `/models/{modelId}/archive` | 归档；模型并发戳可选 | M |
 | GET `/models/{modelId}/archive-impact` | 归档影响 | M |
 | POST `/models/{modelId}/drafts` | 创建草稿，可指定来源修订 | M |
 | GET `/models/{modelId}/revisions` | 修订摘要列表 | M |
-| GET `/models/revisions/{revisionId}` | 完整修订、变量、规则、绑定和门禁 | M |
+| GET `/models/revisions/{revisionId}` | 完整修订、变量、规则、绑定和门禁参考用例 | M |
 | POST `/models/revisions/{revisionId}/intermediate-variables` | 新增中间变量 | M |
 | PUT `/models/revisions/{revisionId}/intermediate-variables/{stableKey}` | 修改中间变量编码与名称 | M |
 | PUT `/models/revisions/{revisionId}/inputs/{stableKey}/default` | 设置或清除输入默认值 | M |
@@ -36,7 +36,9 @@ App 与场景不提供写入接口；目录不提供动态业务候选值查询�
 | DELETE `/models/revisions/{revisionId}/intermediate-variables/{stableKey}` | 删除无引用中间变量 | M |
 | PUT `/models/revisions/{revisionId}/execution-semantics` | 设置执行模式及重复写入策略 | M |
 
-除创建外，草稿写入通常携带 ExpectedRevisionConcurrencyStamp，模型操作携带 ExpectedModelConcurrencyStamp；以具体 DTO 为准。DELETE 草稿子对象也使用请求体传并发戳。成功后使用响应中的新戳，不从旧请求继续写入。
+草稿写入可携带 ExpectedRevisionConcurrencyStamp，模型操作可携带 ExpectedModelConcurrencyStamp；以具体 DTO 为准。省略时不做请求级戳校验，仍由数据库乐观并发保护。DELETE 草稿子对象同样通过请求体传可选并发戳。成功后使用响应中的新戳，不从旧请求继续写入。
+
+`includeExternal` 只影响列表展示，不改变按 ID 读取、创建、编辑和发布能力。
 
 ## 3. 规则、赋值、绑定与验证
 
@@ -67,17 +69,17 @@ App 与场景不提供写入接口；目录不提供动态业务候选值查询�
 
 试算返回 Status、Success、Conditions、Assignments、Results，以及 ErrorCode、ErrorPath、Start/Length 等诊断字段。ErrorCode 使用内部诊断码，例如 NoMatchingRule、MissingInput、AssignmentFailed，不等同于运行接口的完整稳定码。试算只在指定修订内选绑定，不替代全场景模型裁决，也不保存 Trace。
 
-## 4. 门禁、发布与回滚
+## 4. 参考用例、发布与回滚
 
 | 方法与路径 | 用途 | 权限 |
 | --- | --- | --- |
-| POST `/models/revisions/{revisionId}/gate-cases` | 新增门禁用例 | M |
-| DELETE `/models/revisions/{revisionId}/gate-cases/{gateCaseId}` | 删除门禁用例 | M |
-| POST `/models/revisions/{revisionId}/publish` | 完整校验、门禁及跨模型检查后发布 | P |
+| POST `/models/revisions/{revisionId}/gate-cases` | 新增门禁参考用例 | M |
+| DELETE `/models/revisions/{revisionId}/gate-cases/{gateCaseId}` | 删除门禁参考用例 | M |
+| POST `/models/revisions/{revisionId}/publish` | 完整校验及跨模型检查后发布 | P |
 | POST `/models/{modelId}/rollback` | 重新激活历史发布修订 | P |
 | GET `/models/{modelId}/releases` | 发布及回滚历史 | P |
 
-门禁的 ContextJson、InputsJson、ExpectedResultsJson 均为完整 JSON 文本字符串，与试算的字典格式不同。ExpectedResultsJson 是有序出口对象数组，不含 outputs 包装或来源规则 ID：
+门禁用例的 ContextJson、InputsJson、ExpectedResultsJson 均为完整 JSON 文本字符串，与试算的字典格式不同。这些用例当前只作为参考数据保存，发布时不再执行或阻断。ExpectedResultsJson 是有序出口对象数组，不含 outputs 包装或来源规则 ID：
 
 ```json
 {
@@ -89,9 +91,9 @@ App 与场景不提供写入接口；目录不提供动态业务候选值查询�
 }
 ```
 
-省略 ExpectedStatus 时默认 Succeeded；也可使用 NotMatched，预期结果必须为 `[]`。成功样本要求 1–100 行；发布至少一条成功样本。失败状态不可作为发布放行预期。对象字段顺序无关，行和列表顺序必须一致，重复 JSON 字段拒绝。
+省略 ExpectedStatus 时默认 Succeeded；也可使用 NotMatched，预期结果必须为 `[]`。成功样本要求 1–100 行；门禁不再要求至少一条成功样本。失败状态不可作为发布放行预期。对象字段顺序无关，行和列表顺序必须一致，重复 JSON 字段拒绝。
 
-发布请求携带 ExpectedModelConcurrencyStamp、ExpectedRevisionConcurrencyStamp 及可选 ChangeSummary。回滚请求携带 TargetRevisionId、ExpectedActiveRevisionId、ExpectedModelConcurrencyStamp、ExpectedTargetRevisionConcurrencyStamp。
+发布请求可携带 ExpectedModelConcurrencyStamp、ExpectedRevisionConcurrencyStamp 及可选 ChangeSummary。回滚请求可携带 TargetRevisionId、ExpectedActiveRevisionId、ExpectedModelConcurrencyStamp、ExpectedTargetRevisionConcurrencyStamp；并发戳省略时依赖数据库乐观并发。发布记录中的内容哈希仅作审计，回滚和运行不再比较。
 
 ## 5. 已发布规则执行
 
@@ -145,18 +147,19 @@ Error.Data 仅用于必要定位，不包含变量真实值、完整表达式或
 | 方法与路径 | 用途 | 权限 |
 | --- | --- | --- |
 | POST `/condition-sets` | 创建条件集与首个草稿 | M |
+| GET `/condition-sets?appCode=...&scenarioCode=...&includeExternal=false` | 按应用、可选场景查询；默认隐藏外部维护场景 | M |
 | GET `/condition-sets/{setId}` | 读取集合 | M |
 | GET `/condition-sets/{setId}/revisions` | 修订摘要 | M |
 | GET `/condition-sets/revisions/{revisionId}` | 条件及输入稳定键 | M |
 | POST `/condition-sets/{setId}/drafts` | 从指定或活动修订复制草稿 | M |
 | PUT `/condition-sets/revisions/{revisionId}/condition` | 修改条件与优先级 | M |
-| POST `/condition-sets/revisions/{revisionId}/publish` | 使用正反样本发布 | P |
+| POST `/condition-sets/revisions/{revisionId}/publish` | 发布，样本可选 | P |
 | POST `/condition-sets/{setId}/rollback` | 回滚 | P |
 | GET `/condition-sets/{setId}/history` | 发布历史 | M |
 | POST `/condition-sets/{setId}/archive` | 归档 | M |
 | POST `/condition-sets/evaluate` | 明确候选判定 | E |
 
-没有 GET `/condition-sets` 列表、跨条件集复制、草稿废弃或独立草稿试算端点。发布提供 2–100 条完整输入样本且至少一正一反；不复用规则集的门禁数组协议。
+条件集列表默认只返回 `Workbench` 场景；`includeExternal=true` 时包含外部维护场景。没有跨条件集复制、草稿废弃或独立草稿试算端点。发布不再要求正反样本；如提供 2–100 条完整输入样本，会记录到发布审计但不阻断发布。不复用规则集的门禁数组协议。
 
 判定请求提供 AppCode、ScenarioCode、精确 ContractVersion、CandidateCodes、Mode 和原生 JSON Inputs。Mode 为 AllMatches 或 FirstMatch。响应为 Succeeded、Matched、Matches、ErrorCode、ErrorMessage；每个命中包含 Code、ConditionSetId、RevisionId、Priority。
 
@@ -165,6 +168,6 @@ Error.Data 仅用于必要定位，不包含变量真实值、完整表达式或
 ## 7. 客户端注意事项
 
 - 文中枚举以 C# 名称表达语义；HTTP 的枚举编码由宿主 ABP JSON 配置决定，调用方按实际序列化协议生成，不把 AST 专用转换器误当成全部 DTO 的约定。
-- 每次写入后替换本地并发戳；冲突后重新读取并核对变更，不自动重放覆盖。
+- 如使用并发戳，每次写入后替换本地戳；冲突后重新读取并核对变更，不自动重放覆盖。省略戳时数据库乐观并发仍可能拒绝并发写入。
 - 变量、规则及绑定等编辑结果以服务端响应为准。浏览器 sessionStorage、原型发布检查及本地试算均不代表数据库状态。
 - 在进程内直接调用应用服务时，宿主须保证授权和数据范围；上述权限表描述 HTTP 控制器入口。

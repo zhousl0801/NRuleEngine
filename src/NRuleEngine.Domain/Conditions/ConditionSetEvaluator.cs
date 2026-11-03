@@ -35,8 +35,7 @@ public static class ConditionSetEvaluator
                     revision.ScenarioCode != contract.ScenarioCode || revision.ContractVersion != contract.ContractVersion ||
                     set.ActiveRevisionId != revision.Id || revision.ConditionSetId != set.Id ||
                     set.Status != RuleModelStatus.Active || revision.Status != RuleRevisionStatus.Published ||
-                    revision.ConditionAstJson is null || revision.ContentHash != ConditionSetContentHasher.Compute(revision) ||
-                    !SameInputs(revision, contract))
+                    revision.ConditionAstJson is null || !SameInputs(revision, contract))
                 {
                     return Error("InvalidCandidate", $"候选条件集 {set.Code} 不是此契约的活动已发布修订。");
                 }

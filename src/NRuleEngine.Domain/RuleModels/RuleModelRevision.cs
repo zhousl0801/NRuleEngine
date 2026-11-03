@@ -64,7 +64,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
     /// <summary>修订中的场景绑定。</summary>
     public IReadOnlyCollection<ScenarioBinding> Bindings => _bindings.AsReadOnly();
     private List<ReleaseGateCase> _gateCases = [];
-    /// <summary>发布时必须通过的回归用例。</summary>
+    /// <summary>发布参考回归用例；当前不再阻断发布。</summary>
     public IReadOnlyCollection<ReleaseGateCase> GateCases => _gateCases.AsReadOnly();
 
     private RuleModelRevision()
@@ -338,7 +338,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         Status = RuleRevisionStatus.Abandoned;
     }
 
-    /// <summary>增加以场景上下文、输入和预期输出组成的发布门禁用例。</summary>
+    /// <summary>增加以场景上下文、输入和预期输出组成的发布参考用例。</summary>
     public ReleaseGateCase AddGateCase(Guid id, string name, string contextJson, string inputsJson, string expectedResultsJson, RuleExecutionStatus expectedStatus = RuleExecutionStatus.Succeeded)
     {
         EnsureDraft();
@@ -352,7 +352,7 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         return gateCase;
     }
 
-    /// <summary>删除草稿中的指定发布门禁用例。</summary>
+    /// <summary>删除草稿中的指定发布参考用例。</summary>
     public void RemoveGateCase(Guid gateCaseId)
     {
         EnsureDraft();
@@ -361,8 +361,8 @@ public sealed class RuleModelRevision : AuditedAggregateRoot<Guid>
         _gateCases.Remove(gateCase);
     }
 
-    /// <summary>通过门禁后冻结本修订及其内容哈希。</summary>
-    /// <remarks>核心逻辑：检查草稿状态并冻结内容哈希与变更说明；调用时机：发布服务通过全部门禁后。</remarks>
+    /// <summary>通过发布校验后冻结本修订及其内容哈希。</summary>
+    /// <remarks>核心逻辑：检查草稿状态并冻结内容哈希与变更说明；调用时机：发布服务完成校验后。</remarks>
     public void Publish(string contentHash, string? changeSummary)
     {
         EnsureDraft();

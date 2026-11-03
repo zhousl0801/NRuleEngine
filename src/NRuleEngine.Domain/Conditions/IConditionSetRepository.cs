@@ -7,6 +7,8 @@ public interface IConditionSetRepository : IRepository<ConditionSet, Guid>
 {
     /// <summary>检查应用内是否已有相同业务编码。</summary>
     Task<bool> ExistsAsync(string appCode, string code);
+    /// <summary>按编码排序并按可选场景过滤条件集。</summary>
+    Task<List<ConditionSet>> GetListAsync(string appCode, string? scenarioCode, CancellationToken cancellationToken = default);
     /// <summary>只读取调用方明确指定的候选编码。</summary>
     Task<List<ConditionSet>> GetByCodesAsync(string appCode, string scenarioCode, IReadOnlyCollection<string> codes, CancellationToken cancellationToken = default);
 }

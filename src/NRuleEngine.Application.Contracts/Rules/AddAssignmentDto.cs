@@ -20,6 +20,5 @@ public class AddAssignmentDto
     /// <summary>同一规则内的唯一赋值顺序值。</summary>
     public int SortOrder { get; set; }
     /// <summary>调用方读取草稿时获得的并发戳。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

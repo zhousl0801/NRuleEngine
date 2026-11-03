@@ -25,17 +25,16 @@ public class RenameIntermediateVariableDto
     /// <summary>
     /// 期望的修订并发戳。
     /// </summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 
     public RenameIntermediateVariableDto()
     {
     }
 
-    public RenameIntermediateVariableDto(string code, string name, string expectedRevisionConcurrencyStamp)
+    public RenameIntermediateVariableDto(string code, string name, string? expectedRevisionConcurrencyStamp = null)
     {
         Code = code;
         Name = name;
-        ExpectedRevisionConcurrencyStamp = expectedRevisionConcurrencyStamp;
+        ExpectedRevisionConcurrencyStamp = expectedRevisionConcurrencyStamp ?? string.Empty;
     }
 }

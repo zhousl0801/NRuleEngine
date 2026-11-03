@@ -8,7 +8,6 @@ using NRuleEngine.Application.Contracts.RuleModels;
 using NRuleEngine.Application.Contracts.Rules;
 using NRuleEngine.Application.Contracts.Runtime;
 using NRuleEngine.Application.Runtime;
-using NRuleEngine.Domain.Release;
 using NRuleEngine.Domain.RuleModels;
 using NRuleEngine.Domain.Shared;
 using NRuleEngine.Domain.Shared.Rules;
@@ -118,16 +117,12 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
         await PublishAsync(firstModelId, first);
         await PublishAsync(secondModelId, second);
 
-        // 模拟数据库中出现绕过发布门禁的并列绑定，并同步哈希，使测试直达运行时保护。
+        // 模拟数据库中出现绕过发布协议的并列绑定，确认运行入口仍拒绝最高优先级歧义。
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())
         {
             var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
             await db.RuleBindingCriteria.Where(x => x.BindingId == second.Bindings[0].Id).ExecuteUpdateAsync(x => x.SetProperty(c => c.TypedValueJson, "\"A\""));
             db.ChangeTracker.Clear();
-            var changed = await db.RuleModelRevisions.Where(x => x.Id == second.Id).Include(x => x.Variables).Include(x => x.Rules).ThenInclude(x => x.Assignments).Include(x => x.Bindings).ThenInclude(x => x.Criteria).Include(x => x.GateCases).AsSplitQuery().SingleAsync();
-            db.Entry(changed).Property(x => x.ContentHash).CurrentValue =
-                RuleRevisionContentHasher.Compute("TEST-ODS", changed);
-            await db.SaveChangesAsync();
             await uow.CompleteAsync();
         }
         var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(Request("A"));
@@ -199,9 +194,9 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
     }
 
     [Fact]
-    public async Task DetectsPublishedContentChangedOutsideTheReleaseProtocol()
+    public async Task DoesNotVerifyPublishedContentHashAtExecution()
     {
-        // 绕过发布协议更改内容，确认执行前的哈希校验能发现损坏。
+        // 内容哈希仅保留为发布审计，执行阶段不再比较哈希，直接使用数据库中的当前内容。
         var (modelId, revision) = await PrepareDraftAsync("runtime-integrity", "A", 1, 125);
         await PublishAsync(modelId, revision);
         using (var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin())
@@ -210,9 +205,9 @@ public sealed class RuleExecutionAppServiceTests : NRuleEngineTestBase<NRuleEngi
             await db.RuleAssignments.Where(x => x.RuleId == revision.Rules[0].Id).ExecuteUpdateAsync(x => x.SetProperty(a => a.ConstantValueJson, "999"));
             await uow.CompleteAsync();
         }
-        var error = await Assert.ThrowsAsync<BusinessException>(() =>
-            ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(Request("A")));
-        Assert.Equal(NRuleEngineErrorCodes.PublishedContentCorrupted, error.Code);
+        var result = await ServiceProvider.GetRequiredService<IRuleExecutionAppService>().ExecuteAsync(Request("A"));
+        Assert.Equal(RuleExecutionStatus.Succeeded, result.Status);
+        Assert.Equal(999, result.Results.Single().Outputs["targetWidth"].GetDecimal());
     }
 
     private async Task<(Guid ModelId, RuleRevisionDto Revision)> PrepareDraftAsync(string code, string productKind, int priority, int outputWidth)

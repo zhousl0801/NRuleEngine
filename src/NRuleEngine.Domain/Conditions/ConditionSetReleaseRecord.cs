@@ -27,7 +27,7 @@ public sealed class ConditionSetReleaseRecord : CreationAuditedEntity<Guid>
     /// <summary>维护者填写的发布或回滚说明。</summary>
     public string? ChangeSummary { get; private set; }
 
-    /// <summary>发布门禁样本的 JSON；回滚记录为空。</summary>
+    /// <summary>发布参考样本的 JSON；回滚记录为空。</summary>
     public string? GateCasesJson { get; private set; }
 
     private ConditionSetReleaseRecord()

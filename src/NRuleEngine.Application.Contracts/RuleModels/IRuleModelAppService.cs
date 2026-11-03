@@ -16,8 +16,8 @@ public interface IRuleModelAppService : IApplicationService
     /// <summary>获取模型详情。</summary>
     Task<RuleModelDto> GetAsync(Guid modelId);
 
-    /// <summary>按应用和可选场景获取模型列表。</summary>
-    Task<IReadOnlyList<RuleModelDto>> GetListAsync(string appCode, string? scenarioCode = null);
+    /// <summary>按应用和可选场景获取模型列表；默认排除外部维护场景。</summary>
+    Task<IReadOnlyList<RuleModelDto>> GetListAsync(string appCode, string? scenarioCode = null, bool includeExternal = false);
 
     /// <summary>校验并发戳后归档模型。</summary>
     Task<RuleModelDto> ArchiveAsync(Guid modelId, ArchiveRuleModelDto input);

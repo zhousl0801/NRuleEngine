@@ -10,6 +10,7 @@ namespace NRuleEngine.Domain.Shared.Rules;
 /// <param name="RequiredOutputs">规则必须生成的出口变量契约。</param>
 /// <param name="ResultCardinality">成功结果为单行或多行，由宿主固定。</param>
 /// <param name="BindingDimensions">维护者可配置的场景绑定维度。</param>
+/// <param name="ManagementMode">场景数据的维护入口归属；通用工作台默认只展示 Workbench。</param>
 public sealed record RuleScenarioDescriptor(
     string AppCode,
     string ScenarioCode,
@@ -17,4 +18,5 @@ public sealed record RuleScenarioDescriptor(
     IReadOnlyList<VariableContract> Inputs,
     IReadOnlyList<VariableContract> RequiredOutputs,
     IReadOnlyList<BindingDimensionContract> BindingDimensions,
-    RuleResultCardinality ResultCardinality = RuleResultCardinality.Single);
+    RuleResultCardinality ResultCardinality = RuleResultCardinality.Single,
+    ScenarioManagementMode ManagementMode = ScenarioManagementMode.Workbench);

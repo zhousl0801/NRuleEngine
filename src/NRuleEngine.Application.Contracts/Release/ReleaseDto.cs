@@ -20,7 +20,7 @@ public class ReleaseDto
     public ReleaseKind Kind { get; set; }
     /// <summary>被激活内容的固定哈希。</summary>
     public string ContentHash { get; set; } = string.Empty;
-    /// <summary>校验与门禁通过情况的摘要。</summary>
+    /// <summary>本次发布校验的摘要。</summary>
     public string ValidationSummary { get; set; } = string.Empty;
     /// <summary>被激活修订的变更说明。</summary>
     public string? ChangeSummary { get; set; }

@@ -11,6 +11,5 @@ public class SetInputDefaultDto
     public string? DefaultValueJson { get; set; }
 
     /// <summary>期望的修订并发戳。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

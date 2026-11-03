@@ -11,6 +11,5 @@ public class AddBindingDto
     /// <summary>按 AND 关系组合的场景维度条件。</summary>
     public List<BindingCriterionDto> Criteria { get; set; } = [];
     /// <summary>调用方读取草稿时获得的并发戳。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

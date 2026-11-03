@@ -3,7 +3,7 @@ using Volo.Abp.Application.Services;
 
 namespace NRuleEngine.Application.Contracts.Release;
 
-/// <summary>发布门禁维护、发布、回滚及发布历史的应用契约。</summary>
+/// <summary>发布参考用例维护、发布、回滚及发布历史的应用契约。</summary>
 public interface IRuleReleaseAppService : IApplicationService
 {
     /// <summary>向草稿追加发布回归用例。</summary>

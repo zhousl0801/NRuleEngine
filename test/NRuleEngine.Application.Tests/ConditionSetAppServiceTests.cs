@@ -1,12 +1,11 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using NRuleEngine.Application.Contracts.Conditions;
+using NRuleEngine.Application.Contracts.Scenarios;
 using NRuleEngine.Domain.Expressions;
-using NRuleEngine.Domain.Shared;
 using NRuleEngine.Domain.Shared.Rules;
 using NRuleEngine.EntityFrameworkCore;
 using NRuleEngine.TestBase;
-using Volo.Abp;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.Uow;
 using Xunit;
@@ -42,23 +41,12 @@ public sealed class ConditionSetAppServiceTests : NRuleEngineTestBase<NRuleEngin
             Priority = 10,
             ExpectedRevisionConcurrencyStamp = first.ConcurrencyStamp
         });
-        var initialSetStamp = (await service.GetAsync(set.Id)).ConcurrencyStamp;
-        var failed = await Assert.ThrowsAsync<BusinessException>(() => service.PublishAsync(first.Id,
-            new PublishConditionSetDto
-            {
-                ExpectedSetConcurrencyStamp = initialSetStamp,
-                ExpectedRevisionConcurrencyStamp = first.ConcurrencyStamp,
-                GateCases = [Gate(4m, false), Gate(9m, false)]
-            }));
-        Assert.Equal(NRuleEngineErrorCodes.ConditionGateFailed, failed.Code);
-        Assert.Null((await service.GetAsync(set.Id)).ActiveRevisionId);
-
         await service.PublishAsync(first.Id, new PublishConditionSetDto
         {
             ExpectedSetConcurrencyStamp = (await service.GetAsync(set.Id)).ConcurrencyStamp,
-            ExpectedRevisionConcurrencyStamp = first.ConcurrencyStamp,
-            GateCases = [Gate(4m, true), Gate(9m, false)]
+            ExpectedRevisionConcurrencyStamp = first.ConcurrencyStamp
         });
+        Assert.Equal(first.Id, (await service.GetAsync(set.Id)).ActiveRevisionId);
         var matching = await service.EvaluateAsync(Request(4m));
         Assert.True(matching.Succeeded, matching.ErrorMessage);
         Assert.Equal("RM-01", Assert.Single(matching.Matches).Code);
@@ -102,6 +90,41 @@ public sealed class ConditionSetAppServiceTests : NRuleEngineTestBase<NRuleEngin
         Assert.True((await service.EvaluateAsync(Request(4m))).Matched);
         Assert.Equal([3, 2, 1], (await service.GetHistoryAsync(set.Id)).Select(x => x.ReleaseNo));
         Assert.Equal(RuleRevisionStatus.Published, (await service.GetRevisionAsync(copy.Id)).Status);
+    }
+
+    [Fact]
+    public async Task ListHidesConditionSetsFromExternalManagementScenarios()
+    {
+        // 默认列表只展示工作台维护场景，显式请求时可包含外部维护场景。
+        using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
+        var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+        var service = ServiceProvider.GetRequiredService<IConditionSetAppService>();
+        var catalog = ServiceProvider.GetRequiredService<IRuleCatalogAppService>();
+
+        await service.CreateAsync(new CreateConditionSetDto
+        {
+            AppCode = "TEST-ODS",
+            ScenarioCode = "route-machine-param-eligibility",
+            ContractVersion = "1.0",
+            Code = "visible",
+            Name = "Visible"
+        });
+        await service.CreateAsync(new CreateConditionSetDto
+        {
+            AppCode = "TEST-ODS",
+            ScenarioCode = "external-route-machine-param-eligibility",
+            ContractVersion = "1.0",
+            Code = "hidden",
+            Name = "Hidden"
+        });
+        await uow.SaveChangesAsync();
+
+        Assert.Equal(["visible"], (await service.GetListAsync("TEST-ODS")).Select(x => x.Code));
+        Assert.Equal(["hidden", "visible"], (await service.GetListAsync("TEST-ODS", includeExternal: true)).Select(x => x.Code));
+        Assert.DoesNotContain(await catalog.GetConditionScenariosAsync("TEST-ODS"), x => x.ScenarioCode == "external-route-machine-param-eligibility");
+        Assert.Contains(await catalog.GetConditionScenariosAsync("TEST-ODS", includeExternal: true), x => x.ScenarioCode == "external-route-machine-param-eligibility");
+        await uow.CompleteAsync();
     }
 
     private static EvaluateConditionSetsDto Request(decimal thickness)

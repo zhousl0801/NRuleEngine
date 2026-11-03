@@ -25,6 +25,5 @@ public class CopyRuleModelDto
     public string? Description { get; set; }
 
     /// <summary>复制前读取的源修订并发戳。</summary>
-    [Required]
     public string ExpectedSourceRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

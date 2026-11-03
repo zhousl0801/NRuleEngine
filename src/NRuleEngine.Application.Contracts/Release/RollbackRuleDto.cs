@@ -11,9 +11,7 @@ public class RollbackRuleDto
     /// <summary>调用方预期当前正在运行的修订标识。</summary>
     public Guid ExpectedActiveRevisionId { get; set; }
     /// <summary>调用方读取模型时获得的并发戳。</summary>
-    [Required]
     public string ExpectedModelConcurrencyStamp { get; set; } = string.Empty;
     /// <summary>调用方读取历史发布修订时获得的并发戳。</summary>
-    [Required]
     public string ExpectedTargetRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

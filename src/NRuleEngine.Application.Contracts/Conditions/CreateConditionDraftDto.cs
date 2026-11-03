@@ -10,6 +10,5 @@ public sealed class CreateConditionDraftDto
     public Guid? BasedOnRevisionId { get; set; }
 
     /// <summary>条件集当前的乐观并发戳。</summary>
-    [Required]
     public string ExpectedSetConcurrencyStamp { get; set; } = string.Empty;
 }

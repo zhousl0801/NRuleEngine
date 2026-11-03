@@ -24,7 +24,7 @@ public sealed class ReleaseRecord : CreationAuditedEntity<Guid>
     /// <summary>被激活修订的固定内容哈希。</summary>
     public string ContentHash { get; private set; } = null!;
 
-    /// <summary>本次发布校验与门禁用例的摘要。</summary>
+    /// <summary>本次发布校验的摘要。</summary>
     public string ValidationSummary { get; private set; } = null!;
 
     /// <summary>激活修订时记录的变更说明，回滚时沿用目标修订的说明。</summary>

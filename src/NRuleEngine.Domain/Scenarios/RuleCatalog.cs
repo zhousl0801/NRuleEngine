@@ -79,6 +79,17 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
             throw new ArgumentException("场景结果基数无效。");
         }
 
+        if (!Enum.IsDefined(descriptor.ManagementMode))
+        {
+            throw new ArgumentException("场景维护模式无效。");
+        }
+
+        if (_scenarios.Values.Any(x => x.AppCode == descriptor.AppCode &&
+                x.ScenarioCode == descriptor.ScenarioCode && x.ManagementMode != descriptor.ManagementMode))
+        {
+            throw new InvalidOperationException($"场景 {descriptor.ScenarioCode} 的不同契约版本必须使用相同的维护模式。");
+        }
+
         var variables = descriptor.Inputs.Concat(descriptor.RequiredOutputs).ToArray();
         if (variables.Any(v => string.IsNullOrWhiteSpace(v.Code) || string.IsNullOrWhiteSpace(v.Name)) ||
             variables.Select(v => v.Code).Distinct(StringComparer.Ordinal).Count() != variables.Length ||
@@ -164,6 +175,17 @@ public sealed class RuleCatalog : IRuleCatalog, IRuleAppRegistry, IRuleScenarioR
         if (!_apps.ContainsKey(descriptor.AppCode))
         {
             throw new InvalidOperationException("条件场景引用了未注册的应用。");
+        }
+
+        if (!Enum.IsDefined(descriptor.ManagementMode))
+        {
+            throw new ArgumentException("条件场景维护模式无效。");
+        }
+
+        if (_conditionScenarios.Values.Any(x => x.AppCode == descriptor.AppCode &&
+                x.ScenarioCode == descriptor.ScenarioCode && x.ManagementMode != descriptor.ManagementMode))
+        {
+            throw new InvalidOperationException($"条件场景 {descriptor.ScenarioCode} 的不同契约版本必须使用相同的维护模式。");
         }
 
         if (descriptor.Inputs.Any(v => string.IsNullOrWhiteSpace(v.Code) || string.IsNullOrWhiteSpace(v.Name) ||

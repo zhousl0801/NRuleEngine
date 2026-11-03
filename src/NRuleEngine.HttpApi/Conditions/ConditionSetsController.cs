@@ -27,6 +27,14 @@ public sealed class ConditionSetsController : AbpControllerBase
         return _service.CreateAsync(input);
     }
 
+    /// <summary>按应用和可选场景查询条件集列表。</summary>
+    [HttpGet]
+    [Authorize(NRuleEnginePermissions.Manage)]
+    public Task<IReadOnlyList<ConditionSetDto>> GetListAsync([FromQuery] string appCode, [FromQuery] string? scenarioCode, [FromQuery] bool includeExternal = false)
+    {
+        return _service.GetListAsync(appCode, scenarioCode, includeExternal);
+    }
+
     /// <summary>读取条件集身份和活动修订。</summary>
     [HttpGet("{setId:guid}")]
     [Authorize(NRuleEnginePermissions.Manage)]
@@ -83,7 +91,7 @@ public sealed class ConditionSetsController : AbpControllerBase
         return _service.UpdateConditionAsync(revisionId, input);
     }
 
-    /// <summary>通过样本门禁并发布条件修订。</summary>
+    /// <summary>发布条件修订；发布样本为可选参考。</summary>
     [HttpPost("revisions/{revisionId:guid}/publish")]
     [Authorize(NRuleEnginePermissions.Publish)]
     public Task<ConditionSetDto> PublishAsync(Guid revisionId, [FromBody] PublishConditionSetDto input)

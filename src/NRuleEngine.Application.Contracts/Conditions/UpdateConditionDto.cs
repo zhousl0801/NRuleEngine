@@ -18,6 +18,5 @@ public sealed class UpdateConditionDto
     public int Priority { get; set; }
 
     /// <summary>草稿当前的乐观并发戳。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

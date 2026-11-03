@@ -25,10 +25,13 @@ public class RuleCatalogAppService : ApplicationService, IRuleCatalogAppService
     }
 
     /// <summary>获取应用的赋值型规则场景契约。</summary>
-    /// <remarks>核心逻辑：按应用编码读取赋值型场景契约；调用时机：维护界面选择规则场景时。</remarks>
-    public virtual Task<IReadOnlyList<RuleScenarioDescriptor>> GetScenariosAsync(string appCode)
+    /// <remarks>核心逻辑：按应用编码读取赋值型场景契约，默认仅返回工作台维护场景；调用时机：维护界面选择规则场景时。</remarks>
+    public virtual Task<IReadOnlyList<RuleScenarioDescriptor>> GetScenariosAsync(string appCode, bool includeExternal = false)
     {
-        return Task.FromResult(_catalog.GetScenarios(appCode));
+        var scenarios = _catalog.GetScenarios(appCode);
+        return Task.FromResult<IReadOnlyList<RuleScenarioDescriptor>>(includeExternal
+            ? scenarios
+            : scenarios.Where(x => x.ManagementMode == ScenarioManagementMode.Workbench).ToArray());
     }
 
     /// <summary>按精确版本获取赋值型规则场景契约。</summary>
@@ -39,10 +42,13 @@ public class RuleCatalogAppService : ApplicationService, IRuleCatalogAppService
     }
 
     /// <summary>获取应用注册的全部条件判定场景版本。</summary>
-    /// <remarks>核心逻辑：按应用编码读取条件场景版本；调用时机：维护界面选择条件场景时。</remarks>
-    public virtual Task<IReadOnlyList<ConditionScenarioDescriptor>> GetConditionScenariosAsync(string appCode)
+    /// <remarks>核心逻辑：按应用编码读取条件场景版本，默认仅返回工作台维护场景；调用时机：维护界面选择条件场景时。</remarks>
+    public virtual Task<IReadOnlyList<ConditionScenarioDescriptor>> GetConditionScenariosAsync(string appCode, bool includeExternal = false)
     {
-        return Task.FromResult(_catalog.GetConditionScenarios(appCode));
+        var scenarios = _catalog.GetConditionScenarios(appCode);
+        return Task.FromResult<IReadOnlyList<ConditionScenarioDescriptor>>(includeExternal
+            ? scenarios
+            : scenarios.Where(x => x.ManagementMode == ScenarioManagementMode.Workbench).ToArray());
     }
 
     /// <summary>按精确版本获取条件判定场景契约。</summary>

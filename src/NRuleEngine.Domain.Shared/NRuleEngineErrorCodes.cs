@@ -17,7 +17,7 @@ public static class NRuleEngineErrorCodes
     public const string DuplicateConditionSetCode = "NRuleEngine:ConditionSet:DuplicateCode";
     /// <summary>请求的条件修订不存在或不属于目标条件集。</summary>
     public const string ConditionRevisionNotFound = "NRuleEngine:ConditionSet:RevisionNotFound";
-    /// <summary>条件集发布样本缺失、非法或未通过。</summary>
+    /// <summary>条件集发布样本缺失、非法或未通过；保留的错误码，当前发布流程不再触发。</summary>
     public const string ConditionGateFailed = "NRuleEngine:ConditionSet:GateFailed";
     /// <summary>候选集包含未知、未发布或不适用的条件集。</summary>
     public const string InvalidConditionCandidate = "NRuleEngine:ConditionSet:InvalidCandidate";
@@ -33,7 +33,7 @@ public static class NRuleEngineErrorCodes
     public const string ConcurrencyConflict = "NRuleEngine:Concurrency:Conflict";
     /// <summary>修订未通过完整发布校验。</summary>
     public const string PublishValidationFailed = "NRuleEngine:Release:ValidationFailed";
-    /// <summary>发布回归用例缺失或未通过。</summary>
+    /// <summary>发布回归用例缺失或未通过；保留的错误码，当前发布流程不再触发。</summary>
     public const string ReleaseGateFailed = "NRuleEngine:Release:GateFailed";
     /// <summary>发布修订与其他活动模型的同优先级绑定可能同时命中。</summary>
     public const string AmbiguousActiveBinding = "NRuleEngine:Release:AmbiguousActiveBinding";
@@ -69,7 +69,7 @@ public static class NRuleEngineErrorCodes
     public const string MultipleWriteConflict = "NRuleEngine:Evaluation:MultipleWriteConflict";
     /// <summary>必需出口未得到有效值。</summary>
     public const string RequiredOutputMissing = "NRuleEngine:Output:RequiredOutputMissing";
-    /// <summary>发布内容与记录的内容哈希不一致。</summary>
+    /// <summary>发布内容与记录的内容哈希不一致；保留的错误码，当前运行流程不再触发。</summary>
     public const string PublishedContentCorrupted = "NRuleEngine:Integrity:PublishedContentCorrupted";
     /// <summary>存储层暂时不可用。</summary>
     public const string StorageUnavailable = "NRuleEngine:System:StorageUnavailable";

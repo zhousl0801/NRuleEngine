@@ -11,15 +11,14 @@ public class ArchiveRuleModelDto
     /// <summary>
     /// 期望的模型并发戳。
     /// </summary>
-    [Required]
     public string ExpectedModelConcurrencyStamp { get; set; } = string.Empty;
 
     public ArchiveRuleModelDto()
     {
     }
 
-    public ArchiveRuleModelDto(string expectedModelConcurrencyStamp)
+    public ArchiveRuleModelDto(string? expectedModelConcurrencyStamp = null)
     {
-        ExpectedModelConcurrencyStamp = expectedModelConcurrencyStamp;
+        ExpectedModelConcurrencyStamp = expectedModelConcurrencyStamp ?? string.Empty;
     }
 }

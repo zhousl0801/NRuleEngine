@@ -22,6 +22,5 @@ public class AddRuleDto
     [Required]
     public string ConditionAstJson { get; set; } = string.Empty;
     /// <summary>调用方读取草稿时获得的并发戳，用于阻止静默覆盖。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

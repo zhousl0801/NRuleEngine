@@ -10,7 +10,6 @@ public sealed class RollbackConditionSetDto
     public Guid TargetRevisionId { get; set; }
 
     /// <summary>条件集当前的乐观并发戳。</summary>
-    [Required]
     public string ExpectedSetConcurrencyStamp { get; set; } = string.Empty;
 
     /// <summary>本次回滚的维护说明。</summary>

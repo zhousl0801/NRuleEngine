@@ -7,10 +7,8 @@ namespace NRuleEngine.Application.Contracts.Release;
 public class PublishRuleDto
 {
     /// <summary>调用方读取模型时获得的并发戳。</summary>
-    [Required]
     public string ExpectedModelConcurrencyStamp { get; set; } = string.Empty;
     /// <summary>调用方读取草稿时获得的并发戳。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
     /// <summary>审阅者可读的本次修订变更说明。</summary>
     [StringLength(2048)]

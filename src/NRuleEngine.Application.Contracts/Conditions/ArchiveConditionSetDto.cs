@@ -7,6 +7,5 @@ namespace NRuleEngine.Application.Contracts.Conditions;
 public sealed class ArchiveConditionSetDto
 {
     /// <summary>条件集当前的乐观并发戳。</summary>
-    [Required]
     public string ExpectedSetConcurrencyStamp { get; set; } = string.Empty;
 }

@@ -35,9 +35,9 @@ public sealed class RuleCatalogController : AbpControllerBase
     /// 获取指定应用下的场景契约。
     /// </summary>
     [HttpGet("apps/{appCode}/scenarios")]
-    public Task<IReadOnlyList<RuleScenarioDescriptor>> GetScenariosAsync(string appCode)
+    public Task<IReadOnlyList<RuleScenarioDescriptor>> GetScenariosAsync(string appCode, [FromQuery] bool includeExternal = false)
     {
-        return _service.GetScenariosAsync(appCode);
+        return _service.GetScenariosAsync(appCode, includeExternal);
     }
 
     /// <summary>
@@ -51,9 +51,9 @@ public sealed class RuleCatalogController : AbpControllerBase
 
     /// <summary>获取应用的条件判定场景契约。</summary>
     [HttpGet("apps/{appCode}/condition-scenarios")]
-    public Task<IReadOnlyList<ConditionScenarioDescriptor>> GetConditionScenariosAsync(string appCode)
+    public Task<IReadOnlyList<ConditionScenarioDescriptor>> GetConditionScenariosAsync(string appCode, [FromQuery] bool includeExternal = false)
     {
-        return _service.GetConditionScenariosAsync(appCode);
+        return _service.GetConditionScenariosAsync(appCode, includeExternal);
     }
 
     /// <summary>按精确版本获取条件判定场景契约。</summary>

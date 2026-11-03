@@ -50,9 +50,9 @@ public sealed class RuleModelsController : AbpControllerBase
     /// 按应用和可选场景查询模型。
     /// </summary>
     [HttpGet]
-    public Task<IReadOnlyList<RuleModelDto>> GetListAsync([FromQuery] string appCode, [FromQuery] string? scenarioCode)
+    public Task<IReadOnlyList<RuleModelDto>> GetListAsync([FromQuery] string appCode, [FromQuery] string? scenarioCode, [FromQuery] bool includeExternal = false)
     {
-        return _service.GetListAsync(appCode, scenarioCode);
+        return _service.GetListAsync(appCode, scenarioCode, includeExternal);
     }
 
     /// <summary>

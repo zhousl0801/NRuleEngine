@@ -2,7 +2,7 @@ using NRuleEngine.Domain.Shared.Runtime;
 
 namespace NRuleEngine.Application.Contracts.Release;
 
-/// <summary>发布门禁回归用例及其输入、预期输出。</summary>
+/// <summary>发布参考回归用例及其输入、预期输出。</summary>
 [Serializable]
 public class ReleaseGateCaseDto
 {

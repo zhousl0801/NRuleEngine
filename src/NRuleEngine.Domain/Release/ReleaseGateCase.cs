@@ -6,7 +6,7 @@ using Volo.Abp.Domain.Entities;
 
 namespace NRuleEngine.Domain.Release;
 
-/// <summary>修订内的发布回归用例；每次发布按锁定契约重新试算。</summary>
+/// <summary>修订内的发布参考用例；当前不再在发布时执行。</summary>
 public sealed class ReleaseGateCase : Entity<Guid>
 {
     /// <summary>所属修订的标识。</summary>

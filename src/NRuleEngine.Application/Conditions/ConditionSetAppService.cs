@@ -12,7 +12,7 @@ using Volo.Abp.Uow;
 
 namespace NRuleEngine.Application.Conditions;
 
-/// <summary>编排条件集草稿、带样本的发布、回滚和指定候选集判定。</summary>
+/// <summary>编排条件集草稿、发布、回滚和指定候选集判定。</summary>
 public class ConditionSetAppService : ApplicationService, IConditionSetAppService
 {
     private readonly IRuleCatalog _catalog;
@@ -52,6 +52,36 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         await _sets.UpdateAsync(set, autoSave: true);
         await uow.CompleteAsync();
         return ToDto(set);
+    }
+
+    /// <summary>按应用及可选场景列出条件集。</summary>
+    /// <remarks>核心逻辑：按应用和场景过滤后映射集合摘要，默认排除外部维护场景；调用时机：维护者浏览条件集列表时。</remarks>
+    public virtual async Task<IReadOnlyList<ConditionSetDto>> GetListAsync(string appCode, string? scenarioCode = null, bool includeExternal = false)
+    {
+        var sets = await _sets.GetListAsync(appCode, scenarioCode);
+        if (includeExternal)
+        {
+            return sets.Select(ToDto).ToArray();
+        }
+
+        var externalScenarios = GetExternalScenarioCodes(appCode);
+        return sets.Where(x => !externalScenarios.Contains(x.ScenarioCode))
+            .Select(ToDto).ToArray();
+    }
+
+    /// <summary>读取应用下由外部入口维护的条件场景编码。</summary>
+    /// <remarks>核心逻辑：同一场景各契约版本共用维护模式；调用时机：过滤工作台条件集列表时。</remarks>
+    private HashSet<string> GetExternalScenarioCodes(string appCode)
+    {
+        if (!_catalog.GetApps().Any(x => x.AppCode == appCode))
+        {
+            return [];
+        }
+
+        return _catalog.GetConditionScenarios(appCode)
+            .Where(x => x.ManagementMode == ScenarioManagementMode.External)
+            .Select(x => x.ScenarioCode)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>读取条件集身份与活动修订。</summary>
@@ -142,8 +172,8 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         return ToDto(revision);
     }
 
-    /// <summary>在事务内验证正反样本、冻结修订并切换活动指针。</summary>
-    /// <remarks>核心逻辑：在事务内核对样本、内容哈希和活动指针；调用时机：维护者发布条件集时。</remarks>
+    /// <summary>在事务内验证契约、冻结修订并切换活动指针。</summary>
+    /// <remarks>核心逻辑：在事务内核对契约、记录内容哈希和活动指针；正反样本保留为可选审计数据，不再阻断发布；调用时机：维护者发布条件集时。</remarks>
     public virtual async Task<ConditionSetDto> PublishAsync(Guid revisionId, PublishConditionSetDto input)
     {
         using var uow = _uowManager.Begin(requiresNew: true, isTransactional: true);
@@ -158,16 +188,15 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         }
 
         var contract = _catalog.GetConditionScenario(set.AppCode, set.ScenarioCode, revision.ContractVersion);
-        if (!MatchesContract(revision, contract) || input.GateCases is null ||
-            !GatePassed(revision, contract, input.GateCases))
+        if (!MatchesContract(revision, contract))
         {
-            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConditionGateFailed);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
 
-        var gateCasesJson = JsonSerializer.Serialize(input.GateCases);
+        var gateCasesJson = JsonSerializer.Serialize(input.GateCases ?? []);
         if (gateCasesJson.Length > 262144)
         {
-            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConditionGateFailed);
+            throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
 
         var hash = ConditionSetContentHasher.Compute(revision);
@@ -182,7 +211,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>在事务内重新激活一份同条件集的完整历史发布修订。</summary>
-    /// <remarks>核心逻辑：验证历史发布内容后写审计记录并切换活动指针；调用时机：维护者回滚条件集时。</remarks>
+    /// <remarks>核心逻辑：验证历史发布状态后写审计记录并切换活动指针，内容哈希仅保留为审计信息；调用时机：维护者回滚条件集时。</remarks>
     public virtual async Task<ConditionSetDto> RollbackAsync(Guid setId, RollbackConditionSetDto input)
     {
         using var uow = _uowManager.Begin(requiresNew: true, isTransactional: true);
@@ -195,8 +224,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
 
         var target = await GetRevisionEntityAsync(input.TargetRevisionId);
         if (set.Status != RuleModelStatus.Active || target.ConditionSetId != setId ||
-            target.Status != RuleRevisionStatus.Published || target.ContentHash is null ||
-            target.ContentHash != ConditionSetContentHasher.Compute(target))
+            target.Status != RuleRevisionStatus.Published)
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.InvalidReleaseTarget);
         }
@@ -205,7 +233,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         var previous = set.ActiveRevisionId;
         var number = set.Activate(target.Id);
         await _sets.UpdateAsync(set, autoSave: true);
-        await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, target.Id, previous, number, ReleaseKind.Rollback, target.ContentHash, input.ChangeSummary), autoSave: true);
+        await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, target.Id, previous, number, ReleaseKind.Rollback, target.ContentHash ?? string.Empty, input.ChangeSummary), autoSave: true);
         await uow.CompleteAsync();
         return ToDto(set);
     }
@@ -263,7 +291,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>要求正反样本均通过，并拒绝缺失或过大的输入。</summary>
-    /// <remarks>核心逻辑：分别验证应命中和不应命中的样本；调用时机：发布条件集前执行门禁时。</remarks>
+    /// <remarks>核心逻辑：分别验证应命中和不应命中的样本；当前发布流程不再调用，保留供后续恢复强制门禁时使用。</remarks>
     protected virtual bool GatePassed(ConditionSetRevision revision, ConditionScenarioDescriptor contract, IReadOnlyList<ConditionGateCaseDto> cases)
     {
         if (cases.Count is < 2 or > 100 || cases.Any(x => x is null) ||
@@ -331,10 +359,10 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     }
 
     /// <summary>阻止持旧并发戳的写入覆盖其他维护者的修改。</summary>
-    /// <remarks>核心逻辑：比较请求戳与当前实体戳并拒绝过期写入；调用时机：执行任何草稿或发布写操作前。</remarks>
+    /// <remarks>核心逻辑：请求提供戳时比较并拒绝过期写入，省略时交由数据库乐观并发保护；调用时机：执行任何草稿或发布写操作前。</remarks>
     protected virtual void CheckStamp(string actual, string expected)
     {
-        if (string.IsNullOrWhiteSpace(expected) || actual != expected)
+        if (!string.IsNullOrWhiteSpace(expected) && actual != expected)
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConcurrencyConflict);
         }

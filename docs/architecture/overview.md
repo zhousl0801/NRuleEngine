@@ -13,7 +13,7 @@
 | 项目 | 职责 |
 | --- | --- |
 | Domain.Shared | 枚举、错误码、类型描述、场景描述及贡献者接口 |
-| Domain | 聚合、业务不变量、AST 解释、完整校验、试算、门禁、哈希及仓储接口 |
+| Domain | 聚合、业务不变量、AST 解释、完整校验、试算、参考门禁、审计哈希及仓储接口 |
 | Application.Contracts | 应用服务接口、DTO 和权限定义 |
 | Application | 加载数据、并发检查、事务编排、发布与运行、DTO 转换 |
 | EntityFrameworkCore | DbContext、映射、仓储、发布协调行和修订并发适配 |
@@ -45,11 +45,11 @@ flowchart LR
 
 RuleCatalog 校验应用已注册、契约键唯一、变量编码及方向合法、类型约束和绑定维度合法，并保存只读快照。初始化后禁止继续添加，目录仅驻留内存；没有数据库目录投影、Unavailable 状态同步或自动契约兼容分析。
 
-赋值场景包含 AppCode、ScenarioCode、ContractVersion、Inputs、RequiredOutputs、BindingDimensions、ResultCardinality。条件场景只有输入契约。RuleTypeDescriptor 使用固定 Kind、可空性、精度、小数位、EnumCode 和 Shape；EnumCode 是类型标识，不是动态枚举候选值目录。
+赋值场景包含 AppCode、ScenarioCode、ContractVersion、Inputs、RequiredOutputs、BindingDimensions、ResultCardinality 和 ManagementMode。条件场景包含输入契约和 ManagementMode。同一场景的不同契约版本必须使用相同的维护模式。目录、规则集列表和条件集列表默认只返回 `Workbench` 场景，`includeExternal=true` 时包含 `External` 场景。RuleTypeDescriptor 使用固定 Kind、可空性、精度、小数位、EnumCode 和 Shape；EnumCode 是类型标识，不是动态枚举候选值目录。
 
 修订创建时实例化契约变量并保存精确版本与结果基数。复制沿用原契约及稳定键；运行查找锁定版本的注册契约，不自动迁移。宿主不得在同一版本号下改变字段含义；移除仍被使用的旧契约会使相关修订不可用。场景升级目前没有服务入口。
 
-AppCode 用于目录和查询隔离、应用内编码唯一性，不提供租户、工厂、组织或行级权限隔离。
+AppCode 用于目录和查询隔离、应用内编码唯一性，不提供租户、工厂、组织或行级权限隔离。ManagementMode 只控制工作台列表的默认可见性，不是授权边界；外部维护数据仍可按 ID 读取和写入。
 
 ## 4. 领域模型
 
@@ -90,7 +90,7 @@ erDiagram
 
 调用路径为 `Controller → AppService → 聚合方法 → Repository → EF Core`。修订是变量、规则、赋值、绑定和门禁的共同一致性边界。
 
-应用服务校验期望并发戳，领域对象限制仅 Draft 可写。成功写入返回更新后的修订及并发戳。模型创建草稿、归档和发布等操作另使用模型并发戳。过期写入不得静默覆盖。
+应用服务在请求提供期望并发戳时校验，省略时依赖数据库乐观并发；领域对象限制仅 Draft 可写。成功写入返回更新后的修订及并发戳。模型创建草稿、归档和发布等操作同样在提供时使用模型并发戳。过期写入仍由数据库乐观并发拒绝，不得静默覆盖。
 
 ABP 8 不会仅因子集合变化自动更新修订根实体。[EfCoreRuleModelRevisionRepository.UpdateAsync](../../src/NRuleEngine.EntityFrameworkCore/RuleModels/EfCoreRuleModelRevisionRepository.cs) 显式标记 ConcurrencyStamp 已修改，让子对象变更生成新戳并参与数据库乐观并发检查。
 
@@ -111,24 +111,23 @@ AST v1 是权威执行内容，ConditionSource/ExpressionSource 仅供展示。�
 
 默认值只补缺失入口或尚未写入的中间变量；显式 null 按可空性处理。复合输出整体赋值，不能从单值公式引用复合出口，也不能逐项追加列表。资源边界与 JSON 格式见[表达式参考](../reference/expressions.md)。
 
-## 7. 发布、回滚与内容完整性
+## 7. 发布、回滚与内容摘要
 
 RuleReleaseAppService 在新的事务工作单元中发布：
 
-1. 加载模型与完整草稿，检查模型及修订并发戳和状态。
+1. 加载模型与完整草稿，检查状态；请求提供并发戳时一并核对。
 2. 更新同场景 ReleaseScope 协调行获得数据库写锁；首次创建由唯一约束防止竞争插入。
 3. 读取精确场景契约，完整校验修订，检查其他活动模型的同优先级绑定重叠。
-4. 使用 RuleSimulator 执行全部门禁样本，比较状态及完整有序出口数组。
-5. 计算内容哈希，冻结修订，切换模型活动指针并追加 ReleaseRecord。
-6. 完成同一事务；任一步失败不激活草稿。
+4. 计算并记录内容哈希，冻结修订，切换模型活动指针并追加 ReleaseRecord。
+5. 完成同一事务；任一步失败不激活草稿。
 
-跨模型协调依赖数据库，不使用进程内锁替代。SQLite 已有组件级测试；接入其他数据库仍须验证其隔离级别、竞争发布和迁移行为。
+门禁用例保留为参考数据，不再参与发布判定。跨模型协调依赖数据库，不使用进程内锁替代。SQLite 已有组件级测试；接入其他数据库仍须验证其隔离级别、竞争发布和迁移行为。
 
-回滚检查当前活动指针、模型和目标修订并发戳、历史发布状态、哈希、精确契约及当前跨模型绑定冲突。回滚不重写目标快照，产生新的激活记录。条件集的发布也在事务内完成双并发戳、契约、正反样本、哈希及活动指针切换，使用独立发布记录。
+回滚检查当前活动指针、提供时的模型和目标修订并发戳、历史发布状态、精确契约及当前跨模型绑定冲突，不再比较内容哈希。回滚不重写目标快照，产生新的激活记录。条件集的发布也在事务内完成可选并发戳、契约、审计哈希及活动指针切换，使用独立发布记录；正反样本保留为可选审计数据。
 
 RuleRevisionContentHasher 生成 `sha256:v1:<hex>`，规范化对象字段及内容顺序，覆盖应用/场景/版本、结果基数、执行方式、写入策略、变量稳定身份与类型/默认值/单位、规则 AST 和顺序、赋值、绑定及门禁预期。数据库行 ID、修订 ID、审计、并发戳和纯展示文本不参与哈希。
 
-哈希是内容完整性校验，不是签名、授权凭据或并发戳。运行时批量加载活动修订并检查哈希；损坏走异常通道。JSON 门禁结构比较使用 RuleJsonComparer，对象字段顺序无关、数组顺序保留，数值按有效数字与十进制指数精确比较，避免把 `1e-29` 当成 `0`；规则实际数值运算仍使用 decimal。
+哈希当前仅用于发布审计和内容比对参考，不是签名、授权凭据或并发戳。运行和回滚不再计算或比较哈希，数据库中的已发布内容变化不会被拦截。RuleJsonComparer 保留用于门禁参考比较，对象字段顺序无关、数组顺序保留，数值按有效数字与十进制指数精确比较，避免把 `1e-29` 当成 `0`；规则实际数值运算仍使用 decimal。
 
 ## 8. 规则集运行链路
 
@@ -136,7 +135,7 @@ RuleRevisionContentHasher 生成 `sha256:v1:<hex>`，规范化对象字段及内
 flowchart TD
     A[ExecuteAsync] --> B[解析 App 与场景版本]
     B --> C[查询活动模型并批量加载修订]
-    C --> D[检查发布状态、契约可用性与内容哈希]
+    C --> D[检查发布状态与契约可用性]
     D --> E[过滤请求的契约版本]
     E --> F[匹配全部绑定，裁决唯一最高优先级]
     F --> G[RuleSimulator 校验输入并执行]
@@ -156,7 +155,7 @@ ResultCardinality.Single 成功一行，Many 成功 1–100 行。每行包含 S
 
 `ConditionSetAppService.EvaluateAsync → 按 CandidateCodes 查询条件集 → 批量读取活动修订 → ConditionSetEvaluator.Evaluate`。请求提供精确版本、完整输入及 1–100 个唯一候选编码，不扫描整个场景寻找业务候选。
 
-判定器验证候选状态、发布哈希、契约快照及输入，再按优先级降序、编码升序计算。AllMatches 收集全部命中；FirstMatch 仍检查赢家同优先级的其他候选，多个命中返回 AmbiguousMatch，确定赢家后跳过更低优先级。
+判定器验证候选状态、契约快照及输入，再按优先级降序、编码升序计算。AllMatches 收集全部命中；FirstMatch 仍检查赢家同优先级的其他候选，多个命中返回 AmbiguousMatch，确定赢家后跳过更低优先级。
 
 返回 Succeeded、Matched、Matches 及独立错误字段。正常不命中是判定成功，候选编码映射业务对象由宿主完成。目录查找等前置契约错误仍可能抛出 BusinessException，不能把条件判定协议理解为吞掉所有异常。
 
@@ -164,11 +163,11 @@ ResultCardinality.Single 成功一行，Many 成功 1–100 行。每行包含 S
 
 规则集的确定性结果使用 RuleExecutionStatus 与 Error.Code；运行服务生成 ExecutionId。底层试算诊断码由应用服务映射为 Domain.Shared 的稳定运行错误码，不能混用。系统存储故障、发布内容损坏、超时和未知异常使用 ABP 异常通道，具体码见[API 参考](../reference/api.md)。
 
-RuleExecutionOptions.Timeout 默认为两秒，宿主配置，运行服务使用链接取消令牌传入加载、哈希及 AST 求值。进入 ExecuteAsync 前或执行中调用方取消，均原样传播 OperationCanceledException；调用方取消分支先于内部超时和通用异常处理，保留异常及其取消令牌。只有调用方未取消时，取消异常才转换为 System:Timeout；内部预算与调用方均已取消时优先传播调用方取消。
+RuleExecutionOptions.Timeout 默认为两秒，宿主配置，运行服务使用链接取消令牌传入加载及 AST 求值。进入 ExecuteAsync 前或执行中调用方取消，均原样传播 OperationCanceledException；调用方取消分支先于内部超时和通用异常处理，保留异常及其取消令牌。只有调用方未取消时，取消异常才转换为 System:Timeout；内部预算与调用方均已取消时优先传播调用方取消。
 
 HTTP 目录要求认证；管理、发布和执行端点分别要求 Manage、Publish、Execute。模型发布历史用 Publish，条件集历史用 Manage。当前组件应用服务未统一声明这些授权属性，直接在进程内调用服务时宿主须自行建立授权边界，不能仅依赖 Controller。
 
-面向客户端的运行错误只携带错误码与必要定位信息，不回传完整输入、表达式、SQL 或异常堆栈。当前内置错误文本主要为中文，未建立中英文本地化资源。发布门禁输入及原型会话数据不自动脱敏，宿主应按实际业务范围控制访问。
+面向客户端的运行错误只携带错误码与必要定位信息，不回传完整输入、表达式、SQL 或异常堆栈。当前内置错误文本主要为中文，未建立中英文本地化资源。发布参考样本及原型会话数据不自动脱敏，宿主应按实际业务范围控制访问。
 
 ## 11. 持久化与接入
 
@@ -188,7 +187,7 @@ HTTP 目录要求认证；管理、发布和执行端点分别要求 Manage、Pu
 
 ## 12. 测试层次与限制
 
-Domain.Tests 覆盖注册、编制约束、默认值、AST、精度、依赖、执行模式、复合值、多行限额和内容哈希；Application.Tests 覆盖 SQLite 下的保存读回、复制、门禁、发布回滚、执行状态与并发；EntityFrameworkCore.Tests 覆盖模块装配、映射和唯一约束。
+Domain.Tests 覆盖注册、编制约束、默认值、AST、精度、依赖、执行模式、复合值、多行限额和内容哈希；Application.Tests 覆盖 SQLite 下的保存读回、复制、门禁参考用例、发布回滚、执行状态与并发；EntityFrameworkCore.Tests 覆盖模块装配、映射和唯一约束。
 
 原型 Node.js 测试验证浏览器侧本地执行预览，与后端测试属于不同证据。FirstMatch、Sequential、CollectMatches 无规则命中均返回 NotMatched、NoMatchingRule 和空结果，与后端试算一致；未命中不会继续检查出口完整性或执行赋值，已有默认值也不会形成业务结果。已命中但缺少必需出口仍是计算失败。
 

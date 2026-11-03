@@ -123,8 +123,8 @@ public sealed class ConditionSetRevision : AuditedAggregateRoot<Guid>
         Priority = priority;
     }
 
-    /// <summary>门禁通过后冻结修订与内容摘要。</summary>
-    /// <remarks>核心逻辑：确认条件存在后冻结内容哈希与发布状态；调用时机：条件集通过正反样本门禁时。</remarks>
+    /// <summary>发布校验通过后冻结修订与内容摘要。</summary>
+    /// <remarks>核心逻辑：确认条件存在后冻结内容哈希与发布状态；调用时机：条件集完成发布校验时。</remarks>
     public void Publish(string contentHash, string? changeSummary)
     {
         EnsureDraft();

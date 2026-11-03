@@ -7,11 +7,11 @@ using NRuleEngine.Domain.Simulation;
 
 namespace NRuleEngine.Domain.Release;
 
-/// <summary>用实际规则试算结果检验修订的发布回归用例。</summary>
+/// <summary>用实际规则试算结果检验修订的发布回归用例；当前发布流程不再调用，保留供后续恢复强制门禁时使用。</summary>
 public static class ReleaseGateEvaluator
 {
     /// <summary>返回未通过用例名称及原因；空集合表示所有用例通过。</summary>
-    /// <remarks>核心逻辑：逐例试算并比较出口 JSON 的语义值；调用时机：发布规则修订的门禁阶段。</remarks>
+    /// <remarks>核心逻辑：逐例试算并比较出口 JSON 的语义值；当前发布流程不再调用。</remarks>
     public static IReadOnlyList<string> Evaluate(RuleModelRevision revision, RuleScenarioDescriptor contract)
     {
         var failures = new List<string>();

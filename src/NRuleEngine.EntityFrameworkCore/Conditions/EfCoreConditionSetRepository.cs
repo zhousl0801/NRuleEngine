@@ -19,6 +19,18 @@ public class EfCoreConditionSetRepository : EfCoreRepository<NRuleEngineDbContex
         return await (await GetDbSetAsync()).AnyAsync(x => x.AppCode == appCode && x.Code == code);
     }
 
+    /// <summary>按应用和可选场景列出条件集。</summary>
+    public virtual async Task<List<ConditionSet>> GetListAsync(string appCode, string? scenarioCode, CancellationToken cancellationToken = default)
+    {
+        var query = (await GetDbSetAsync()).Where(x => x.AppCode == appCode);
+        if (scenarioCode is not null)
+        {
+            query = query.Where(x => x.ScenarioCode == scenarioCode);
+        }
+
+        return await query.OrderBy(x => x.Code).ToListAsync(cancellationToken);
+    }
+
     /// <summary>按场景与明确候选编码批量载入条件集。</summary>
     public virtual async Task<List<ConditionSet>> GetByCodesAsync(string appCode, string scenarioCode, IReadOnlyCollection<string> codes, CancellationToken cancellationToken = default)
     {

@@ -85,11 +85,33 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
     }
 
     /// <summary>按应用及可选场景列出模型，不载入整个修订内容。</summary>
-    /// <remarks>核心逻辑：按应用和场景过滤后映射模型摘要；调用时机：维护者浏览模型列表时。</remarks>
-    public virtual async Task<IReadOnlyList<RuleModelDto>> GetListAsync(string appCode, string? scenarioCode = null)
+    /// <remarks>核心逻辑：按应用和场景过滤后映射模型摘要，默认排除外部维护场景；调用时机：维护者浏览模型列表时。</remarks>
+    public virtual async Task<IReadOnlyList<RuleModelDto>> GetListAsync(string appCode, string? scenarioCode = null, bool includeExternal = false)
     {
         var models = await _models.GetListAsync(appCode, scenarioCode);
-        return models.Select(ToDto).ToArray();
+        if (includeExternal)
+        {
+            return models.Select(ToDto).ToArray();
+        }
+
+        var externalScenarios = GetExternalScenarioCodes(appCode);
+        return models.Where(x => !externalScenarios.Contains(x.ScenarioCode))
+            .Select(ToDto).ToArray();
+    }
+
+    /// <summary>读取应用下由外部入口维护的场景编码。</summary>
+    /// <remarks>核心逻辑：同一场景各契约版本共用维护模式；调用时机：过滤工作台模型列表时。</remarks>
+    private HashSet<string> GetExternalScenarioCodes(string appCode)
+    {
+        if (!_catalog.GetApps().Any(x => x.AppCode == appCode))
+        {
+            return [];
+        }
+
+        return _catalog.GetScenarios(appCode)
+            .Where(x => x.ManagementMode == ScenarioManagementMode.External)
+            .Select(x => x.ScenarioCode)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>核对模型并发戳后归档，保留历史修订。</summary>
@@ -279,10 +301,10 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
     }
 
     /// <summary>阻止持旧并发戳的操作覆盖其他维护者的修改。</summary>
-    /// <remarks>核心逻辑：比较请求戳与当前实体戳并拒绝过期写入；调用时机：执行任何草稿或发布写操作前。</remarks>
+    /// <remarks>核心逻辑：请求提供戳时比较并拒绝过期写入，省略时交由数据库乐观并发保护；调用时机：执行任何草稿或发布写操作前。</remarks>
     protected virtual void CheckStamp(string actual, string expected)
     {
-        if (string.IsNullOrWhiteSpace(expected) || actual != expected)
+        if (!string.IsNullOrWhiteSpace(expected) && actual != expected)
         {
             throw NRuleEngineBusinessExceptions.Create(NRuleEngineErrorCodes.ConcurrencyConflict);
         }

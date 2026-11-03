@@ -43,7 +43,7 @@ Host 使用固定 local-dev 开发身份和自动授权，**仅供本机联调�
 | matched-results | width | targetWidth、tolerance 数值区间，多行 CollectMatches | 无维度，仍需创建绑定 |
 | thickness-eligibility（条件场景） | thickness | 布尔资格判定 | 不使用规则集绑定 |
 
-先查询 GET `/api/nrule-engine/catalog/apps`，再读取 DEMO 下的 scenarios 或 condition-scenarios。规则集联调顺序为创建模型、读取草稿稳定键、编制规则/赋值/绑定、完整校验、试算、保存门禁、读取最新并发戳、发布、执行。字段编码和演示数值不是实际业务系统契约。
+先查询 GET `/api/nrule-engine/catalog/apps`，再读取 DEMO 下的 scenarios 或 condition-scenarios。场景注册可设置 `ManagementMode`；`External` 场景默认不出现在目录和集合列表，需显式传 `includeExternal=true`。规则集联调顺序为创建模型、读取草稿稳定键、编制规则/赋值/绑定、完整校验、试算、（可选）保存门禁、读取最新并发戳、发布、执行。门禁用例和并发戳目前为可选项；内容哈希仍随发布记录保存，但运行和回滚不再据此拦截。字段编码和演示数值不是实际业务系统契约。
 
 ### Docker
 

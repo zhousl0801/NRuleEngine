@@ -12,6 +12,5 @@ public class UpdateExecutionSemanticsDto
     /// <summary>同一变量被多次写入时采用的裁决策略。</summary>
     public MultipleWritePolicy MultipleWritePolicy { get; set; }
     /// <summary>读取草稿时获得的并发戳，保存时用于阻止静默覆盖。</summary>
-    [Required]
     public string ExpectedRevisionConcurrencyStamp { get; set; } = string.Empty;
 }

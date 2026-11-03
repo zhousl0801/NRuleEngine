@@ -162,6 +162,25 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
     }
 
     [Fact]
+    public async Task ListHidesModelsFromExternalManagementScenarios()
+    {
+        // 默认列表只展示工作台维护场景，显式请求时可包含外部维护场景。
+        using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
+        var provider = ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>();
+        var db = await provider.GetDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+        var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
+
+        await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "visible", "Visible", null));
+        await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "external-size-expansion", "1.0", "hidden", "Hidden", null));
+        await uow.SaveChangesAsync();
+
+        Assert.Equal(["visible"], (await service.GetListAsync("TEST-ODS")).Select(x => x.Code));
+        Assert.Equal(["hidden", "visible"], (await service.GetListAsync("TEST-ODS", includeExternal: true)).Select(x => x.Code));
+        await uow.CompleteAsync();
+    }
+
+    [Fact]
     public async Task CreatesDraftAndPreservesVariableIdentityAcrossRevisions()
     {
         // 创建后续草稿并核对稳定键，确保已有规则引用仍能定位变量。
@@ -173,6 +192,9 @@ public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineAp
         var catalog = ServiceProvider.GetRequiredService<IRuleCatalogAppService>();
         Assert.Equal("TEST-ODS", Assert.Single(await catalog.GetAppsAsync()).AppCode);
         Assert.Equal(new[] { "composite-output", "matched-results", "size-expansion" }, (await catalog.GetScenariosAsync("TEST-ODS")).Select(s => s.ScenarioCode));
+        var allScenarios = await catalog.GetScenariosAsync("TEST-ODS", includeExternal: true);
+        Assert.Equal(new[] { "composite-output", "external-size-expansion", "matched-results", "size-expansion" }, allScenarios.Select(s => s.ScenarioCode));
+        Assert.Equal(ScenarioManagementMode.External, allScenarios.Single(s => s.ScenarioCode == "external-size-expansion").ManagementMode);
 
         var model = await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "width", "Width", null));
         await uow.SaveChangesAsync();
