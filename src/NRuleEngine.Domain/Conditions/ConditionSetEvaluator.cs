@@ -98,7 +98,7 @@ public static class ConditionSetEvaluator
                     matches.Add(new ConditionMatch(set.Code, set.Id, revision.Id, revision.Priority));
                 }
             }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArithmeticException)
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArithmeticException or System.Text.Json.JsonException)
             {
                 return Error("EvaluationError", $"候选条件集 {set.Code}：{RuleErrorText.Describe(ex)}");
             }

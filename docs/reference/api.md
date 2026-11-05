@@ -36,7 +36,7 @@
 | DELETE `/models/revisions/{revisionId}/intermediate-variables/{stableKey}` | 删除无引用中间变量 | M |
 | PUT `/models/revisions/{revisionId}/execution-semantics` | 设置执行模式及重复写入策略 | M |
 
-草稿写入可携带 ExpectedRevisionConcurrencyStamp，模型操作可携带 ExpectedModelConcurrencyStamp；以具体 DTO 为准。省略时不做请求级戳校验，仍由数据库乐观并发保护。DELETE 草稿子对象同样通过请求体传可选并发戳。成功后使用响应中的新戳，不从旧请求继续写入。
+草稿写入可携带 ExpectedRevisionConcurrencyStamp，模型操作可携带 ExpectedModelConcurrencyStamp；以具体 DTO 为准。省略时不做请求级戳校验，数据库乐观并发仅检测服务端加载实体到保存期间的竞争，不能阻止客户端旧内容覆盖此前已保存的修改。DELETE 草稿子对象同样通过请求体传可选并发戳。需要防止旧页面覆盖时，应携带读取时获得的戳，并在成功后使用响应中的新戳。
 
 `includeExternal` 只影响列表展示，不改变按 ID 读取、创建、编辑和发布能力。
 

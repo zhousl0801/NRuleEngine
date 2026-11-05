@@ -90,7 +90,7 @@ erDiagram
 
 调用路径为 `Controller → AppService → 聚合方法 → Repository → EF Core`。修订是变量、规则、赋值、绑定和门禁的共同一致性边界。
 
-应用服务在请求提供期望并发戳时校验，省略时依赖数据库乐观并发；领域对象限制仅 Draft 可写。成功写入返回更新后的修订及并发戳。模型创建草稿、归档和发布等操作同样在提供时使用模型并发戳。过期写入仍由数据库乐观并发拒绝，不得静默覆盖。
+应用服务在请求提供期望并发戳时校验，以拒绝基于旧版本的写入；并发戳仍为可选项。省略时，数据库乐观并发仅检测服务端加载实体到保存期间的竞争，不能识别客户端基于旧页面提交的内容，仍可能覆盖此前已保存的修改。领域对象限制仅 Draft 可写。成功写入返回更新后的修订及并发戳；需要防止旧页面覆盖时，客户端应携带读取时获得的戳，并在每次成功写入后更新。模型创建草稿、归档和发布等操作中的模型并发戳遵循相同约定。
 
 ABP 8 不会仅因子集合变化自动更新修订根实体。[EfCoreRuleModelRevisionRepository.UpdateAsync](../../src/NRuleEngine.EntityFrameworkCore/RuleModels/EfCoreRuleModelRevisionRepository.cs) 显式标记 ConcurrencyStamp 已修改，让子对象变更生成新戳并参与数据库乐观并发检查。
 
