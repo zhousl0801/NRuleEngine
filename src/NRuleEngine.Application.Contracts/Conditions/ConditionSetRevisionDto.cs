@@ -32,6 +32,10 @@ public sealed class ConditionSetRevisionDto
     public IReadOnlyList<ConditionInputDto> Inputs { get; set; }
     /// <summary>后续编制操作所需的乐观并发戳。</summary>
     public string ConcurrencyStamp { get; set; }
+    /// <summary>创建时间（UTC）。</summary>
+    public DateTime CreationTime { get; set; }
+    /// <summary>最后修改时间（UTC）。</summary>
+    public DateTime? LastModificationTime { get; set; }
 
     /// <summary>映射修订状态、条件及输入快照。</summary>
     public ConditionSetRevisionDto(Guid id, Guid conditionSetId, int revisionNo, Guid? basedOnRevisionId,

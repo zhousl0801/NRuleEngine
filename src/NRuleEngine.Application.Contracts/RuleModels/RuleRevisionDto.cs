@@ -76,6 +76,12 @@ public class RuleRevisionDto
     /// <summary>本修订的发布参考回归用例。</summary>
     public IReadOnlyList<ReleaseGateCaseDto> GateCases { get; set; } = [];
 
+    /// <summary>创建时间（UTC）。</summary>
+    public DateTime CreationTime { get; set; }
+
+    /// <summary>最后修改时间（UTC）。</summary>
+    public DateTime? LastModificationTime { get; set; }
+
     public RuleRevisionDto()
     {
     }

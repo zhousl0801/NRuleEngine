@@ -26,6 +26,21 @@ public class EfCoreConditionSetRevisionRepository
         return await (await GetDbSetAsync()).Where(x => x.ConditionSetId == setId).OrderByDescending(x => x.RevisionNo).ToListAsync();
     }
 
+    /// <summary>一次读取多个条件集的修订摘要。</summary>
+    public virtual async Task<List<ConditionSetRevision>> GetListBySetIdsAsync(IReadOnlyCollection<Guid> setIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (setIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await (await GetDbSetAsync())
+            .Where(x => setIds.Contains(x.ConditionSetId))
+            .OrderByDescending(x => x.RevisionNo)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>一次载入运行候选的修订及输入快照。</summary>
     public virtual async Task<List<ConditionSetRevision>> GetByIdsWithInputsAsync(IReadOnlyCollection<Guid> revisionIds, CancellationToken cancellationToken = default)
     {

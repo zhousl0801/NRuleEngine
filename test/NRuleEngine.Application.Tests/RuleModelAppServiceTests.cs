@@ -23,6 +23,26 @@ namespace NRuleEngine.Application.Tests;
 public sealed class RuleModelAppServiceTests : NRuleEngineTestBase<NRuleEngineApplicationTestModule>
 {
     [Fact]
+    public async Task ListsModelDraftRevisionAndAuditTimes()
+    {
+        // 列表需要直接给出草稿修订和审计时间，避免前端逐个模型再查修订。
+        using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
+        var provider = ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>();
+        var db = await provider.GetDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+        var service = ServiceProvider.GetRequiredService<IRuleModelAppService>();
+
+        var model = await service.CreateAsync(new CreateRuleModelDto("TEST-ODS", "size-expansion", "1.0", "draft-list", "Draft list", null));
+        await uow.SaveChangesAsync();
+
+        Assert.NotNull(model.DraftRevisionId);
+        var item = Assert.Single(await service.GetListAsync("TEST-ODS", "size-expansion"));
+        Assert.Equal(model.DraftRevisionId, item.DraftRevisionId);
+        Assert.NotEqual(default, item.CreationTime);
+        await uow.CompleteAsync();
+    }
+
+    [Fact]
     public async Task PersistsRuleBindingAndSimulationAcrossDraftCopy()
     {
         // 经应用服务保存规则和绑定，再复制草稿并试算，验证持久化内容可复用。

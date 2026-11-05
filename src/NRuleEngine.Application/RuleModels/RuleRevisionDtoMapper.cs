@@ -43,6 +43,8 @@ internal static class RuleRevisionDtoMapper
             }).ToArray()
         }).ToArray();
         dto.ResultCardinality = revision.ResultCardinality;
+        dto.CreationTime = revision.CreationTime;
+        dto.LastModificationTime = revision.LastModificationTime;
         dto.GateCases = revision.GateCases.OrderBy(c => c.Name, StringComparer.Ordinal).Select(c => new ReleaseGateCaseDto
             {
                 Id = c.Id, Name = c.Name, ContextJson = c.ContextJson,

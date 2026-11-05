@@ -9,6 +9,8 @@ public interface IConditionSetRevisionRepository : IRepository<ConditionSetRevis
     Task<ConditionSetRevision?> FindWithInputsAsync(Guid revisionId);
     /// <summary>按修订号倒序读取一个条件集的修订摘要。</summary>
     Task<List<ConditionSetRevision>> GetListBySetAsync(Guid setId);
+    /// <summary>一次读取多个条件集的修订摘要，避免逐集查询。</summary>
+    Task<List<ConditionSetRevision>> GetListBySetIdsAsync(IReadOnlyCollection<Guid> setIds, CancellationToken cancellationToken = default);
     /// <summary>批量载入活动候选的修订与输入快照。</summary>
     Task<List<ConditionSetRevision>> GetByIdsWithInputsAsync(IReadOnlyCollection<Guid> revisionIds, CancellationToken cancellationToken = default);
 }

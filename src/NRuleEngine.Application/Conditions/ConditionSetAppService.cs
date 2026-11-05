@@ -51,7 +51,7 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         await _revisions.InsertAsync(revision, autoSave: true);
         await _sets.UpdateAsync(set, autoSave: true);
         await uow.CompleteAsync();
-        return ToDto(set);
+        return ToDto(set, [revision]);
     }
 
     /// <summary>按应用及可选场景列出条件集。</summary>
@@ -59,14 +59,20 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     public virtual async Task<IReadOnlyList<ConditionSetDto>> GetListAsync(string appCode, string? scenarioCode = null, bool includeExternal = false)
     {
         var sets = await _sets.GetListAsync(appCode, scenarioCode);
-        if (includeExternal)
+        if (!includeExternal)
         {
-            return sets.Select(ToDto).ToArray();
+            var externalScenarios = GetExternalScenarioCodes(appCode);
+            sets = sets.Where(x => !externalScenarios.Contains(x.ScenarioCode)).ToList();
         }
 
-        var externalScenarios = GetExternalScenarioCodes(appCode);
-        return sets.Where(x => !externalScenarios.Contains(x.ScenarioCode))
-            .Select(ToDto).ToArray();
+        if (sets.Count == 0)
+        {
+            return [];
+        }
+
+        var revisions = await _revisions.GetListBySetIdsAsync(sets.Select(x => x.Id).ToArray());
+        var revisionsBySet = revisions.GroupBy(x => x.ConditionSetId).ToDictionary(x => x.Key, x => x.ToList());
+        return sets.Select(set => ToDto(set, revisionsBySet.GetValueOrDefault(set.Id, []))).ToArray();
     }
 
     /// <summary>读取应用下由外部入口维护的条件场景编码。</summary>
@@ -88,7 +94,9 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
     /// <remarks>核心逻辑：读取聚合并映射身份与活动状态；调用时机：维护者查看条件集时。</remarks>
     public virtual async Task<ConditionSetDto> GetAsync(Guid setId)
     {
-        return ToDto(await _sets.GetAsync(setId));
+        var set = await _sets.GetAsync(setId);
+        var revisions = await _revisions.GetListBySetAsync(setId);
+        return ToDto(set, revisions);
     }
 
     /// <summary>按修订号倒序列出条件集的历史修订。</summary>
@@ -117,7 +125,8 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         CheckStamp(set.ConcurrencyStamp, input.ExpectedSetConcurrencyStamp);
         set.Archive();
         await _sets.UpdateAsync(set, autoSave: true);
-        return ToDto(set);
+        var revisions = await _revisions.GetListBySetAsync(setId);
+        return ToDto(set, revisions);
     }
 
     /// <summary>读取修订及其输入稳定键和条件内容。</summary>
@@ -207,7 +216,8 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         await _sets.UpdateAsync(set, autoSave: true);
         await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, revision.Id, previous, number, ReleaseKind.Publish, hash, input.ChangeSummary, gateCasesJson), autoSave: true);
         await uow.CompleteAsync();
-        return ToDto(set);
+        var revisions = await _revisions.GetListBySetAsync(set.Id);
+        return ToDto(set, revisions);
     }
 
     /// <summary>在事务内重新激活一份同条件集的完整历史发布修订。</summary>
@@ -235,7 +245,8 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
         await _sets.UpdateAsync(set, autoSave: true);
         await _records.InsertAsync(new ConditionSetReleaseRecord(GuidGenerator.Create(), set.Id, target.Id, previous, number, ReleaseKind.Rollback, target.ContentHash ?? string.Empty, input.ChangeSummary), autoSave: true);
         await uow.CompleteAsync();
-        return ToDto(set);
+        var revisions = await _revisions.GetListBySetAsync(set.Id);
+        return ToDto(set, revisions);
     }
 
     /// <summary>只载入明确候选并返回结构化命中或错误结果。</summary>
@@ -370,15 +381,33 @@ public class ConditionSetAppService : ApplicationService, IConditionSetAppServic
 
     /// <summary>映射条件集的稳定身份和活动状态。</summary>
     /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
-    protected virtual ConditionSetDto ToDto(ConditionSet set)
+    protected virtual ConditionSetDto ToDto(ConditionSet set, IReadOnlyCollection<ConditionSetRevision> revisions)
     {
-        return new ConditionSetDto(set.Id, set.AppCode, set.ScenarioCode, set.Code, set.Name, set.Description, set.Status, set.ActiveRevisionId, set.ConcurrencyStamp);
+        var activeRevisionNo = set.ActiveRevisionId is Guid activeId
+            ? revisions.FirstOrDefault(x => x.Id == activeId)?.RevisionNo
+            : null;
+        var draft = revisions
+            .Where(x => x.Status == RuleRevisionStatus.Draft)
+            .OrderByDescending(x => x.RevisionNo)
+            .FirstOrDefault();
+
+        return new ConditionSetDto(set.Id, set.AppCode, set.ScenarioCode, set.Code, set.Name, set.Description, set.Status, set.ActiveRevisionId, set.ConcurrencyStamp)
+        {
+            ActiveRevisionNo = activeRevisionNo,
+            DraftRevisionId = draft?.Id,
+            CreationTime = set.CreationTime,
+            LastModificationTime = set.LastModificationTime
+        };
     }
 
     /// <summary>映射条件修订、输入稳定键及编制状态。</summary>
     /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
     protected virtual ConditionSetRevisionDto ToDto(ConditionSetRevision revision)
     {
-        return new ConditionSetRevisionDto(revision.Id, revision.ConditionSetId, revision.RevisionNo, revision.BasedOnRevisionId, revision.Status, revision.ScenarioCode, revision.ContractVersion, revision.Priority, revision.ConditionSource, revision.ConditionAstJson, revision.ContentHash, revision.Inputs.Select(input => new ConditionInputDto(input.StableKey, input.Code, input.Name, input.ValueKind, input.IsNullable, input.Precision, input.Scale, input.EnumCode)).ToArray(), revision.ConcurrencyStamp);
+        return new ConditionSetRevisionDto(revision.Id, revision.ConditionSetId, revision.RevisionNo, revision.BasedOnRevisionId, revision.Status, revision.ScenarioCode, revision.ContractVersion, revision.Priority, revision.ConditionSource, revision.ConditionAstJson, revision.ContentHash, revision.Inputs.Select(input => new ConditionInputDto(input.StableKey, input.Code, input.Name, input.ValueKind, input.IsNullable, input.Precision, input.Scale, input.EnumCode)).ToArray(), revision.ConcurrencyStamp)
+        {
+            CreationTime = revision.CreationTime,
+            LastModificationTime = revision.LastModificationTime
+        };
     }
 }

@@ -15,6 +15,34 @@ namespace NRuleEngine.Application.Tests;
 public sealed class ConditionSetAppServiceTests : NRuleEngineTestBase<NRuleEngineApplicationTestModule>
 {
     [Fact]
+    public async Task ListsConditionSetsWithDraftRevision()
+    {
+        // 列表需要直接给出草稿修订，避免前端逐个条件集再查修订。
+        using var uow = ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin();
+        var db = await ServiceProvider.GetRequiredService<IDbContextProvider<NRuleEngineDbContext>>().GetDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+        var service = ServiceProvider.GetRequiredService<IConditionSetAppService>();
+
+        var set = await service.CreateAsync(new CreateConditionSetDto
+        {
+            AppCode = "TEST-ODS",
+            ScenarioCode = "route-machine-param-eligibility",
+            ContractVersion = "1.0",
+            Code = "RM-LIST",
+            Name = "列表条件集"
+        });
+        await uow.SaveChangesAsync();
+
+        Assert.NotNull(set.DraftRevisionId);
+        Assert.Null(set.ActiveRevisionNo);
+        var item = Assert.Single(await service.GetListAsync("TEST-ODS", "route-machine-param-eligibility"));
+        Assert.Equal(set.DraftRevisionId, item.DraftRevisionId);
+        Assert.NotEqual(default, item.CreationTime);
+        Assert.Empty(await service.GetListAsync("TEST-ODS", "other"));
+        await uow.CompleteAsync();
+    }
+
+    [Fact]
     public async Task PublishesMatchesCopiesAndRollsBackWithAuditedHistory()
     {
         // 贯穿创建、发布、判定、复制和回滚，核对活动修订与审计历史。

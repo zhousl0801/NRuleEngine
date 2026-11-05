@@ -24,6 +24,14 @@ public sealed class ConditionSetDto
     public Guid? ActiveRevisionId { get; set; }
     /// <summary>后续写操作所需的乐观并发戳。</summary>
     public string ConcurrencyStamp { get; set; }
+    /// <summary>当前草稿修订标识；没有草稿时为空。</summary>
+    public Guid? DraftRevisionId { get; set; }
+    /// <summary>当前活动修订的修订号；首次发布前为空。</summary>
+    public int? ActiveRevisionNo { get; set; }
+    /// <summary>创建时间（UTC）。</summary>
+    public DateTime CreationTime { get; set; }
+    /// <summary>最后修改时间（UTC）。</summary>
+    public DateTime? LastModificationTime { get; set; }
 
     /// <summary>映射条件集身份和活动状态。</summary>
     public ConditionSetDto(Guid id, string appCode, string scenarioCode, string code, string name,

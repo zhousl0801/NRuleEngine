@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | POST `/models` | 创建模型及首个草稿 | M |
 | GET `/models?appCode=...&scenarioCode=...&includeExternal=false` | 按应用、可选场景查询；默认隐藏外部维护场景，返回列表而非分页对象 | M |
-| GET `/models/{modelId}` | 模型详情与活动指针 | M |
+| GET `/models/{modelId}` | 模型详情、活动指针及草稿修订 | M |
 | POST `/models/{sourceModelId}/copy` | 从指定修订复制独立模型 | M |
 | POST `/models/{modelId}/archive` | 归档；模型并发戳可选 | M |
 | GET `/models/{modelId}/archive-impact` | 归档影响 | M |
@@ -39,6 +39,8 @@
 草稿写入可携带 ExpectedRevisionConcurrencyStamp，模型操作可携带 ExpectedModelConcurrencyStamp；以具体 DTO 为准。省略时不做请求级戳校验，数据库乐观并发仅检测服务端加载实体到保存期间的竞争，不能阻止客户端旧内容覆盖此前已保存的修改。DELETE 草稿子对象同样通过请求体传可选并发戳。需要防止旧页面覆盖时，应携带读取时获得的戳，并在成功后使用响应中的新戳。
 
 `includeExternal` 只影响列表展示，不改变按 ID 读取、创建、编辑和发布能力。
+
+模型和条件集响应补充 DraftRevisionId、CreationTime、LastModificationTime；条件集响应还包含 ActiveRevisionNo。列表接口一次补齐这些摘要字段，调用方不需要逐个对象再查修订。
 
 ## 3. 规则、赋值、绑定与验证
 
@@ -78,6 +80,9 @@
 | POST `/models/revisions/{revisionId}/publish` | 完整校验及跨模型检查后发布 | P |
 | POST `/models/{modelId}/rollback` | 重新激活历史发布修订 | P |
 | GET `/models/{modelId}/releases` | 发布及回滚历史 | P |
+| GET `/releases?appCode=...&scenarioCode=...&targetType=...&maxResultCount=...` | 跨模型和条件集的发布记录 | P |
+
+`GET /releases` 的 `targetType` 可取 `RuleModel` 或 `ConditionSet`，省略时返回两类记录。响应包含 TargetType、TargetId、TargetCode、TargetName、ReleaseNo、ActivatedRevisionId、RevisionNo、Kind、ContentHash、ChangeSummary 和 CreationTime。`maxResultCount` 默认 200，上限 500，按 CreationTime 和 ReleaseNo 倒序返回。
 
 门禁用例的 ContextJson、InputsJson、ExpectedResultsJson 均为完整 JSON 文本字符串，与试算的字典格式不同。这些用例当前只作为参考数据保存，发布时不再执行或阻断。ExpectedResultsJson 是有序出口对象数组，不含 outputs 包装或来源规则 ID：
 
@@ -159,7 +164,7 @@ Error.Data 仅用于必要定位，不包含变量真实值、完整表达式或
 | POST `/condition-sets/{setId}/archive` | 归档 | M |
 | POST `/condition-sets/evaluate` | 明确候选判定 | E |
 
-条件集列表默认只返回 `Workbench` 场景；`includeExternal=true` 时包含外部维护场景。没有跨条件集复制、草稿废弃或独立草稿试算端点。发布不再要求正反样本；如提供 2–100 条完整输入样本，会记录到发布审计但不阻断发布。不复用规则集的门禁数组协议。
+条件集列表返回列表而非分页对象，默认只返回 `Workbench` 场景；`includeExternal=true` 时包含外部维护场景。没有跨条件集复制、草稿废弃或独立草稿试算端点。发布不再要求正反样本；如提供 2–100 条完整输入样本，会记录到发布审计但不阻断发布。不复用规则集的门禁数组协议。
 
 判定请求提供 AppCode、ScenarioCode、精确 ContractVersion、CandidateCodes、Mode 和原生 JSON Inputs。Mode 为 AllMatches 或 FirstMatch。响应为 Succeeded、Matched、Matches、ErrorCode、ErrorMessage；每个命中包含 Code、ConditionSetId、RevisionId、Priority。
 
@@ -167,7 +172,7 @@ Error.Data 仅用于必要定位，不包含变量真实值、完整表达式或
 
 ## 7. 客户端注意事项
 
-- 文中枚举以 C# 名称表达语义；HTTP 的枚举编码由宿主 ABP JSON 配置决定，调用方按实际序列化协议生成，不把 AST 专用转换器误当成全部 DTO 的约定。
+- NRuleEngine DTO 的枚举在 HTTP 中按 C# 名称输出，例如 `Active`、`Many`、`Decimal`；输入同时接受名称和整数。AST 文本内的 `kind` 仍是数字，AST 编码不随 DTO 序列化改变。
 - 如使用并发戳，每次写入后替换本地戳；冲突后重新读取并核对变更，不自动重放覆盖。省略戳时数据库乐观并发仍可能拒绝并发写入。
 - 变量、规则及绑定等编辑结果以服务端响应为准。浏览器 sessionStorage、原型发布检查及本地试算均不代表数据库状态。
 - 在进程内直接调用应用服务时，宿主须保证授权和数据范围；上述权限表描述 HTTP 控制器入口。

@@ -38,6 +38,21 @@ public class EfCoreRuleModelRevisionRepository
         return await (await GetDbSetAsync()).Where(x => x.RuleModelId == modelId).OrderByDescending(x => x.RevisionNo).ToListAsync();
     }
 
+    /// <summary>一次读取多个模型的修订摘要。</summary>
+    public virtual async Task<List<RuleModelRevision>> GetListByModelIdsAsync(IReadOnlyCollection<Guid> modelIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (modelIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await (await GetDbSetAsync())
+            .Where(x => modelIds.Contains(x.RuleModelId))
+            .OrderByDescending(x => x.RevisionNo)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>批量载入运行候选修订及其全部内容，并按拆分查询避免多集合笛卡尔积。</summary>
     public virtual async Task<List<RuleModelRevision>> GetByIdsWithDetailsAsync(IReadOnlyCollection<Guid> revisionIds, CancellationToken cancellationToken = default)
     {

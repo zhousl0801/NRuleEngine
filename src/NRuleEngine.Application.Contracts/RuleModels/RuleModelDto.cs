@@ -53,6 +53,21 @@ public class RuleModelDto
     /// </summary>
     public string ConcurrencyStamp { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 当前草稿修订标识；没有草稿时为空。
+    /// </summary>
+    public Guid? DraftRevisionId { get; set; }
+
+    /// <summary>
+    /// 创建时间（UTC）。
+    /// </summary>
+    public DateTime CreationTime { get; set; }
+
+    /// <summary>
+    /// 最后修改时间（UTC）。
+    /// </summary>
+    public DateTime? LastModificationTime { get; set; }
+
     public RuleModelDto()
     {
     }

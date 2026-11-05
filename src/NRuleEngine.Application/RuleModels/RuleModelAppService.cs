@@ -45,7 +45,7 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
         var revision = new RuleModelRevision(GuidGenerator.Create(), model.Id, model.AllocateRevisionNo(), contract);
         await _revisions.InsertAsync(revision, autoSave: true);
         await _models.UpdateAsync(model, autoSave: true);
-        return ToDto(model);
+        return ToDto(model, revision.Id);
     }
 
     /// <summary>复制指定源修订为独立模型的首个草稿，保留变量稳定键与门禁内容。</summary>
@@ -74,14 +74,16 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
         await _revisions.InsertAsync(copy, autoSave: true);
         await _models.UpdateAsync(model, autoSave: true);
         await uow.CompleteAsync();
-        return ToDto(model);
+        return ToDto(model, copy.Id);
     }
 
     /// <summary>读取模型身份、状态和当前活动修订标识。</summary>
     /// <remarks>核心逻辑：读取模型聚合并映射状态；调用时机：维护者查看模型详情时。</remarks>
     public virtual async Task<RuleModelDto> GetAsync(Guid modelId)
     {
-        return ToDto(await _models.GetAsync(modelId));
+        var model = await _models.GetAsync(modelId);
+        var revisions = await _revisions.GetListByModelAsync(modelId);
+        return ToDto(model, FindDraftRevisionId(revisions));
     }
 
     /// <summary>按应用及可选场景列出模型，不载入整个修订内容。</summary>
@@ -89,14 +91,23 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
     public virtual async Task<IReadOnlyList<RuleModelDto>> GetListAsync(string appCode, string? scenarioCode = null, bool includeExternal = false)
     {
         var models = await _models.GetListAsync(appCode, scenarioCode);
-        if (includeExternal)
+        if (!includeExternal)
         {
-            return models.Select(ToDto).ToArray();
+            var externalScenarios = GetExternalScenarioCodes(appCode);
+            models = models.Where(x => !externalScenarios.Contains(x.ScenarioCode)).ToList();
         }
 
-        var externalScenarios = GetExternalScenarioCodes(appCode);
-        return models.Where(x => !externalScenarios.Contains(x.ScenarioCode))
-            .Select(ToDto).ToArray();
+        if (models.Count == 0)
+        {
+            return [];
+        }
+
+        var revisions = await _revisions.GetListByModelIdsAsync(models.Select(x => x.Id).ToArray());
+        var drafts = revisions
+            .Where(x => x.Status == RuleRevisionStatus.Draft)
+            .GroupBy(x => x.RuleModelId)
+            .ToDictionary(x => x.Key, x => (Guid?)x.OrderByDescending(r => r.RevisionNo).First().Id);
+        return models.Select(model => ToDto(model, drafts.GetValueOrDefault(model.Id))).ToArray();
     }
 
     /// <summary>读取应用下由外部入口维护的场景编码。</summary>
@@ -122,7 +133,8 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
         CheckStamp(model.ConcurrencyStamp, input.ExpectedModelConcurrencyStamp);
         model.Archive();
         await _models.UpdateAsync(model, autoSave: true);
-        return ToDto(model);
+        var revisions = await _revisions.GetListByModelAsync(modelId);
+        return ToDto(model, FindDraftRevisionId(revisions));
     }
 
     /// <summary>归档只提示活动发布修订的运行影响，不因引用阻止操作。</summary>
@@ -312,9 +324,24 @@ public class RuleModelAppService : ApplicationService, IRuleModelAppService
 
     /// <summary>把模型实体映射成不暴露聚合实现的传输对象。</summary>
     /// <remarks>核心逻辑：将领域实体转换为对外传输对象；调用时机：应用服务返回读取或写入结果时。</remarks>
-    protected virtual RuleModelDto ToDto(RuleModel model)
+    protected virtual RuleModelDto ToDto(RuleModel model, Guid? draftRevisionId = null)
     {
-        return new RuleModelDto(model.Id, model.AppCode, model.ScenarioCode, model.Code, model.Name, model.Description, model.Status, model.ActiveRevisionId, model.ConcurrencyStamp);
+        return new RuleModelDto(model.Id, model.AppCode, model.ScenarioCode, model.Code, model.Name, model.Description, model.Status, model.ActiveRevisionId, model.ConcurrencyStamp)
+        {
+            DraftRevisionId = draftRevisionId,
+            CreationTime = model.CreationTime,
+            LastModificationTime = model.LastModificationTime
+        };
+    }
+
+    /// <summary>从修订集合中选择最近一份草稿。</summary>
+    protected virtual Guid? FindDraftRevisionId(IReadOnlyCollection<RuleModelRevision> revisions)
+    {
+        return revisions
+            .Where(x => x.Status == RuleRevisionStatus.Draft)
+            .OrderByDescending(x => x.RevisionNo)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefault();
     }
 
     /// <summary>将修订聚合映射为包含规则与绑定的完整传输对象。</summary>
