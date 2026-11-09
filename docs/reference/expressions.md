@@ -27,6 +27,7 @@ start/length 是可选源码字符位置，校验及求值错误尽可能返回�
 | variable | stableKey | 引用已声明单值变量 |
 | and、or、not | 2、2、1 个 args | Boolean；and/or 短路 |
 | eq、ne、lt、lte、gt、gte | 2 个 args | Boolean；顺序比较仅 Decimal/String |
+| between | 3 个 Decimal args（值、下限、上限） | Boolean；闭区间，两端均命中 |
 | add、sub、mul、div | 2 个 args | Decimal |
 | isNull | 1 个 arg | Boolean |
 | in | 值及至少一个同类型候选 | Boolean |

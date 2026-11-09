@@ -120,6 +120,10 @@ public static class RuleExpressionEngine
                 RequireArity(types, 2);
                 RequireAll(types, RuleValueKind.Decimal);
                 return RuleValueKind.Decimal;
+            case "between":
+                RequireArity(types, 3);
+                RequireAll(types, RuleValueKind.Decimal);
+                return RuleValueKind.Boolean;
             case "isNull":
                 RequireArity(types, 1);
                 return RuleValueKind.Boolean;
@@ -312,6 +316,7 @@ public static class RuleExpressionEngine
             "lte" => Compare(args[0], args[1]) <= 0,
             "gt" => Compare(args[0], args[1]) > 0,
             "gte" => Compare(args[0], args[1]) >= 0,
+            "between" => (decimal)args[0]! >= (decimal)args[1]! && (decimal)args[0]! <= (decimal)args[2]!,
             "add" => (decimal)args[0]! + (decimal)args[1]!,
             "sub" => (decimal)args[0]! - (decimal)args[1]!,
             "mul" => (decimal)args[0]! * (decimal)args[1]!,
